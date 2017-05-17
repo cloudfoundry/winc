@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -9,6 +10,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 
+	. "code.cloudfoundry.org/winc/cmd/winc"
 	"github.com/microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -80,8 +82,30 @@ var _ = Describe("Create", func() {
 		})
 	})
 
-	XContext("when provided a non-unique container id", func() {
+	Context("when provided a non-unique container id", func() {
 		It("errors", func() {
+			bundlePath, err := ioutil.TempDir("", "winccontainer")
+			Expect(err).NotTo(HaveOccurred())
+
+			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
+			Expect(present).To(BeTrue())
+			containerId := filepath.Base(bundlePath)
+
+			bundleSpec := specGenerator(rootfsPath)
+			config, err := json.Marshal(&bundleSpec)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
+			Expect(container.Create(rootfsPath, bundlePath, containerId)).To(Succeed())
+			defer container.Delete(containerId)
+
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(session).Should(gexec.Exit(1))
+			expectedError := &container.ContainerExistsError{Id: containerId}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})
 
@@ -92,7 +116,8 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			Expect(session.Err).To(gbytes.Say("bundle directory is invalid"))
+			expectedError := os.PathError{Op: "GetFileAttributesEx", Path: "idontexist", Err: errors.New("")}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})
 
@@ -117,7 +142,8 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			Expect(session.Err).To(gbytes.Say("bundle contains invalid config.json"))
+			expectedError := &json.SyntaxError{}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})
 
@@ -141,7 +167,8 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			Expect(session.Err).To(gbytes.Say("'Platform.OS' should not be empty."))
+			expectedError := &WincBundleConfigValidationError{}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})
 })

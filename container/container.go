@@ -2,7 +2,6 @@ package container
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -11,7 +10,36 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
+func getContainerProperties(containerId string) (*hcsshim.ContainerProperties, error) {
+	query := hcsshim.ComputeSystemQuery{
+		IDs:    []string{containerId},
+		Owners: []string{"winc"},
+	}
+	cps, err := hcsshim.GetContainers(query)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cps) == 0 {
+		return nil, &ContainerNotFoundError{Id: containerId}
+	}
+
+	if len(cps) > 1 {
+		return nil, &ContainerDuplicateError{Id: containerId}
+	}
+
+	return &cps[0], nil
+}
+
 func Create(rootfsPath, bundlePath, containerId string) error {
+	_, err := getContainerProperties(containerId)
+	if err == nil {
+		return &ContainerExistsError{Id: containerId}
+	}
+	if _, ok := err.(*ContainerNotFoundError); !ok {
+		return err
+	}
+
 	if err := sandbox.Create(rootfsPath, bundlePath, containerId); err != nil {
 		return err
 	}
@@ -69,23 +97,9 @@ func Create(rootfsPath, bundlePath, containerId string) error {
 }
 
 func Delete(containerId string) error {
-	query := hcsshim.ComputeSystemQuery{
-		IDs:    []string{containerId},
-		Owners: []string{"winc"},
-	}
-	cps, err := hcsshim.GetContainers(query)
+	cp, err := getContainerProperties(containerId)
 	if err != nil {
 		return err
-	}
-
-	containerExists := false
-	for _, cp := range cps {
-		if cp.ID == containerId {
-			containerExists = true
-		}
-	}
-	if !containerExists {
-		return fmt.Errorf("container %s does not exist", containerId)
 	}
 
 	container, err := hcsshim.OpenContainer(containerId)
@@ -103,7 +117,7 @@ func Delete(containerId string) error {
 		return err
 	}
 
-	if err := sandbox.Delete(cps[0].Name, containerId); err != nil {
+	if err := sandbox.Delete(cp.Name, containerId); err != nil {
 		return err
 	}
 

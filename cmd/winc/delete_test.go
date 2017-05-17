@@ -41,29 +41,29 @@ var _ = Describe("Delete", func() {
 			Expect(containers).To(HaveLen(1))
 		})
 
-		// Context("when the container is stopped", func() {
-		It("deletes the container and all its resources", func() {
-			cmd := exec.Command(wincBin, "delete", containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
+		Context("when the container is not running", func() {
+			It("deletes the container and all its resources", func() {
+				cmd := exec.Command(wincBin, "delete", containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
 
-			Eventually(session).Should(gexec.Exit(0))
+				Eventually(session).Should(gexec.Exit(0))
 
-			query := hcsshim.ComputeSystemQuery{
-				Owners: []string{"winc"},
-				IDs:    []string{containerId},
-			}
-			containers, err := hcsshim.GetContainers(query)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(containers).To(HaveLen(0))
+				query := hcsshim.ComputeSystemQuery{
+					Owners: []string{"winc"},
+					IDs:    []string{containerId},
+				}
+				containers, err := hcsshim.GetContainers(query)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(containers).To(HaveLen(0))
 
-			_, err = os.Stat(bundlePath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
+				_, err = os.Stat(bundlePath)
+				Expect(os.IsNotExist(err)).To(BeTrue())
+			})
 		})
-		// })
 
 		XContext("when the container is running", func() {
-			It("does not delete the container?", func() {
+			It("does not delete the container", func() {
 			})
 
 			Context("when passed the -f flag", func() {
@@ -80,8 +80,8 @@ var _ = Describe("Delete", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-
-			Expect(session.Err).To(gbytes.Say("container nonexistentcontainer does not exist"))
+			expectedError := &container.ContainerNotFoundError{Id: "nonexistentcontainer"}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})
 })

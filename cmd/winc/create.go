@@ -2,12 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"code.cloudfoundry.org/winc/container"
 
@@ -53,9 +50,19 @@ your host.`,
 			}
 		}
 
+		v, err := validate.NewValidatorFromPath(bundlePath, true)
+		if err != nil {
+			return err
+		}
+
+		m := v.CheckMandatoryFields()
+		if len(m) != 0 {
+			return &WincBundleConfigValidationError{m}
+		}
+
 		configBytes, err := ioutil.ReadFile(filepath.Join(bundlePath, specConfig))
 		if err != nil {
-			return errors.New("bundle directory is invalid")
+			return err
 		}
 
 		type spec struct {
@@ -66,17 +73,7 @@ your host.`,
 
 		var s spec
 		if err := json.Unmarshal(configBytes, &s); err != nil {
-			return fmt.Errorf("bundle contains invalid %s", specConfig)
-		}
-
-		v, err := validate.NewValidatorFromPath(bundlePath, true)
-		if err != nil {
 			return err
-		}
-
-		m := v.CheckMandatoryFields()
-		if len(m) != 0 {
-			return errors.New(strings.Join(m, ", "))
 		}
 
 		return container.Create(s.Root.Path, bundlePath, containerId)
