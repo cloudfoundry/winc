@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func getContainerProperties(containerId string) (*hcsshim.ContainerProperties, error) {
@@ -122,4 +123,18 @@ func Delete(containerId string) error {
 	}
 
 	return nil
+}
+
+func State(containerId string) (*specs.State, error) {
+	cp, err := getContainerProperties(containerId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &specs.State{
+		Version: specs.Version,
+		ID:      containerId,
+		Status:  "created",
+		Bundle:  cp.Name,
+	}, nil
 }

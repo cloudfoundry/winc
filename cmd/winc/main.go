@@ -28,6 +28,7 @@ func main() {
 	app.Commands = []cli.Command{
 		createCommand,
 		deleteCommand,
+		stateCommand,
 	}
 
 	if err := app.Run(os.Args); err != nil {
