@@ -9,11 +9,10 @@ import (
 
 	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func Create(config *specs.Spec, bundlePath, containerId string) error {
-	if err := sandbox.Create(config.Root.Path, bundlePath, containerId); err != nil {
+func Create(rootfsPath, bundlePath, containerId string) error {
+	if err := sandbox.Create(rootfsPath, bundlePath, containerId); err != nil {
 		return err
 	}
 

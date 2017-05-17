@@ -14,13 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
-	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Create", func() {
 	Context("when provided a unique container id", func() {
 		var (
-			bundleSpec  specs.Spec
 			config      []byte
 			bundlePath  string
 			containerId string
@@ -31,19 +29,11 @@ var _ = Describe("Create", func() {
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).NotTo(HaveOccurred())
 
-			baseImage, present := os.LookupEnv("WINC_TEST_ROOTFS")
+			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
 			Expect(present).To(BeTrue())
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = specs.Spec{
-				Process: &specs.Process{
-					Args: []string{},
-				},
-				Root: specs.Root{
-					Path: baseImage,
-				},
-			}
-
+			bundleSpec := specGenerator(rootfsPath)
 			config, err = json.Marshal(&bundleSpec)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -131,8 +121,27 @@ var _ = Describe("Create", func() {
 		})
 	})
 
-	XContext("when provided a bundle with a config.json that does not conform to the runtime spec", func() {
+	Context("when provided a bundle with a config.json that does not conform to the runtime spec", func() {
 		It("errors", func() {
+			bundlePath, err := ioutil.TempDir("", "winccontainer")
+			Expect(err).NotTo(HaveOccurred())
+
+			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
+			Expect(present).To(BeTrue())
+			containerId := filepath.Base(bundlePath)
+
+			bundleSpec := specGenerator(rootfsPath)
+			bundleSpec.Platform.OS = ""
+			config, err := json.Marshal(&bundleSpec)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(session).Should(gexec.Exit(1))
+			Expect(session.Err).To(gbytes.Say("'Platform.OS' should not be empty."))
 		})
 	})
 })

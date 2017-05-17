@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Delete", func() {
@@ -27,20 +26,11 @@ var _ = Describe("Delete", func() {
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).To(Succeed())
 
-			baseImage, present := os.LookupEnv("WINC_TEST_ROOTFS")
+			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
 			Expect(present).To(BeTrue())
 			containerId = filepath.Base(bundlePath)
 
-			config := &specs.Spec{
-				Process: &specs.Process{
-					Args: []string{},
-				},
-				Root: specs.Root{
-					Path: baseImage,
-				},
-			}
-
-			Expect(container.Create(config, bundlePath, containerId)).To(Succeed())
+			Expect(container.Create(rootfsPath, bundlePath, containerId)).To(Succeed())
 
 			query := hcsshim.ComputeSystemQuery{
 				Owners: []string{"winc"},

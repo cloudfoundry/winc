@@ -7,10 +7,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"code.cloudfoundry.org/winc/container"
 
-	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/urfave/cli"
 )
 
@@ -57,11 +58,27 @@ your host.`,
 			return errors.New("bundle directory is invalid")
 		}
 
-		var config *specs.Spec = &specs.Spec{}
-		if err := json.Unmarshal(configBytes, config); err != nil {
+		type spec struct {
+			Root struct {
+				Path string
+			}
+		}
+
+		var s spec
+		if err := json.Unmarshal(configBytes, &s); err != nil {
 			return fmt.Errorf("bundle contains invalid %s", specConfig)
 		}
 
-		return container.Create(config, bundlePath, containerId)
+		v, err := validate.NewValidatorFromPath(bundlePath, true)
+		if err != nil {
+			return err
+		}
+
+		m := v.CheckMandatoryFields()
+		if len(m) != 0 {
+			return errors.New(strings.Join(m, ", "))
+		}
+
+		return container.Create(s.Root.Path, bundlePath, containerId)
 	},
 }

@@ -31,3 +31,12 @@
 [submodule "vendor/golang.org/x/text"]
 	path = vendor/golang.org/x/text
 	url = https://go.googlesource.com/text
+[submodule "vendor/github.com/opencontainers/runtime-tools"]
+	path = vendor/github.com/opencontainers/runtime-tools
+	url = https://github.com/opencontainers/runtime-tools
+[submodule "vendor/github.com/blang/semver"]
+	path = vendor/github.com/blang/semver
+	url = https://github.com/blang/semver
+[submodule "vendor/github.com/syndtr/gocapability"]
+	path = vendor/github.com/syndtr/gocapability
+	url = https://github.com/syndtr/gocapability
