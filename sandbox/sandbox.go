@@ -6,71 +6,107 @@ import (
 	"os"
 	"path/filepath"
 
+	"code.cloudfoundry.org/winc/hcsclient"
+
 	"github.com/Microsoft/hcsshim"
 )
 
-func Create(baseImage, sandboxLayer, containerId string) error {
-	if _, err := os.Stat(sandboxLayer); err != nil {
+//go:generate counterfeiter . SandboxManager
+type SandboxManager interface {
+	Create(rootfs string) error
+	Delete() error
+	BundlePath() string
+}
+
+type sandboxManager struct {
+	bundlePath string
+	hcsClient  hcsclient.Client
+	id         string
+	driverInfo hcsshim.DriverInfo
+}
+
+func NewManager(hcsClient hcsclient.Client, bundlePath string) SandboxManager {
+	driverInfo := hcsshim.DriverInfo{
+		HomeDir: filepath.Dir(bundlePath),
+		Flavour: 1,
+	}
+
+	return &sandboxManager{
+		hcsClient:  hcsClient,
+		bundlePath: bundlePath,
+		id:         filepath.Base(bundlePath),
+		driverInfo: driverInfo,
+	}
+}
+
+func (s *sandboxManager) Create(rootfs string) error {
+	_, err := os.Stat(s.bundlePath)
+	if os.IsNotExist(err) {
+		return &MissingBundlePathError{Msg: s.bundlePath}
+	} else if err != nil {
 		return err
 	}
 
-	parentLayerChain, err := ioutil.ReadFile(filepath.Join(baseImage, "layerchain.json"))
-	if err != nil {
+	_, err = os.Stat(rootfs)
+	if os.IsNotExist(err) {
+		return &MissingRootfsError{Msg: rootfs}
+	} else if err != nil {
 		return err
+	}
+
+	parentLayerChain, err := ioutil.ReadFile(filepath.Join(rootfs, "layerchain.json"))
+	if err != nil {
+		return &MissingRootfsLayerChainError{Msg: rootfs}
 	}
 
 	parentLayers := []string{}
 	if err := json.Unmarshal(parentLayerChain, &parentLayers); err != nil {
+		return &InvalidRootfsLayerChainError{Msg: rootfs}
+	}
+
+	if err := s.hcsClient.CreateSandboxLayer(s.driverInfo, s.id, parentLayers[0], parentLayers); err != nil {
 		return err
 	}
 
-	driverInfo := hcsshim.DriverInfo{
-		HomeDir: filepath.Dir(sandboxLayer),
-		Flavour: 1,
-	}
-
-	if err := hcsshim.CreateSandboxLayer(driverInfo, containerId, parentLayers[0], parentLayers); err != nil {
+	if err := s.hcsClient.ActivateLayer(s.driverInfo, s.id); err != nil {
 		return err
 	}
 
-	if err := hcsshim.ActivateLayer(driverInfo, containerId); err != nil {
+	if err := s.hcsClient.PrepareLayer(s.driverInfo, s.id, parentLayers); err != nil {
 		return err
 	}
 
-	if err := hcsshim.PrepareLayer(driverInfo, containerId, parentLayers); err != nil {
-		return err
-	}
-
-	sandboxLayers := append([]string{baseImage}, parentLayers...)
+	sandboxLayers := append([]string{rootfs}, parentLayers...)
 	sandboxLayerChain, err := json.Marshal(sandboxLayers)
 	if err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(sandboxLayer, "layerchain.json"), sandboxLayerChain, 0755); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(s.bundlePath, "layerchain.json"), sandboxLayerChain, 0755); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func Delete(sandboxLayer, containerId string) error {
-	driverInfo := hcsshim.DriverInfo{
-		HomeDir: filepath.Dir(sandboxLayer),
-		Flavour: 1,
-	}
+func (s *sandboxManager) Delete() error {
+	defer os.RemoveAll(s.bundlePath)
 
-	if err := hcsshim.UnprepareLayer(driverInfo, containerId); err != nil {
+	if err := s.hcsClient.UnprepareLayer(s.driverInfo, s.id); err != nil {
 		return err
 	}
 
-	if err := hcsshim.DeactivateLayer(driverInfo, containerId); err != nil {
+	if err := s.hcsClient.DeactivateLayer(s.driverInfo, s.id); err != nil {
 		return err
 	}
 
-	if err := hcsshim.DestroyLayer(driverInfo, containerId); err != nil {
+	if err := s.hcsClient.DestroyLayer(s.driverInfo, s.id); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (s *sandboxManager) BundlePath() string {
+	return s.bundlePath
 }

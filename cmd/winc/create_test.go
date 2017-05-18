@@ -7,8 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/sandbox"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
 	"github.com/microsoft/hcsshim"
@@ -24,6 +27,8 @@ var _ = Describe("Create", func() {
 			config      []byte
 			bundlePath  string
 			containerId string
+			rootfsPath  string
+			cm          container.ContainerManager
 		)
 
 		BeforeEach(func() {
@@ -31,13 +36,18 @@ var _ = Describe("Create", func() {
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).NotTo(HaveOccurred())
 
-			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
+			present := false
+			rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
 			Expect(present).To(BeTrue())
 			containerId = filepath.Base(bundlePath)
 
 			bundleSpec := specGenerator(rootfsPath)
 			config, err = json.Marshal(&bundleSpec)
 			Expect(err).NotTo(HaveOccurred())
+
+			client := hcsclient.HCSClient{}
+			sm := sandbox.NewManager(&client, bundlePath)
+			cm = container.NewManager(&client, sm, containerId)
 		})
 
 		JustBeforeEach(func() {
@@ -45,7 +55,7 @@ var _ = Describe("Create", func() {
 		})
 
 		AfterEach(func() {
-			Expect(container.Delete(containerId)).To(Succeed())
+			Expect(cm.Delete()).To(Succeed())
 
 			_, err := os.Stat(bundlePath)
 			Expect(os.IsNotExist(err)).To(BeTrue())
@@ -67,6 +77,32 @@ var _ = Describe("Create", func() {
 			Expect(containers).To(HaveLen(1))
 			Expect(containers[0].ID).To(Equal(containerId))
 			Expect(containers[0].Name).To(Equal(bundlePath))
+
+			sandboxVHDX := filepath.Join(bundlePath, "sandbox.vhdx")
+			_, err = os.Stat(sandboxVHDX)
+			Expect(err).ToNot(HaveOccurred())
+
+			cmd = exec.Command("powershell", "-Command", "Test-VHD", sandboxVHDX)
+			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session, time.Second*3).Should(gexec.Exit(0))
+
+			sandboxInitialized := filepath.Join(bundlePath, "initialized")
+			_, err = os.Stat(sandboxInitialized)
+			Expect(err).ToNot(HaveOccurred())
+
+			layerChainPath := filepath.Join(bundlePath, "layerchain.json")
+			_, err = os.Stat(layerChainPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			layerChain, err := ioutil.ReadFile(layerChainPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			layers := []string{}
+			err = json.Unmarshal(layerChain, &layers)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(layers[0]).To(Equal(rootfsPath))
 		})
 
 		It("uses the current directory as the bundle path if not provided", func() {
@@ -96,15 +132,20 @@ var _ = Describe("Create", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
-			Expect(container.Create(rootfsPath, bundlePath, containerId)).To(Succeed())
-			defer container.Delete(containerId)
+
+			client := hcsclient.HCSClient{}
+			sm := sandbox.NewManager(&client, bundlePath)
+			cm := container.NewManager(&client, sm, containerId)
+
+			Expect(cm.Create(rootfsPath)).To(Succeed())
+			defer cm.Delete()
 
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &container.ContainerExistsError{Id: containerId}
+			expectedError := &hcsclient.AlreadyExistsError{Id: containerId}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})

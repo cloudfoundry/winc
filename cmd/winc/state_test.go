@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,8 +21,11 @@ import (
 var _ = Describe("State", func() {
 	Context("given an existing container id", func() {
 		var (
-			containerId string
-			bundlePath  string
+			containerId   string
+			bundlePath    string
+			cm            container.ContainerManager
+			expectedState *specs.State
+			actualState   *specs.State
 		)
 
 		BeforeEach(func() {
@@ -32,7 +37,11 @@ var _ = Describe("State", func() {
 			Expect(present).To(BeTrue())
 			containerId = filepath.Base(bundlePath)
 
-			Expect(container.Create(rootfsPath, bundlePath, containerId)).To(Succeed())
+			client := hcsclient.HCSClient{}
+			sm := sandbox.NewManager(&client, bundlePath)
+			cm = container.NewManager(&client, sm, containerId)
+
+			Expect(cm.Create(rootfsPath)).To(Succeed())
 
 			query := hcsshim.ComputeSystemQuery{
 				Owners: []string{"winc"},
@@ -41,32 +50,61 @@ var _ = Describe("State", func() {
 			containers, err := hcsshim.GetContainers(query)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(containers).To(HaveLen(1))
+
+			expectedState = &specs.State{
+				Version: specs.Version,
+				ID:      containerId,
+				Bundle:  bundlePath,
+			}
 		})
 
-		AfterEach(func() {
-			Expect(container.Delete(containerId)).To(Succeed())
-
-			_, err := os.Stat(bundlePath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
-		})
-
-		It("prints the state of the container to stdout", func() {
+		JustBeforeEach(func() {
 			cmd := exec.Command(wincBin, "state", containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(0))
 
-			expectedState := specs.State{
-				Version: specs.Version,
-				ID:      containerId,
-				Status:  "created",
-				Bundle:  bundlePath,
-			}
+			actualState = &specs.State{}
+			Expect(json.Unmarshal(session.Out.Contents(), actualState)).To(Succeed())
+			Expect(actualState).To(Equal(expectedState))
+		})
 
-			var outState specs.State
-			Expect(json.Unmarshal(session.Out.Contents(), &outState)).To(Succeed())
-			Expect(outState).To(Equal(expectedState))
+		AfterEach(func() {
+			Expect(cm.Delete()).To(Succeed())
+
+			_, err := os.Stat(bundlePath)
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+
+		Context("when the container has been created", func() {
+			BeforeEach(func() {
+				expectedState.Status = "created"
+			})
+
+			It("prints the state of the container to stdout", func() {
+				Expect(actualState).To(Equal(expectedState))
+			})
+		})
+
+		XContext("when the container is running", func() {
+			BeforeEach(func() {
+				expectedState.Status = "running"
+			})
+
+			It("prints the state of the container to stdout", func() {
+				Expect(actualState).To(Equal(expectedState))
+			})
+		})
+
+		XContext("when the container is stopped", func() {
+			BeforeEach(func() {
+				expectedState.Status = "stopped"
+			})
+
+			It("prints the state of the container to stdout", func() {
+				Expect(actualState).To(Equal(expectedState))
+			})
 		})
 	})
 
@@ -77,7 +115,7 @@ var _ = Describe("State", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &container.ContainerNotFoundError{Id: "doesntexist"}
+			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})

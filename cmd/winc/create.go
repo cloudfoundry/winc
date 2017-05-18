@@ -2,12 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/sandbox"
 
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/urfave/cli"
 )
@@ -50,32 +55,34 @@ your host.`,
 			}
 		}
 
-		v, err := validate.NewValidatorFromPath(bundlePath, true)
-		if err != nil {
+		if _, err := os.Stat(bundlePath); err != nil {
 			return err
 		}
 
-		m := v.CheckMandatoryFields()
+		configPath := filepath.Join(bundlePath, specConfig)
+		content, err := ioutil.ReadFile(configPath)
+		if err != nil {
+			return err
+		}
+		if !utf8.Valid(content) {
+			return fmt.Errorf("%q is not encoded in UTF-8", configPath)
+		}
+		var spec specs.Spec
+		if err = json.Unmarshal(content, &spec); err != nil {
+			return err
+		}
+
+		validator := validate.NewValidator(&spec, bundlePath, true)
+
+		m := validator.CheckMandatoryFields()
 		if len(m) != 0 {
 			return &WincBundleConfigValidationError{m}
 		}
 
-		configBytes, err := ioutil.ReadFile(filepath.Join(bundlePath, specConfig))
-		if err != nil {
-			return err
-		}
+		client := hcsclient.HCSClient{}
+		sm := sandbox.NewManager(&client, bundlePath)
+		cm := container.NewManager(&client, sm, containerId)
 
-		type spec struct {
-			Root struct {
-				Path string
-			}
-		}
-
-		var s spec
-		if err := json.Unmarshal(configBytes, &s); err != nil {
-			return err
-		}
-
-		return container.Create(s.Root.Path, bundlePath, containerId)
+		return cm.Create(spec.Root.Path)
 	},
 }

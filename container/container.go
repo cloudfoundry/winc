@@ -6,44 +6,63 @@ import (
 	"path/filepath"
 	"time"
 
+	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func getContainerProperties(containerId string) (*hcsshim.ContainerProperties, error) {
-	query := hcsshim.ComputeSystemQuery{
-		IDs:    []string{containerId},
-		Owners: []string{"winc"},
-	}
-	cps, err := hcsshim.GetContainers(query)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cps) == 0 {
-		return nil, &ContainerNotFoundError{Id: containerId}
-	}
-
-	if len(cps) > 1 {
-		return nil, &ContainerDuplicateError{Id: containerId}
-	}
-
-	return &cps[0], nil
+//go:generate counterfeiter . HCSContainer
+type HCSContainer interface {
+	Start() error
+	Shutdown() error
+	Terminate() error
+	Wait() error
+	WaitTimeout(time.Duration) error
+	Pause() error
+	Resume() error
+	HasPendingUpdates() (bool, error)
+	Statistics() (hcsshim.Statistics, error)
+	ProcessList() ([]hcsshim.ProcessListItem, error)
+	CreateProcess(c *hcsshim.ProcessConfig) (hcsshim.Process, error)
+	OpenProcess(pid int) (hcsshim.Process, error)
+	Close() error
+	Modify(config *hcsshim.ResourceModificationRequestResponse) error
 }
 
-func Create(rootfsPath, bundlePath, containerId string) error {
-	_, err := getContainerProperties(containerId)
-	if err == nil {
-		return &ContainerExistsError{Id: containerId}
+type ContainerManager interface {
+	Create(rootfsPath string) error
+	Delete() error
+	State() (*specs.State, error)
+}
+
+type containerManager struct {
+	hcsClient      hcsclient.Client
+	sandboxManager sandbox.SandboxManager
+	id             string
+}
+
+func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManager, containerId string) ContainerManager {
+	return &containerManager{
+		hcsClient:      hcsClient,
+		sandboxManager: sandboxManager,
+		id:             containerId,
 	}
-	if _, ok := err.(*ContainerNotFoundError); !ok {
+}
+
+func (c *containerManager) Create(rootfsPath string) error {
+	_, err := c.hcsClient.GetContainerProperties(c.id)
+	if err == nil {
+		return &hcsclient.AlreadyExistsError{Id: c.id}
+	}
+	if _, ok := err.(*hcsclient.NotFoundError); !ok {
 		return err
 	}
 
-	if err := sandbox.Create(rootfsPath, bundlePath, containerId); err != nil {
+	if err := c.sandboxManager.Create(rootfsPath); err != nil {
 		return err
 	}
+	bundlePath := c.sandboxManager.BundlePath()
 
 	layerChain, err := ioutil.ReadFile(filepath.Join(bundlePath, "layerchain.json"))
 	if err != nil {
@@ -58,7 +77,7 @@ func Create(rootfsPath, bundlePath, containerId string) error {
 	layerInfos := []hcsshim.Layer{}
 	for _, layerPath := range layers {
 		layerId := filepath.Base(layerPath)
-		layerGuid, err := hcsshim.NameToGuid(layerId)
+		layerGuid, err := c.hcsClient.NameToGuid(layerId)
 		if err != nil {
 			return err
 		}
@@ -73,7 +92,7 @@ func Create(rootfsPath, bundlePath, containerId string) error {
 		HomeDir: filepath.Dir(bundlePath),
 		Flavour: 1,
 	}
-	volumePath, err := hcsshim.GetLayerMountPath(driverInfo, containerId)
+	volumePath, err := c.hcsClient.GetLayerMountPath(driverInfo, c.id)
 	if err != nil {
 		return err
 	}
@@ -89,7 +108,7 @@ func Create(rootfsPath, bundlePath, containerId string) error {
 		EndpointList:      []string{},
 	}
 
-	_, err = hcsshim.CreateContainer(containerId, containerConfig)
+	_, err = c.hcsClient.CreateContainer(c.id, containerConfig)
 	if err != nil {
 		return err
 	}
@@ -97,19 +116,14 @@ func Create(rootfsPath, bundlePath, containerId string) error {
 	return nil
 }
 
-func Delete(containerId string) error {
-	cp, err := getContainerProperties(containerId)
-	if err != nil {
-		return err
-	}
-
-	container, err := hcsshim.OpenContainer(containerId)
+func (c *containerManager) Delete() error {
+	container, err := c.hcsClient.OpenContainer(c.id)
 	if err != nil {
 		return err
 	}
 
 	err = container.Terminate()
-	if hcsshim.IsPending(err) {
+	if c.hcsClient.IsPending(err) {
 		err = container.WaitTimeout(time.Minute * 5)
 		if err != nil {
 			return err
@@ -118,23 +132,30 @@ func Delete(containerId string) error {
 		return err
 	}
 
-	if err := sandbox.Delete(cp.Name, containerId); err != nil {
+	if err := c.sandboxManager.Delete(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func State(containerId string) (*specs.State, error) {
-	cp, err := getContainerProperties(containerId)
+func (c *containerManager) State() (*specs.State, error) {
+	cp, err := c.hcsClient.GetContainerProperties(c.id)
 	if err != nil {
 		return nil, err
 	}
 
+	var status string
+	if cp.Stopped {
+		status = "stopped"
+	} else {
+		status = "created"
+	}
+
 	return &specs.State{
 		Version: specs.Version,
-		ID:      containerId,
-		Status:  "created",
+		ID:      c.id,
+		Status:  status,
 		Bundle:  cp.Name,
 	}, nil
 }

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,6 +21,7 @@ var _ = Describe("Delete", func() {
 		var (
 			containerId string
 			bundlePath  string
+			cm          container.ContainerManager
 		)
 
 		BeforeEach(func() {
@@ -30,7 +33,11 @@ var _ = Describe("Delete", func() {
 			Expect(present).To(BeTrue())
 			containerId = filepath.Base(bundlePath)
 
-			Expect(container.Create(rootfsPath, bundlePath, containerId)).To(Succeed())
+			client := hcsclient.HCSClient{}
+			sm := sandbox.NewManager(&client, bundlePath)
+			cm = container.NewManager(&client, sm, containerId)
+
+			Expect(cm.Create(rootfsPath)).To(Succeed())
 
 			query := hcsshim.ComputeSystemQuery{
 				Owners: []string{"winc"},
@@ -80,7 +87,7 @@ var _ = Describe("Delete", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &container.ContainerNotFoundError{Id: "nonexistentcontainer"}
+			expectedError := &hcsclient.NotFoundError{Id: "nonexistentcontainer"}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})

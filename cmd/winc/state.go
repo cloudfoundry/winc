@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/urfave/cli"
 )
 
@@ -23,7 +25,14 @@ instance of a container.`,
 
 		containerId := context.Args().First()
 
-		state, err := container.State(containerId)
+		client := hcsclient.HCSClient{}
+		cp, err := client.GetContainerProperties(containerId)
+		if err != nil {
+			return err
+		}
+		sm := sandbox.NewManager(&client, cp.Name)
+		cm := container.NewManager(&client, sm, containerId)
+		state, err := cm.State()
 		if err != nil {
 			return err
 		}

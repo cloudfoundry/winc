@@ -2,6 +2,8 @@ package main
 
 import (
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/urfave/cli"
 )
 
@@ -30,7 +32,14 @@ status of "windows01" as "stopped" the following will delete resources held for
 		}
 
 		containerId := context.Args().First()
+		client := hcsclient.HCSClient{}
+		cp, err := client.GetContainerProperties(containerId)
+		if err != nil {
+			return err
+		}
+		sm := sandbox.NewManager(&client, cp.Name)
+		cm := container.NewManager(&client, sm, containerId)
 
-		return container.Delete(containerId)
+		return cm.Delete()
 	},
 }
