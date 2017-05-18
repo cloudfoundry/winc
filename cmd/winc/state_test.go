@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
-	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -42,14 +41,6 @@ var _ = Describe("State", func() {
 			cm = container.NewManager(&client, sm, containerId)
 
 			Expect(cm.Create(rootfsPath)).To(Succeed())
-
-			query := hcsshim.ComputeSystemQuery{
-				Owners: []string{"winc"},
-				IDs:    []string{containerId},
-			}
-			containers, err := hcsshim.GetContainers(query)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(containers).To(HaveLen(1))
 
 			expectedState = &specs.State{
 				Version: specs.Version,

@@ -25,3 +25,19 @@ type DuplicateError struct {
 func (e *DuplicateError) Error() string {
 	return fmt.Sprintf("multiple containers found with the same id: %s", e.Id)
 }
+
+type InvalidIdError struct {
+	Id string
+}
+
+func (e *InvalidIdError) Error() string {
+	return fmt.Sprintf("container id does not match bundle directory name: %s", e.Id)
+}
+
+type MissingVolumePathError struct {
+	Id string
+}
+
+func (e *MissingVolumePathError) Error() string {
+	return fmt.Sprintf("could not get volume path for container: %s", e.Id)
+}

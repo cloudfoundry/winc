@@ -64,6 +64,10 @@ func (c *containerManager) Create(rootfsPath string) error {
 	}
 	bundlePath := c.sandboxManager.BundlePath()
 
+	if filepath.Base(bundlePath) != c.id {
+		return &hcsclient.InvalidIdError{Id: c.id}
+	}
+
 	layerChain, err := ioutil.ReadFile(filepath.Join(bundlePath, "layerchain.json"))
 	if err != nil {
 		return err
@@ -95,6 +99,8 @@ func (c *containerManager) Create(rootfsPath string) error {
 	volumePath, err := c.hcsClient.GetLayerMountPath(driverInfo, c.id)
 	if err != nil {
 		return err
+	} else if volumePath == "" {
+		return &hcsclient.MissingVolumePathError{Id: c.id}
 	}
 
 	containerConfig := &hcsshim.ContainerConfig{

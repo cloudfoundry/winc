@@ -38,14 +38,6 @@ var _ = Describe("Delete", func() {
 			cm = container.NewManager(&client, sm, containerId)
 
 			Expect(cm.Create(rootfsPath)).To(Succeed())
-
-			query := hcsshim.ComputeSystemQuery{
-				Owners: []string{"winc"},
-				IDs:    []string{containerId},
-			}
-			containers, err := hcsshim.GetContainers(query)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(containers).To(HaveLen(1))
 		})
 
 		Context("when the container is not running", func() {
