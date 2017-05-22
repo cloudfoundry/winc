@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/containerfakes"
+	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 
@@ -59,7 +60,10 @@ var _ = Describe("Exec", func() {
 		})
 
 		Context("when creating a process in the container fails", func() {
-			var couldNotCreateProcessError = errors.New("could not create process")
+			var couldNotCreateProcessError = &hcsclient.CouldNotCreateProcessError{
+				Id:      expectedContainerId,
+				Command: "powershell",
+			}
 
 			BeforeEach(func() {
 				fakeContainer.CreateProcessReturns(nil, couldNotCreateProcessError)

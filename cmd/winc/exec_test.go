@@ -11,6 +11,7 @@ import (
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -73,14 +74,8 @@ var _ = Describe("Exec", func() {
 		client = hcsclient.HCSClient{}
 		sm := sandbox.NewManager(&client, bundlePath)
 		cm = container.NewManager(&client, sm, containerId)
-	})
 
-	JustBeforeEach(func() {
-		args := append([]string{"exec", containerId}, commandArgs...)
-		cmd := exec.Command(wincBin, args...)
-		session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(session).Should(gexec.Exit(0))
+		commandArgs = []string{"exec", containerId}
 	})
 
 	Context("when the container exists", func() {
@@ -96,16 +91,32 @@ var _ = Describe("Exec", func() {
 			BeforeEach(func() {
 				pl := containerProcesses(containerId, "powershell.exe")
 				Expect(pl).To(BeEmpty())
-				commandArgs = []string{"powershell.exe"}
 			})
 
 			It("the process runs in the container", func() {
+				cmd := exec.Command(wincBin, append(commandArgs, "powershell.exe")...)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
 				pl := containerProcesses(containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
+			})
+
+			Context("when the command is invalid", func() {
+				It("errors", func() {
+					cmd := exec.Command(wincBin, append(commandArgs, "invalid.exe")...)
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+
+					Eventually(session).Should(gexec.Exit(1))
+					expectedError := &hcsclient.CouldNotCreateProcessError{Id: containerId, Command: "invalid.exe"}
+					Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+				})
 			})
 		})
 	})

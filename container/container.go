@@ -190,7 +190,11 @@ func (c *containerManager) Exec(processSpec *specs.Process) error {
 	}
 	_, err = container.CreateProcess(pc)
 	if err != nil {
-		return err
+		command := ""
+		if len(processSpec.Args) != 0 {
+			command = processSpec.Args[0]
+		}
+		return &hcsclient.CouldNotCreateProcessError{Id: c.id, Command: command}
 	}
 
 	return nil

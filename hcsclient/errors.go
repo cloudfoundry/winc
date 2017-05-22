@@ -42,11 +42,11 @@ func (e *MissingVolumePathError) Error() string {
 	return fmt.Sprintf("could not get volume path for container: %s", e.Id)
 }
 
-type CouldNotStartProcessError struct {
+type CouldNotCreateProcessError struct {
 	Id      string
 	Command string
 }
 
-func (e *CouldNotStartProcessError) Error() string {
+func (e *CouldNotCreateProcessError) Error() string {
 	return fmt.Sprintf("could not start command '%s' in container: %s", e.Command, e.Id)
 }
