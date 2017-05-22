@@ -1,6 +1,3 @@
-[submodule "vendor/github.com/microsoft/hcsshim"]
-	path = vendor/github.com/microsoft/hcsshim
-	url = https://github.com/microsoft/hcsshim
 [submodule "vendor/github.com/Microsoft/go-winio"]
 	path = vendor/github.com/Microsoft/go-winio
 	url = https://github.com/Microsoft/go-winio
@@ -40,3 +37,6 @@
 [submodule "vendor/github.com/syndtr/gocapability"]
 	path = vendor/github.com/syndtr/gocapability
 	url = https://github.com/syndtr/gocapability
+[submodule "vendor/github.com/Microsoft/hcsshim"]
+	path = vendor/github.com/Microsoft/hcsshim
+	url = https://github.com/Microsoft/hcsshim

@@ -14,7 +14,7 @@ import (
 	"code.cloudfoundry.org/winc/sandbox"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
-	"github.com/microsoft/hcsshim"
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
