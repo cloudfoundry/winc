@@ -40,3 +40,6 @@
 [submodule "vendor/github.com/Microsoft/hcsshim"]
 	path = vendor/github.com/Microsoft/hcsshim
 	url = https://github.com/Microsoft/hcsshim
+[submodule "vendor/github.com/mitchellh/go-ps"]
+	path = vendor/github.com/mitchellh/go-ps
+	url = https://github.com/mitchellh/go-ps

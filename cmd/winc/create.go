@@ -38,6 +38,11 @@ your host.`,
 			Value: "",
 			Usage: `path to the root of the bundle directory, defaults to the current directory`,
 		},
+		// cli.StringFlag{
+		// 	Name:  "pid-file",
+		// 	Value: "",
+		// 	Usage: "specify the file to write the process id to",
+		// },
 	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, exactArgs); err != nil {
@@ -56,7 +61,7 @@ your host.`,
 		}
 
 		if _, err := os.Stat(bundlePath); err != nil {
-			return err
+			return &MissingBundleError{BundlePath: bundlePath}
 		}
 
 		configPath := filepath.Join(bundlePath, specConfig)
@@ -69,14 +74,14 @@ your host.`,
 		}
 		var spec specs.Spec
 		if err = json.Unmarshal(content, &spec); err != nil {
-			return err
+			return &BundleConfigInvalidJSONError{}
 		}
 
 		validator := validate.NewValidator(&spec, bundlePath, true)
 
 		m := validator.CheckMandatoryFields()
 		if len(m) != 0 {
-			return &WincBundleConfigValidationError{m}
+			return &BundleConfigValidationError{m}
 		}
 
 		client := hcsclient.HCSClient{}

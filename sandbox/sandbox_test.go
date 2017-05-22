@@ -51,12 +51,12 @@ var _ = Describe("Sandbox", func() {
 		Expect(ioutil.WriteFile(filepath.Join(rootfs, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
 	})
 
-	Context("Create", func() {
-		AfterEach(func() {
-			Expect(os.RemoveAll(bundlePath)).To(Succeed())
-			Expect(os.RemoveAll(rootfs)).To(Succeed())
-		})
+	AfterEach(func() {
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(rootfs)).To(Succeed())
+	})
 
+	Context("Create", func() {
 		Context("when provided a rootfs layer", func() {
 			It("creates and activates the bundlePath", func() {
 				err := sandboxManager.Create(rootfs)

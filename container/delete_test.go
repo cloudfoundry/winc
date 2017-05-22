@@ -107,10 +107,6 @@ var _ = Describe("Delete", func() {
 		})
 	})
 
-	XContext("when the specified container is running", func() {
-
-	})
-
 	Context("when the container does not exist", func() {
 		var openContainerError = errors.New("open container failed")
 

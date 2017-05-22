@@ -85,4 +85,14 @@ var _ = Describe("Help", func() {
 			Expect(session.Out).To(gbytes.Say("NAME:\n.*winc.exe state - output the state of a container"))
 		})
 	})
+
+	Context("exec", func() {
+		BeforeEach(func() {
+			args = append([]string{"exec"}, args...)
+		})
+
+		It("prints the exec help message", func() {
+			Expect(session.Out).To(gbytes.Say("NAME:\n.*winc.exe exec - execute new process inside a container"))
+		})
+	})
 })

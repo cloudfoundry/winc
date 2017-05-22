@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,17 +19,10 @@ var _ = Describe("Delete", func() {
 	Context("when provided an existing container id", func() {
 		var (
 			containerId string
-			bundlePath  string
 			cm          container.ContainerManager
 		)
 
 		BeforeEach(func() {
-			var err error
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
-			Expect(err).To(Succeed())
-
-			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
-			Expect(present).To(BeTrue())
 			containerId = filepath.Base(bundlePath)
 
 			client := hcsclient.HCSClient{}
@@ -58,16 +50,6 @@ var _ = Describe("Delete", func() {
 
 				_, err = os.Stat(bundlePath)
 				Expect(os.IsNotExist(err)).To(BeTrue())
-			})
-		})
-
-		XContext("when the container is running", func() {
-			It("does not delete the container", func() {
-			})
-
-			Context("when passed the -f flag", func() {
-				It("deletes the container", func() {
-				})
 			})
 		})
 	})

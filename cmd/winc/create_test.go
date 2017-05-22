@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -14,69 +13,54 @@ import (
 	"code.cloudfoundry.org/winc/sandbox"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
-	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Create", func() {
-	Context("when provided a unique container id", func() {
-		var (
-			config      []byte
-			bundlePath  string
-			containerId string
-			rootfsPath  string
-			cm          container.ContainerManager
-		)
+	const createTimeout = time.Second * 2
 
-		BeforeEach(func() {
-			var err error
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
-			Expect(err).NotTo(HaveOccurred())
+	var (
+		config      []byte
+		containerId string
+		client      hcsclient.Client
+		cm          container.ContainerManager
+		bundleSpec  specs.Spec
+		err         error
+	)
 
-			present := false
-			rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
-			Expect(present).To(BeTrue())
-			containerId = filepath.Base(bundlePath)
+	BeforeEach(func() {
+		containerId = filepath.Base(bundlePath)
 
-			bundleSpec := specGenerator(rootfsPath)
-			config, err = json.Marshal(&bundleSpec)
-			Expect(err).NotTo(HaveOccurred())
+		bundleSpec = runtimeSpecGenerator(rootfsPath)
+		config, err = json.Marshal(&bundleSpec)
+		Expect(err).NotTo(HaveOccurred())
 
-			client := hcsclient.HCSClient{}
-			sm := sandbox.NewManager(&client, bundlePath)
-			cm = container.NewManager(&client, sm, containerId)
-		})
+		client = &hcsclient.HCSClient{}
+		sm := sandbox.NewManager(client, bundlePath)
+		cm = container.NewManager(client, sm, containerId)
+	})
 
-		JustBeforeEach(func() {
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
-		})
+	JustBeforeEach(func() {
+		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
+	})
 
+	Context("when provided valid arguments", func() {
 		AfterEach(func() {
 			Expect(cm.Delete()).To(Succeed())
-
-			_, err := os.Stat(bundlePath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
 
-		It("creates a container", func() {
+		It("creates and starts a container", func() {
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(session).Should(gexec.Exit(0))
+			Eventually(session, createTimeout).Should(gexec.Exit(0))
 
-			query := hcsshim.ComputeSystemQuery{
-				Owners: []string{"winc"},
-				IDs:    []string{containerId},
-			}
-			containers, err := hcsshim.GetContainers(query)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(containers).To(HaveLen(1))
-			Expect(containers[0].ID).To(Equal(containerId))
-			Expect(containers[0].Name).To(Equal(bundlePath))
+			Expect(containerExists(containerId)).To(BeTrue())
 
 			sandboxVHDX := filepath.Join(bundlePath, "sandbox.vhdx")
 			_, err = os.Stat(sandboxVHDX)
@@ -103,43 +87,38 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(layers[0]).To(Equal(rootfsPath))
+
+			state, err := cm.State()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(state.Pid).ToNot(Equal(-1))
 		})
 
-		It("uses the current directory as the bundle path if not provided", func() {
-			cmd := exec.Command(wincBin, "create", containerId)
-			cmd.Dir = bundlePath
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
+		Context("when the bundle path is not provided", func() {
+			It("uses the current directory as the bundle path", func() {
+				cmd := exec.Command(wincBin, "create", containerId)
+				cmd.Dir = bundlePath
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
 
-			Eventually(session).Should(gexec.Exit(0))
+				Eventually(session, createTimeout).Should(gexec.Exit(0))
 
-			_, err = os.Stat(filepath.Join(bundlePath, "sandbox.vhdx"))
-			Expect(err).ToNot(HaveOccurred())
+				state, err := cm.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(state.Pid).ToNot(Equal(-1))
+			})
 		})
 	})
 
-	Context("when provided a non-unique container id", func() {
-		It("errors", func() {
-			bundlePath, err := ioutil.TempDir("", "winccontainer")
-			Expect(err).NotTo(HaveOccurred())
-
-			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
-			Expect(present).To(BeTrue())
-			containerId := filepath.Base(bundlePath)
-
-			bundleSpec := specGenerator(rootfsPath)
-			config, err := json.Marshal(&bundleSpec)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
-
-			client := hcsclient.HCSClient{}
-			sm := sandbox.NewManager(&client, bundlePath)
-			cm := container.NewManager(&client, sm, containerId)
-
+	Context("when provided a container id that already exists", func() {
+		BeforeEach(func() {
 			Expect(cm.Create(rootfsPath)).To(Succeed())
-			defer cm.Delete()
+		})
 
+		AfterEach(func() {
+			Expect(cm.Delete()).To(Succeed())
+		})
+
+		It("errors", func() {
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
@@ -150,54 +129,55 @@ var _ = Describe("Create", func() {
 		})
 	})
 
-	Context("when provided a nonexistent bundle directory", func() {
-		It("errors", func() {
-			cmd := exec.Command(wincBin, "create", "-b", "idontexist", "")
+	Context("when the bundle directory name and container id do not match", func() {
+		It("errors and does not create the container", func() {
+			containerId = "doesnotmatchbundle"
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := os.PathError{Op: "GetFileAttributesEx", Path: "idontexist", Err: errors.New("")}
+			expectedError := &hcsclient.InvalidIdError{Id: containerId}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+
+			Expect(containerExists(containerId)).To(BeFalse())
+		})
+	})
+
+	Context("when provided a nonexistent bundle directory", func() {
+		It("errors and does not create the container", func() {
+			cmd := exec.Command(wincBin, "create", "-b", "idontexist", containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(session).Should(gexec.Exit(1))
+			expectedError := &MissingBundleError{BundlePath: "idontexist"}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+
+			Expect(containerExists(containerId)).To(BeFalse())
 		})
 	})
 
 	Context("when provided a bundle with a config.json that is invalid JSON", func() {
-		var (
-			config     []byte
-			bundlePath string
-		)
-
 		BeforeEach(func() {
-			var err error
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
-			Expect(err).NotTo(HaveOccurred())
-
 			config = []byte("{")
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
 		})
 
-		It("errors", func() {
-			wincCmd := exec.Command(wincBin, "create", "-b", bundlePath, "")
+		It("errors and does not create the container", func() {
+			wincCmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(wincCmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &json.SyntaxError{}
+			expectedError := &BundleConfigInvalidJSONError{}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+
+			Expect(containerExists(containerId)).To(BeFalse())
 		})
 	})
 
 	Context("when provided a bundle with a config.json that does not conform to the runtime spec", func() {
-		It("errors", func() {
-			bundlePath, err := ioutil.TempDir("", "winccontainer")
-			Expect(err).NotTo(HaveOccurred())
-
-			rootfsPath, present := os.LookupEnv("WINC_TEST_ROOTFS")
-			Expect(present).To(BeTrue())
-			containerId := filepath.Base(bundlePath)
-
-			bundleSpec := specGenerator(rootfsPath)
+		It("errors and does not create the container", func() {
 			bundleSpec.Platform.OS = ""
 			config, err := json.Marshal(&bundleSpec)
 			Expect(err).NotTo(HaveOccurred())
@@ -208,8 +188,10 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &WincBundleConfigValidationError{}
+			expectedError := &BundleConfigValidationError{}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+
+			Expect(containerExists(containerId)).To(BeFalse())
 		})
 	})
 })

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -11,6 +12,8 @@ import (
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
+
+const destroyTimeout = time.Second
 
 //go:generate counterfeiter . HCSContainer
 type HCSContainer interface {
@@ -34,6 +37,7 @@ type ContainerManager interface {
 	Create(rootfsPath string) error
 	Delete() error
 	State() (*specs.State, error)
+	Exec(*specs.Process) error
 }
 
 type containerManager struct {
@@ -59,13 +63,13 @@ func (c *containerManager) Create(rootfsPath string) error {
 		return err
 	}
 
-	if err := c.sandboxManager.Create(rootfsPath); err != nil {
-		return err
-	}
 	bundlePath := c.sandboxManager.BundlePath()
-
 	if filepath.Base(bundlePath) != c.id {
 		return &hcsclient.InvalidIdError{Id: c.id}
+	}
+
+	if err := c.sandboxManager.Create(rootfsPath); err != nil {
+		return err
 	}
 
 	layerChain, err := ioutil.ReadFile(filepath.Join(bundlePath, "layerchain.json"))
@@ -104,17 +108,20 @@ func (c *containerManager) Create(rootfsPath string) error {
 	}
 
 	containerConfig := &hcsshim.ContainerConfig{
-		SystemType:        "Container",
-		Name:              bundlePath,
-		VolumePath:        volumePath,
-		Owner:             "winc",
-		LayerFolderPath:   bundlePath,
-		Layers:            layerInfos,
-		MappedDirectories: []hcsshim.MappedDir{},
-		EndpointList:      []string{},
+		SystemType:      "Container",
+		Name:            bundlePath,
+		VolumePath:      volumePath,
+		Owner:           "winc",
+		LayerFolderPath: bundlePath,
+		Layers:          layerInfos,
 	}
 
-	_, err = c.hcsClient.CreateContainer(c.id, containerConfig)
+	container, err := c.hcsClient.CreateContainer(c.id, containerConfig)
+	if err != nil {
+		return err
+	}
+
+	err = container.Start()
 	if err != nil {
 		return err
 	}
@@ -130,7 +137,7 @@ func (c *containerManager) Delete() error {
 
 	err = container.Terminate()
 	if c.hcsClient.IsPending(err) {
-		err = container.WaitTimeout(time.Minute * 5)
+		err = container.WaitTimeout(destroyTimeout)
 		if err != nil {
 			return err
 		}
@@ -158,10 +165,56 @@ func (c *containerManager) State() (*specs.State, error) {
 		status = "created"
 	}
 
+	pid, err := c.containerPid(c.id)
+	if err != nil {
+		return nil, err
+	}
+
 	return &specs.State{
 		Version: specs.Version,
 		ID:      c.id,
 		Status:  status,
-		Bundle:  cp.Name,
+		Bundle:  c.sandboxManager.BundlePath(),
+		Pid:     pid,
 	}, nil
+}
+
+func (c *containerManager) Exec(processSpec *specs.Process) error {
+	container, err := c.hcsClient.OpenContainer(c.id)
+	if err != nil {
+		return err
+	}
+
+	pc := &hcsshim.ProcessConfig{
+		CommandLine: strings.Join(processSpec.Args, " "),
+	}
+	_, err = container.CreateProcess(pc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *containerManager) containerPid(id string) (int, error) {
+	container, err := c.hcsClient.OpenContainer(id)
+	if err != nil {
+		return -1, err
+	}
+
+	pl, err := container.ProcessList()
+	if err != nil {
+		return -1, err
+	}
+
+	var process hcsshim.ProcessListItem
+	oldestTime := time.Now()
+	for _, v := range pl {
+		if v.ImageName == "wininit.exe" && v.CreateTimestamp.Before(oldestTime) {
+			oldestTime = v.CreateTimestamp
+			process = v
+		}
+	}
+
+	return int(process.ProcessId), nil
 }

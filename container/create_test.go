@@ -1,6 +1,8 @@
 package container_test
 
 import (
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -22,13 +24,13 @@ var _ = Describe("Create", func() {
 	)
 
 	var (
-		expectedContainerId string
-		expectedBundlePath  string
-		hcsClient           *hcsclientfakes.FakeClient
-		sandboxManager      *sandboxfakes.FakeSandboxManager
-		fakeContainer       *containerfakes.FakeHCSContainer
-		containerManager    container.ContainerManager
-		expectedQuery       hcsshim.ComputeSystemQuery
+		expectedContainerId  string
+		expectedBundlePath   string
+		expectedParentLayers []byte
+		hcsClient            *hcsclientfakes.FakeClient
+		sandboxManager       *sandboxfakes.FakeSandboxManager
+		containerManager     container.ContainerManager
+		expectedQuery        hcsshim.ComputeSystemQuery
 	)
 
 	BeforeEach(func() {
@@ -39,16 +41,16 @@ var _ = Describe("Create", func() {
 
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
-		fakeContainer = &containerfakes.FakeHCSContainer{}
 		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
 
 		expectedQuery = hcsshim.ComputeSystemQuery{
 			IDs:    []string{expectedContainerId},
 			Owners: []string{"winc"},
 		}
+		expectedParentLayers = []byte(`["path1", "path2"]`)
 
 		Expect(err).ToNot(HaveOccurred())
-		Expect(ioutil.WriteFile(filepath.Join(expectedBundlePath, "layerchain.json"), []byte(`["hello"]`), 0755)).To(Succeed())
+		Expect(ioutil.WriteFile(filepath.Join(expectedBundlePath, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -58,13 +60,33 @@ var _ = Describe("Create", func() {
 	// TODO: fill in other happy path checks and error corner cases
 
 	Context("when the specified container does not already exist", func() {
+		var (
+			expectedLayerPaths    []string
+			expectedHcsshimLayers []hcsshim.Layer
+			fakeContainer         containerfakes.FakeHCSContainer
+		)
+
 		BeforeEach(func() {
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
 			hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 			sandboxManager.BundlePathReturns(expectedBundlePath)
+
+			err := json.Unmarshal(expectedParentLayers, &expectedLayerPaths)
+			Expect(err).ToNot(HaveOccurred())
+
+			layerGuid := hcsshim.NewGUID("layerguid")
+			hcsClient.NameToGuidReturns(*layerGuid, nil)
+			for _, l := range expectedLayerPaths {
+				expectedHcsshimLayers = append(expectedHcsshimLayers, hcsshim.Layer{
+					ID:   layerGuid.ToString(),
+					Path: l,
+				})
+			}
+
+			hcsClient.CreateContainerReturns(&fakeContainer, nil)
 		})
 
-		It("creates it", func() {
+		It("creates and starts it", func() {
 			Expect(containerManager.Create(rootfs)).To(Succeed())
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
@@ -73,10 +95,32 @@ var _ = Describe("Create", func() {
 			Expect(sandboxManager.CreateCallCount()).To(Equal(1))
 			Expect(sandboxManager.BundlePathCallCount()).To(Equal(1))
 
-			// Expect(hcsClient.IsPendingCallCount()).To(Equal(1))
-			// Expect(hcsClient.IsPendingArgsForCall(0)).To(BeNil())
+			Expect(hcsClient.NameToGuidCallCount()).To(Equal(len(expectedLayerPaths)))
+			for i, l := range expectedLayerPaths {
+				Expect(hcsClient.NameToGuidArgsForCall(i)).To(Equal(l))
+			}
 
-			// Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+			Expect(hcsClient.GetLayerMountPathCallCount()).To(Equal(1))
+			driverInfo, containerId := hcsClient.GetLayerMountPathArgsForCall(0)
+			Expect(driverInfo).To(Equal(hcsshim.DriverInfo{
+				HomeDir: filepath.Dir(expectedBundlePath),
+				Flavour: 1,
+			}))
+			Expect(containerId).To(Equal(expectedContainerId))
+
+			Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+			containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+			Expect(containerId).To(Equal(expectedContainerId))
+			Expect(containerConfig).To(Equal(&hcsshim.ContainerConfig{
+				SystemType:      "Container",
+				Name:            expectedBundlePath,
+				VolumePath:      containerVolume,
+				Owner:           "winc",
+				LayerFolderPath: expectedBundlePath,
+				Layers:          expectedHcsshimLayers,
+			}))
+
+			Expect(fakeContainer.StartCallCount()).To(Equal(1))
 		})
 
 		Context("when the base of the bundlePath and container id do not match", func() {
@@ -90,8 +134,15 @@ var _ = Describe("Create", func() {
 		})
 
 		Context("when getting the volume mount path of the container fails", func() {
-			XContext("when getting the volume returned an error", func() {
+			Context("when getting the volume returned an error", func() {
+				var layerMountPathError = errors.New("could not get volume")
+
+				BeforeEach(func() {
+					hcsClient.GetLayerMountPathReturns("", layerMountPathError)
+				})
+
 				It("errors", func() {
+					Expect(containerManager.Create(rootfs)).To(Equal(layerMountPathError))
 				})
 			})
 

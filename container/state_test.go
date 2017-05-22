@@ -2,8 +2,10 @@ package container_test
 
 import (
 	"errors"
+	"time"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
@@ -18,16 +20,25 @@ var _ = Describe("State", func() {
 		expectedContainerId        = "containerid"
 		expectedContainerBundleDir = "C:\\bundle"
 	)
+
 	var (
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		containerManager container.ContainerManager
+		fakeContainer    *containerfakes.FakeHCSContainer
 	)
 
 	BeforeEach(func() {
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
+		sandboxManager.BundlePathReturns(expectedContainerBundleDir)
 		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
+		fakeContainer = &containerfakes.FakeHCSContainer{}
+		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+			{ProcessId: 666, ImageName: "wininit.exe"},
+		}, nil)
+		hcsClient.OpenContainerReturns(fakeContainer, nil)
+
 	})
 
 	It("calls the client with the correct container id", func() {
@@ -48,6 +59,7 @@ var _ = Describe("State", func() {
 				Version: specs.Version,
 				ID:      expectedContainerId,
 				Bundle:  expectedContainerBundleDir,
+				Pid:     666,
 			}
 
 			expectedContainerProperties = hcsshim.ContainerProperties{
@@ -63,23 +75,18 @@ var _ = Describe("State", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Context("when the container has been created", func() {
+		Context("when the container has just been created", func() {
 			BeforeEach(func() {
 				expectedState.Status = "created"
 			})
 
 			It("returns the correct state", func() {
 				Expect(actualState).To(Equal(expectedState))
-			})
-		})
-
-		XContext("when the container is running", func() {
-			BeforeEach(func() {
-				expectedState.Status = "running"
-			})
-
-			It("returns the correct state", func() {
-				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(fakeContainer.ProcessListCallCount()).To(Equal(1))
 			})
 		})
 
@@ -91,6 +98,36 @@ var _ = Describe("State", func() {
 
 			It("returns the correct state", func() {
 				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(fakeContainer.ProcessListCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when there are no wininit.exe processes in the container", func() {
+			BeforeEach(func() {
+				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{}, nil)
+			})
+
+			It("returns 0 as the pid", func() {
+				Expect(actualState.Pid).To(Equal(0))
+			})
+		})
+
+		Context("when there are multiple wininit.exe processes in the container", func() {
+			BeforeEach(func() {
+				now := time.Now()
+				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+					{ProcessId: 668, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -1, 0)},
+					{ProcessId: 667, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -2, 0)},
+					{ProcessId: 666, ImageName: "wininit.exe", CreateTimestamp: now},
+				}, nil)
+			})
+
+			It("returns the pid of the oldest one as the container pid", func() {
+				Expect(actualState.Pid).To(Equal(667))
 			})
 		})
 	})
