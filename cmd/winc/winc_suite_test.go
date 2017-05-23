@@ -70,7 +70,6 @@ func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 }
 
 func containerExists(containerId string) bool {
-
 	query := hcsshim.ComputeSystemQuery{
 		Owners: []string{"winc"},
 		IDs:    []string{containerId},

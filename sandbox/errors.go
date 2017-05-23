@@ -33,3 +33,11 @@ type MissingBundlePathError struct {
 func (e *MissingBundlePathError) Error() string {
 	return fmt.Sprintf("bundlePath does not exist: %s", e.Msg)
 }
+
+type UnableToDestroyLayerError struct {
+	Msg string
+}
+
+func (e *UnableToDestroyLayerError) Error() string {
+	return fmt.Sprintf("unable to destroy layer file: %s", e.Msg)
+}

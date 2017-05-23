@@ -167,12 +167,9 @@ var _ = Describe("Sandbox", func() {
 	})
 
 	Context("Delete", func() {
-		It("deletes and deactivates the bundlePath", func() {
+		It("unprepares and deactivates the bundlePath", func() {
 			err := sandboxManager.Delete()
 			Expect(err).ToNot(HaveOccurred())
-
-			_, err = os.Stat(bundlePath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
 
 			Expect(hcsClient.UnprepareLayerCallCount()).To(Equal(1))
 			driverInfo, layerId := hcsClient.UnprepareLayerArgsForCall(0)
@@ -181,11 +178,6 @@ var _ = Describe("Sandbox", func() {
 
 			Expect(hcsClient.DeactivateLayerCallCount()).To(Equal(1))
 			driverInfo, layerId = hcsClient.DeactivateLayerArgsForCall(0)
-			Expect(driverInfo).To(Equal(expectedDriverInfo))
-			Expect(layerId).To(Equal(expectedLayerId))
-
-			Expect(hcsClient.DestroyLayerCallCount()).To(Equal(1))
-			driverInfo, layerId = hcsClient.DestroyLayerArgsForCall(0)
 			Expect(driverInfo).To(Equal(expectedDriverInfo))
 			Expect(layerId).To(Equal(expectedLayerId))
 		})
@@ -213,19 +205,6 @@ var _ = Describe("Sandbox", func() {
 			It("errors", func() {
 				err := sandboxManager.Delete()
 				Expect(err).To(Equal(deactivateLayerError))
-			})
-		})
-
-		Context("when destroying the bundlePath fails", func() {
-			var destroyLayerError = errors.New("destroying sandbox failed")
-
-			BeforeEach(func() {
-				hcsClient.DestroyLayerReturns(destroyLayerError)
-			})
-
-			It("errors", func() {
-				err := sandboxManager.Delete()
-				Expect(err).To(Equal(destroyLayerError))
 			})
 		})
 	})

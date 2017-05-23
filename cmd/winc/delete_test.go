@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
-	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -33,23 +32,39 @@ var _ = Describe("Delete", func() {
 		})
 
 		Context("when the container is not running", func() {
-			It("deletes the container and all its resources", func() {
+			It("deletes the container", func() {
 				cmd := exec.Command(wincBin, "delete", containerId)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-
 				Eventually(session).Should(gexec.Exit(0))
 
-				query := hcsshim.ComputeSystemQuery{
-					Owners: []string{"winc"},
-					IDs:    []string{containerId},
-				}
-				containers, err := hcsshim.GetContainers(query)
+				Expect(containerExists(containerId)).To(BeFalse())
+			})
+
+			It("does not delete the bundle directory", func() {
+				cmd := exec.Command(wincBin, "delete", containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(containers).To(HaveLen(0))
+				Eventually(session).Should(gexec.Exit(0))
 
 				_, err = os.Stat(bundlePath)
-				Expect(os.IsNotExist(err)).To(BeTrue())
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("only deletes the files that the container created", func() {
+				sentinelPath := filepath.Join(bundlePath, "sentinel")
+				f, err := os.Create(sentinelPath)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(f.Close()).To(Succeed())
+
+				cmd := exec.Command(wincBin, "delete", containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				files, err := filepath.Glob(filepath.Join(bundlePath, "*"))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(files).To(ConsistOf([]string{filepath.Join(bundlePath, "sentinel")}))
 			})
 		})
 	})

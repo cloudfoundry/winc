@@ -11,6 +11,8 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
+var sandboxFiles = []string{"Hives", "initialized", "sandbox.vhdx", "layerchain.json"}
+
 //go:generate counterfeiter . SandboxManager
 type SandboxManager interface {
 	Create(rootfs string) error
@@ -90,8 +92,6 @@ func (s *sandboxManager) Create(rootfs string) error {
 }
 
 func (s *sandboxManager) Delete() error {
-	defer os.RemoveAll(s.bundlePath)
-
 	if err := s.hcsClient.UnprepareLayer(s.driverInfo, s.id); err != nil {
 		return err
 	}
@@ -100,8 +100,11 @@ func (s *sandboxManager) Delete() error {
 		return err
 	}
 
-	if err := s.hcsClient.DestroyLayer(s.driverInfo, s.id); err != nil {
-		return err
+	for _, f := range sandboxFiles {
+		layerFile := filepath.Join(s.bundlePath, f)
+		if err := os.RemoveAll(layerFile); err != nil {
+			return &UnableToDestroyLayerError{Msg: layerFile}
+		}
 	}
 
 	return nil

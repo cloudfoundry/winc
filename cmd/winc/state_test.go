@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"encoding/json"
-	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -38,9 +37,6 @@ var _ = Describe("State", func() {
 
 		AfterEach(func() {
 			Expect(cm.Delete()).To(Succeed())
-
-			_, err := os.Stat(bundlePath)
-			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
 
 		Context("when the container has been created", func() {
