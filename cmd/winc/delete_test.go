@@ -50,22 +50,6 @@ var _ = Describe("Delete", func() {
 				_, err = os.Stat(bundlePath)
 				Expect(err).ToNot(HaveOccurred())
 			})
-
-			It("only deletes the files that the container created", func() {
-				sentinelPath := filepath.Join(bundlePath, "sentinel")
-				f, err := os.Create(sentinelPath)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(f.Close()).To(Succeed())
-
-				cmd := exec.Command(wincBin, "delete", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
-
-				files, err := filepath.Glob(filepath.Join(bundlePath, "*"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(files).To(ConsistOf([]string{filepath.Join(bundlePath, "sentinel")}))
-			})
 		})
 	})
 

@@ -182,6 +182,20 @@ var _ = Describe("Sandbox", func() {
 			Expect(layerId).To(Equal(expectedLayerId))
 		})
 
+		It("only deletes the files that the container created", func() {
+			sentinelPath := filepath.Join(bundlePath, "sentinel")
+			f, err := os.Create(sentinelPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+
+			err = sandboxManager.Delete()
+			Expect(err).ToNot(HaveOccurred())
+
+			files, err := filepath.Glob(filepath.Join(bundlePath, "*"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).To(ConsistOf([]string{filepath.Join(bundlePath, "sentinel")}))
+		})
+
 		Context("when unpreparing the bundlePath fails", func() {
 			var unprepareLayerError = errors.New("unprepare sandbox failed")
 
