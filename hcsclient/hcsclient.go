@@ -1,6 +1,11 @@
 package hcsclient
 
-import "github.com/Microsoft/hcsshim"
+import (
+	"io"
+	"time"
+
+	"github.com/Microsoft/hcsshim"
+)
 
 //go:generate counterfeiter . Client
 type Client interface {
@@ -17,6 +22,37 @@ type Client interface {
 	DeactivateLayer(info hcsshim.DriverInfo, id string) error
 	DestroyLayer(info hcsshim.DriverInfo, id string) error
 	GetContainerProperties(id string) (hcsshim.ContainerProperties, error)
+}
+
+//go:generate counterfeiter . Container
+type Container interface {
+	Start() error
+	Shutdown() error
+	Terminate() error
+	Wait() error
+	WaitTimeout(time.Duration) error
+	Pause() error
+	Resume() error
+	HasPendingUpdates() (bool, error)
+	Statistics() (hcsshim.Statistics, error)
+	ProcessList() ([]hcsshim.ProcessListItem, error)
+	CreateProcess(c *hcsshim.ProcessConfig) (hcsshim.Process, error)
+	OpenProcess(pid int) (hcsshim.Process, error)
+	Close() error
+	Modify(config *hcsshim.ResourceModificationRequestResponse) error
+}
+
+//go:generate counterfeiter . Process
+type Process interface {
+	Pid() int
+	Kill() error
+	Wait() error
+	WaitTimeout(time.Duration) error
+	ExitCode() (int, error)
+	ResizeConsole(width, height uint16) error
+	Stdio() (io.WriteCloser, io.ReadCloser, io.ReadCloser, error)
+	CloseStdin() error
+	Close() error
 }
 
 type HCSClient struct{}

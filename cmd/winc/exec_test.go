@@ -1,8 +1,11 @@
 package main_test
 
 import (
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -20,7 +23,6 @@ var _ = Describe("Exec", func() {
 		containerId string
 		cm          container.ContainerManager
 		client      hcsclient.HCSClient
-		commandArgs []string
 	)
 
 	containerProcesses := func(containerId, filter string) []hcsshim.ProcessListItem {
@@ -74,8 +76,6 @@ var _ = Describe("Exec", func() {
 		client = hcsclient.HCSClient{}
 		sm := sandbox.NewManager(&client, bundlePath)
 		cm = container.NewManager(&client, sm, containerId)
-
-		commandArgs = []string{"exec", containerId}
 	})
 
 	Context("when the container exists", func() {
@@ -94,7 +94,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("the process runs in the container", func() {
-				cmd := exec.Command(wincBin, append(commandArgs, "powershell.exe")...)
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -107,9 +107,37 @@ var _ = Describe("Exec", func() {
 				Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
 			})
 
+			Context("when the '--pid-file' flag is provided", func() {
+				var pidFile string
+
+				BeforeEach(func() {
+					pidFile = filepath.Join(os.TempDir(), "pidfile")
+				})
+
+				AfterEach(func() {
+					Expect(os.RemoveAll(pidFile)).To(Succeed())
+				})
+
+				It("places the started process id in the specified file", func() {
+					cmd := exec.Command(wincBin, "exec", "--pid-file", pidFile, containerId, "powershell.exe")
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session).Should(gexec.Exit(0))
+
+					pl := containerProcesses(containerId, "powershell.exe")
+					Expect(len(pl)).To(Equal(1))
+
+					pidBytes, err := ioutil.ReadFile(pidFile)
+					Expect(err).ToNot(HaveOccurred())
+					pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(int(pid)).To(Equal(int(pl[0].ProcessId)))
+				})
+			})
+
 			Context("when the command is invalid", func() {
 				It("errors", func() {
-					cmd := exec.Command(wincBin, append(commandArgs, "invalid.exe")...)
+					cmd := exec.Command(wincBin, "exec", containerId, "invalid.exe")
 					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -118,6 +146,18 @@ var _ = Describe("Exec", func() {
 					Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 				})
 			})
+		})
+	})
+
+	Context("given a nonexistent container id", func() {
+		It("errors", func() {
+			cmd := exec.Command(wincBin, "exec", "doesntexist", "powershell.exe")
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(session).Should(gexec.Exit(1))
+			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
+			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 		})
 	})
 })

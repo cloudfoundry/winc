@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
@@ -22,7 +21,7 @@ var _ = Describe("Delete", func() {
 	var (
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
-		fakeContainer    *containerfakes.FakeHCSContainer
+		fakeContainer    *hcsclientfakes.FakeContainer
 		containerManager container.ContainerManager
 		expectedQuery    hcsshim.ComputeSystemQuery
 	)
@@ -30,7 +29,7 @@ var _ = Describe("Delete", func() {
 	BeforeEach(func() {
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
-		fakeContainer = &containerfakes.FakeHCSContainer{}
+		fakeContainer = &hcsclientfakes.FakeContainer{}
 		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
 
 		expectedQuery = hcsshim.ComputeSystemQuery{

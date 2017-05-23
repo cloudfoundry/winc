@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
@@ -63,7 +62,7 @@ var _ = Describe("Create", func() {
 		var (
 			expectedLayerPaths    []string
 			expectedHcsshimLayers []hcsshim.Layer
-			fakeContainer         containerfakes.FakeHCSContainer
+			fakeContainer         hcsclientfakes.FakeContainer
 		)
 
 		BeforeEach(func() {

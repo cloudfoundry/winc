@@ -15,29 +15,11 @@ import (
 
 const destroyTimeout = time.Second
 
-//go:generate counterfeiter . HCSContainer
-type HCSContainer interface {
-	Start() error
-	Shutdown() error
-	Terminate() error
-	Wait() error
-	WaitTimeout(time.Duration) error
-	Pause() error
-	Resume() error
-	HasPendingUpdates() (bool, error)
-	Statistics() (hcsshim.Statistics, error)
-	ProcessList() ([]hcsshim.ProcessListItem, error)
-	CreateProcess(c *hcsshim.ProcessConfig) (hcsshim.Process, error)
-	OpenProcess(pid int) (hcsshim.Process, error)
-	Close() error
-	Modify(config *hcsshim.ResourceModificationRequestResponse) error
-}
-
 type ContainerManager interface {
 	Create(rootfsPath string) error
 	Delete() error
 	State() (*specs.State, error)
-	Exec(*specs.Process) error
+	Exec(*specs.Process) (int, error)
 }
 
 type containerManager struct {
@@ -179,25 +161,25 @@ func (c *containerManager) State() (*specs.State, error) {
 	}, nil
 }
 
-func (c *containerManager) Exec(processSpec *specs.Process) error {
+func (c *containerManager) Exec(processSpec *specs.Process) (int, error) {
 	container, err := c.hcsClient.OpenContainer(c.id)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	pc := &hcsshim.ProcessConfig{
 		CommandLine: strings.Join(processSpec.Args, " "),
 	}
-	_, err = container.CreateProcess(pc)
+	p, err := container.CreateProcess(pc)
 	if err != nil {
 		command := ""
 		if len(processSpec.Args) != 0 {
 			command = processSpec.Args[0]
 		}
-		return &hcsclient.CouldNotCreateProcessError{Id: c.id, Command: command}
+		return -1, &hcsclient.CouldNotCreateProcessError{Id: c.id, Command: command}
 	}
 
-	return nil
+	return p.Pid(), nil
 }
 
 func (c *containerManager) containerPid(id string) (int, error) {

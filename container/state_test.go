@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
@@ -25,7 +24,7 @@ var _ = Describe("State", func() {
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		containerManager container.ContainerManager
-		fakeContainer    *containerfakes.FakeHCSContainer
+		fakeContainer    *hcsclientfakes.FakeContainer
 	)
 
 	BeforeEach(func() {
@@ -33,7 +32,7 @@ var _ = Describe("State", func() {
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		sandboxManager.BundlePathReturns(expectedContainerBundleDir)
 		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
-		fakeContainer = &containerfakes.FakeHCSContainer{}
+		fakeContainer = &hcsclientfakes.FakeContainer{}
 		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
 			{ProcessId: 666, ImageName: "wininit.exe"},
 		}, nil)
