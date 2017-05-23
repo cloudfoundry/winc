@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
 
+	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/urfave/cli"
@@ -57,6 +58,12 @@ your host.`,
 		containerId := context.Args().First()
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
+
+		logrus.WithFields(logrus.Fields{
+			"bundle":      bundlePath,
+			"containerId": containerId,
+			"pidFile":     pidFile,
+		}).Debug("creating container")
 
 		if bundlePath == "" {
 			var err error
@@ -104,7 +111,7 @@ your host.`,
 				return err
 			}
 
-			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0755); err != nil {
+			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
 				return err
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
+	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
@@ -68,6 +69,12 @@ following will output a list of processes running in the container:
 			Args: context.Args()[1:],
 		}
 
+		logrus.WithFields(logrus.Fields{
+			"containerId": containerId,
+			"pidFile":     pidFile,
+			"command":     processConfig.Args,
+		}).Debug("executing process in container")
+
 		client := hcsclient.HCSClient{}
 		cp, err := client.GetContainerProperties(containerId)
 		if err != nil {
@@ -82,7 +89,7 @@ following will output a list of processes running in the container:
 		}
 
 		if pidFile != "" {
-			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(pid), 10)), 0755); err != nil {
+			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(pid), 10)), 0666); err != nil {
 				return err
 			}
 		}

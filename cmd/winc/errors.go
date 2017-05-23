@@ -34,3 +34,11 @@ type BundleConfigValidationError struct {
 func (e *BundleConfigValidationError) Error() string {
 	return fmt.Sprintf("bundle %s is invalid: %s", specConfig, strings.Join(e.Msgs, ", "))
 }
+
+type InvalidLogFormatError struct {
+	Format string
+}
+
+func (e *InvalidLogFormatError) Error() string {
+	return fmt.Sprintf("invalid log format %s", e.Format)
+}

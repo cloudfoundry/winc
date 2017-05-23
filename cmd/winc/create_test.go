@@ -113,7 +113,7 @@ var _ = Describe("Create", func() {
 			var pidFile string
 
 			BeforeEach(func() {
-				pidFile = filepath.Join(os.TempDir(), "pidfile")
+				pidFile = filepath.Join(os.TempDir(), string(time.Now().UnixNano()))
 			})
 
 			AfterEach(func() {

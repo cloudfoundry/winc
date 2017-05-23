@@ -4,6 +4,7 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
+	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -32,6 +33,11 @@ status of "windows01" as "stopped" the following will delete resources held for
 		}
 
 		containerId := context.Args().First()
+
+		logrus.WithFields(logrus.Fields{
+			"containerId": containerId,
+		}).Debug("deleting container")
+
 		client := hcsclient.HCSClient{}
 		cp, err := client.GetContainerProperties(containerId)
 		if err != nil {

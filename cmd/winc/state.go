@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
+	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -24,6 +25,10 @@ instance of a container.`,
 		}
 
 		containerId := context.Args().First()
+
+		logrus.WithFields(logrus.Fields{
+			"containerId": containerId,
+		}).Debug("retrieving state of container")
 
 		client := hcsclient.HCSClient{}
 		cp, err := client.GetContainerProperties(containerId)

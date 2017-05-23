@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -13,6 +14,8 @@ import (
 
 	"testing"
 )
+
+const defaultCommandTimeout = time.Second * 2
 
 var (
 	wincBin    string
