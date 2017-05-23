@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"unicode/utf8"
 
 	"code.cloudfoundry.org/winc/container"
@@ -38,11 +39,11 @@ your host.`,
 			Value: "",
 			Usage: `path to the root of the bundle directory, defaults to the current directory`,
 		},
-		// cli.StringFlag{
-		// 	Name:  "pid-file",
-		// 	Value: "",
-		// 	Usage: "specify the file to write the process id to",
-		// },
+		cli.StringFlag{
+			Name:  "pid-file",
+			Value: "",
+			Usage: "specify the file to write the process id to",
+		},
 		cli.BoolFlag{
 			Name:  "no-new-keyring",
 			Usage: "ignored",
@@ -53,8 +54,9 @@ your host.`,
 			return err
 		}
 
-		bundlePath := context.String("bundle")
 		containerId := context.Args().First()
+		bundlePath := context.String("bundle")
+		pidFile := context.String("pid-file")
 
 		if bundlePath == "" {
 			var err error
@@ -92,6 +94,21 @@ your host.`,
 		sm := sandbox.NewManager(&client, bundlePath)
 		cm := container.NewManager(&client, sm, containerId)
 
-		return cm.Create(spec.Root.Path)
+		if err := cm.Create(spec.Root.Path); err != nil {
+			return err
+		}
+
+		if pidFile != "" {
+			state, err := cm.State()
+			if err != nil {
+				return err
+			}
+
+			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0755); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	},
 }

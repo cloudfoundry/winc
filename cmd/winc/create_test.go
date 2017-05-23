@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/winc/container"
@@ -105,6 +106,36 @@ var _ = Describe("Create", func() {
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(state.Pid).ToNot(Equal(-1))
+			})
+		})
+
+		Context("when the '--pid-file' flag is provided", func() {
+			var pidFile string
+
+			BeforeEach(func() {
+				pidFile = filepath.Join(os.TempDir(), "pidfile")
+			})
+
+			AfterEach(func() {
+				Expect(os.RemoveAll(pidFile)).To(Succeed())
+			})
+
+			It("creates and starts the container and writes the container pid to the specified file", func() {
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath, "--pid-file", pidFile, containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(session, createTimeout).Should(gexec.Exit(0))
+
+				state, err := cm.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(state.Pid).ToNot(Equal(-1))
+
+				pidBytes, err := ioutil.ReadFile(pidFile)
+				Expect(err).ToNot(HaveOccurred())
+				pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(int(pid)).To(Equal(state.Pid))
 			})
 		})
 
