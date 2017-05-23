@@ -43,6 +43,10 @@ your host.`,
 		// 	Value: "",
 		// 	Usage: "specify the file to write the process id to",
 		// },
+		cli.BoolFlag{
+			Name:  "no-new-keyring",
+			Usage: "ignored",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, exactArgs); err != nil {
@@ -67,7 +71,7 @@ your host.`,
 		configPath := filepath.Join(bundlePath, specConfig)
 		content, err := ioutil.ReadFile(configPath)
 		if err != nil {
-			return err
+			return &MissingBundleConfigError{BundlePath: bundlePath}
 		}
 		if !utf8.Valid(content) {
 			return fmt.Errorf("%q is not encoded in UTF-8", configPath)

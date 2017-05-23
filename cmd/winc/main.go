@@ -25,6 +25,19 @@ func main() {
 	app.Name = "winc.exe"
 	app.Usage = usage
 
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "newuidmap",
+			Value: "newuidmap",
+			Usage: "ignored",
+		},
+		cli.StringFlag{
+			Name:  "newgidmap",
+			Value: "newgidmap",
+			Usage: "ignored",
+		},
+	}
+
 	app.Commands = []cli.Command{
 		createCommand,
 		deleteCommand,

@@ -13,6 +13,14 @@ func (e *MissingBundleError) Error() string {
 	return fmt.Sprintf("bundle does not exist: %s", e.BundlePath)
 }
 
+type MissingBundleConfigError struct {
+	BundlePath string
+}
+
+func (e *MissingBundleConfigError) Error() string {
+	return fmt.Sprintf("bundle %s does not exist: %s", specConfig, e.BundlePath)
+}
+
 type BundleConfigInvalidJSONError struct{}
 
 func (e *BundleConfigInvalidJSONError) Error() string {
