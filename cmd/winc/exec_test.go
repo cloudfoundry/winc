@@ -93,18 +93,32 @@ var _ = Describe("Exec", func() {
 				Expect(pl).To(BeEmpty())
 			})
 
-			It("the process runs in the container", func() {
-				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe")
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
+			Context("when the --detach flag is passed", func() {
+				It("the process runs in the container and returns immediately", func() {
+					cmd := exec.Command(wincBin, "exec", "--detach", containerId, "powershell.exe", "-Command", "Start-Sleep -s 10")
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session).Should(gexec.Exit(0))
 
-				pl := containerProcesses(containerId, "powershell.exe")
-				Expect(len(pl)).To(Equal(1))
+					pl := containerProcesses(containerId, "powershell.exe")
+					Expect(len(pl)).To(Equal(1))
 
-				state, err := cm.State()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
+					state, err := cm.State()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
+				})
+			})
+
+			Context("when the --detach flag is not passed", func() {
+				It("the process runs in the container and returns the exit code when the process finishes", func() {
+					cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Exit 5")
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session, "5s").Should(gexec.Exit(5))
+
+					pl := containerProcesses(containerId, "powershell.exe")
+					Expect(len(pl)).To(Equal(0))
+				})
 			})
 
 			Context("when the '--pid-file' flag is provided", func() {
@@ -119,7 +133,7 @@ var _ = Describe("Exec", func() {
 				})
 
 				It("places the started process id in the specified file", func() {
-					cmd := exec.Command(wincBin, "exec", "--pid-file", pidFile, containerId, "powershell.exe")
+					cmd := exec.Command(wincBin, "exec", "--detach", "--pid-file", pidFile, containerId, "powershell.exe")
 					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(0))

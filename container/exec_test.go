@@ -56,9 +56,9 @@ var _ = Describe("Exec", func() {
 		})
 
 		It("starts a process in the container", func() {
-			pid, err := containerManager.Exec(&processSpec)
+			p, err := containerManager.Exec(&processSpec)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pid).To(Equal(666))
+			Expect(p.Pid()).To(Equal(666))
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
 			Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
@@ -77,9 +77,9 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("errors", func() {
-				pid, err := containerManager.Exec(&processSpec)
+				p, err := containerManager.Exec(&processSpec)
 				Expect(err).To(Equal(couldNotCreateProcessError))
-				Expect(pid).To(Equal(-1))
+				Expect(p).To(BeNil())
 			})
 		})
 	})
@@ -92,9 +92,9 @@ var _ = Describe("Exec", func() {
 		})
 
 		It("errors", func() {
-			pid, err := containerManager.Exec(&processSpec)
+			p, err := containerManager.Exec(&processSpec)
 			Expect(err).To(Equal(missingContainerError))
-			Expect(pid).To(Equal(-1))
+			Expect(p).To(BeNil())
 		})
 	})
 })

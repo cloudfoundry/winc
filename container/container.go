@@ -19,7 +19,7 @@ type ContainerManager interface {
 	Create(rootfsPath string) error
 	Delete() error
 	State() (*specs.State, error)
-	Exec(*specs.Process) (int, error)
+	Exec(*specs.Process) (hcsshim.Process, error)
 }
 
 type containerManager struct {
@@ -161,10 +161,10 @@ func (c *containerManager) State() (*specs.State, error) {
 	}, nil
 }
 
-func (c *containerManager) Exec(processSpec *specs.Process) (int, error) {
+func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, error) {
 	container, err := c.hcsClient.OpenContainer(c.id)
 	if err != nil {
-		return -1, err
+		return nil, err
 	}
 
 	pc := &hcsshim.ProcessConfig{
@@ -176,10 +176,10 @@ func (c *containerManager) Exec(processSpec *specs.Process) (int, error) {
 		if len(processSpec.Args) != 0 {
 			command = processSpec.Args[0]
 		}
-		return -1, &hcsclient.CouldNotCreateProcessError{Id: c.id, Command: command}
+		return nil, &hcsclient.CouldNotCreateProcessError{Id: c.id, Command: command}
 	}
 
-	return p.Pid(), nil
+	return p, nil
 }
 
 func (c *containerManager) containerPid(id string) (int, error) {

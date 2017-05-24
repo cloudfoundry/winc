@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/ioutil"
+	"os"
 	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
@@ -52,10 +53,10 @@ following will output a list of processes running in the container:
 		// 		Name:  "process, p",
 		// 		Usage: "path to the process.json",
 		// 	},
-		// 	cli.BoolFlag{
-		// 		Name:  "detach,d",
-		// 		Usage: "detach from the container's process",
-		// 	},
+		cli.BoolFlag{
+			Name:  "detach,d",
+			Usage: "detach from the container's process",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, minArgs); err != nil {
@@ -64,6 +65,7 @@ following will output a list of processes running in the container:
 
 		containerId := context.Args().First()
 		pidFile := context.String("pid-file")
+		detach := context.Bool("detach")
 
 		processConfig := &specs.Process{
 			Args: context.Args()[1:],
@@ -83,15 +85,27 @@ following will output a list of processes running in the container:
 		sm := sandbox.NewManager(&client, cp.Name)
 		cm := container.NewManager(&client, sm, containerId)
 
-		pid, err := cm.Exec(processConfig)
+		process, err := cm.Exec(processConfig)
 		if err != nil {
 			return err
 		}
 
 		if pidFile != "" {
-			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(pid), 10)), 0666); err != nil {
+			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(process.Pid()), 10)), 0666); err != nil {
 				return err
 			}
+		}
+
+		if !detach {
+			if err := process.Wait(); err != nil {
+				return err
+			}
+
+			exitCode, err := process.ExitCode()
+			if err != nil {
+				return err
+			}
+			os.Exit(exitCode)
 		}
 
 		return nil
