@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-const defaultCommandTimeout = time.Second * 2
+const defaultCommandTimeout = time.Millisecond * 2500
 
 var (
 	wincBin    string
@@ -25,6 +25,7 @@ var (
 
 func TestWinc(t *testing.T) {
 	RegisterFailHandler(Fail)
+	SetDefaultEventuallyTimeout(defaultCommandTimeout)
 
 	BeforeSuite(func() {
 		var (
@@ -68,6 +69,17 @@ func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 		},
 		Root: specs.Root{
 			Path: rootfsPath,
+		},
+	}
+}
+
+func processSpecGenerator() specs.Process {
+	return specs.Process{
+		Cwd:  "C:\\",
+		Args: []string{"powershell.exe"},
+		Env:  []string{"var1=foo", "var2=bar"},
+		User: specs.User{
+			Username: "Administrator",
 		},
 	}
 }

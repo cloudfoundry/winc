@@ -46,11 +46,19 @@ var _ = Describe("Exec", func() {
 			commandArgs := []string{"powershell", "Write-Host 'hi'"}
 			processSpec = specs.Process{
 				Args: commandArgs,
+				Cwd:  "C:\\",
+				User: specs.User{
+					Username: "someuser",
+				},
+				Env: []string{"a=b", "c=d"},
 			}
 			expectedProcessConfig = &hcsshim.ProcessConfig{
 				CommandLine:      strings.Join(commandArgs, " "),
 				CreateStdErrPipe: true,
 				CreateStdOutPipe: true,
+				WorkingDirectory: processSpec.Cwd,
+				User:             processSpec.User.Username,
+				Environment:      map[string]string{"a": "b", "c": "d"},
 			}
 
 			fakeProcess.PidReturns(666)

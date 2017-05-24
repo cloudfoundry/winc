@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"golang.org/x/text/encoding/unicode"
@@ -50,7 +51,7 @@ var _ = Describe("Validate", func() {
 
 		Context("when provided a nonexistent bundle directory", func() {
 			BeforeEach(func() {
-				bundlePath = "doesntexist"
+				Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			})
 
 			It("errors", func() {
@@ -114,10 +115,189 @@ var _ = Describe("Validate", func() {
 				Expect(spec).To(BeNil())
 			})
 
-			It("logs the errors in the config.json", func() {
-				Expect(logOutput).To(ContainSubstring("'Platform.OS' should not be empty."))
-				Expect(logOutput).To(ContainSubstring("'Platform.Arch' should not be empty."))
-				Expect(logOutput).To(ContainSubstring("'Root.Path' should not be empty."))
+			It("logs the invalid fields", func() {
+				logOutputStr := logOutput.String()
+				Expect(logOutputStr).To(ContainSubstring("'Platform.OS' should not be empty."))
+				Expect(logOutputStr).To(ContainSubstring("'Platform.Arch' should not be empty."))
+				Expect(logOutputStr).To(ContainSubstring("'Root.Path' should not be empty."))
+			})
+		})
+	})
+
+	Context("Process", func() {
+		var (
+			spec                   *specs.Process
+			err                    error
+			processConfig          string
+			processConfigOverrides *specs.Process
+		)
+
+		BeforeEach(func() {
+			f, err := ioutil.TempFile("", "process.json")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			processConfig = f.Name()
+		})
+
+		AfterEach(func() {
+			Expect(os.RemoveAll(processConfig)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			spec, err = ValidateProcess(logger, processConfig, processConfigOverrides)
+		})
+
+		Context("when provided a valid process config file", func() {
+			var expectedSpec specs.Process
+
+			BeforeEach(func() {
+				expectedSpec = processSpecGenerator()
+				config, err := json.Marshal(&expectedSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+			})
+
+			It("returns the expected process spec", func() {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec).To(Equal(&expectedSpec))
+			})
+
+			Context("when overrides are specified", func() {
+				BeforeEach(func() {
+					processConfigOverrides = &specs.Process{
+						Cwd:  "C:\\foo\\bar\\baz",
+						Args: []string{"foo.exe", "arg"},
+						Env:  []string{"var1=foo", "var2=bar"},
+						User: specs.User{
+							Username: "user1",
+						},
+					}
+				})
+
+				It("the process config file values are overriden", func() {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(spec.Cwd).To(Equal(processConfigOverrides.Cwd))
+					Expect(spec.Args).To(Equal(processConfigOverrides.Args))
+					Expect(spec.Env).To(Equal(processConfigOverrides.Env))
+					Expect(spec.User.Username).To(Equal(processConfigOverrides.User.Username))
+				})
+			})
+		})
+
+		Context("when the process config file is not provided", func() {
+			BeforeEach(func() {
+				processConfigOverrides = &specs.Process{
+					Cwd:  "C:\\foo\\bar\\baz",
+					Args: []string{"foo.exe", "arg"},
+					Env:  []string{"var1=foo", "var2=bar"},
+					User: specs.User{
+						Username: "user1",
+					},
+				}
+
+				Expect(os.RemoveAll(processConfig)).To(Succeed())
+				processConfig = ""
+			})
+
+			It("uses the overrides", func() {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(spec).To(Equal(processConfigOverrides))
+			})
+
+			Context("when the overrides do not specify required values", func() {
+				var logOutput *bytes.Buffer
+
+				BeforeEach(func() {
+					processConfigOverrides = &specs.Process{
+						Env: []string{"var1"},
+					}
+
+					logOutput = &bytes.Buffer{}
+					logrus.SetOutput(logOutput)
+				})
+
+				It("errors", func() {
+					Expect(err).To(MatchError(&ProcessConfigValidationError{processConfigOverrides}))
+					Expect(spec).To(BeNil())
+				})
+
+				It("logs the invalid fields", func() {
+					logOutputStr := logOutput.String()
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "" is not an absolute path"`))
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="env "var1" should be in the form of 'key=value'`))
+				})
+			})
+		})
+
+		Context("when the process config file does not exist", func() {
+			BeforeEach(func() {
+				Expect(os.RemoveAll(processConfig)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(err).To(MatchError(&MissingProcessConfigError{processConfig}))
+				Expect(spec).To(BeNil())
+			})
+		})
+
+		Context("when the process config file is not UTF-8 encoded", func() {
+			BeforeEach(func() {
+				var spec specs.Process
+				config, err := json.Marshal(&spec)
+				Expect(err).ToNot(HaveOccurred())
+				encoding := unicode.UTF16(unicode.BigEndian, unicode.ExpectBOM)
+				encoder := encoding.NewEncoder()
+				configUnicode, err := encoder.Bytes(config)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(processConfig, configUnicode, 0666)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(err).To(MatchError(&ProcessConfigInvalidEncodingError{processConfig}))
+				Expect(spec).To(BeNil())
+			})
+		})
+
+		Context("when the process config file is not valid JSON", func() {
+			BeforeEach(func() {
+				config := []byte("{")
+				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(err).To(MatchError(&ProcessConfigInvalidJSONError{processConfig}))
+				Expect(spec).To(BeNil())
+			})
+		})
+
+		Context("when the process config file does not conform to the runtime spec", func() {
+			var logOutput *bytes.Buffer
+
+			BeforeEach(func() {
+				var spec specs.Process
+				config, err := json.Marshal(&spec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+
+				processConfigOverrides = &specs.Process{
+					Env: []string{"var1"},
+				}
+
+				logOutput = &bytes.Buffer{}
+				logrus.SetOutput(logOutput)
+			})
+
+			It("errors", func() {
+				Expect(err).To(MatchError(&ProcessConfigValidationError{processConfigOverrides}))
+				Expect(spec).To(BeNil())
+			})
+
+			It("logs the invalid fields", func() {
+				logOutputStr := logOutput.String()
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "" is not an absolute path"`))
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="env "var1" should be in the form of 'key=value'`))
 			})
 		})
 	})

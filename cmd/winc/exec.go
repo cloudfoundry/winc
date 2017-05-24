@@ -35,30 +35,33 @@ following will output a list of processes running in the container:
 			Value: "",
 			Usage: "specify the file to write the process id to",
 		},
-		// 	cli.StringFlag{
-		// 		Name:  "cwd",
-		// 		Usage: "current working directory in the container",
-		// 	},
-		// 	cli.StringSliceFlag{
-		// 		Name:  "env, e",
-		// 		Usage: "set environment variables",
-		// 	},
-		// 	cli.BoolFlag{
-		// 		Name:  "tty, t",
-		// 		Usage: "allocate a pseudo-TTY",
-		// 	},
-		// 	cli.StringFlag{
-		// 		Name:  "user, u",
-		// 		Usage: "UID (format: <uid>[:<gid>])",
-		// 	},
-		// 	cli.StringFlag{
-		// 		Name:  "process, p",
-		// 		Usage: "path to the process.json",
-		// 	},
 		cli.BoolFlag{
 			Name:  "detach,d",
 			Usage: "detach from the container's process",
 		},
+		cli.StringFlag{
+			Name:  "process, p",
+			Value: "",
+			Usage: "path to the process.json",
+		},
+		cli.StringFlag{
+			Name:  "cwd",
+			Value: "",
+			Usage: "current working directory in the container",
+		},
+		cli.StringFlag{
+			Name:  "user, u",
+			Value: "",
+			Usage: "Username to execute process as",
+		},
+		cli.StringSliceFlag{
+			Name:  "env, e",
+			Usage: "set environment variables",
+		},
+		// 	cli.BoolFlag{
+		// 		Name:  "tty, t",
+		// 		Usage: "allocate a pseudo-TTY",
+		// 	},
 	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, minArgs); err != nil {
@@ -66,17 +69,36 @@ following will output a list of processes running in the container:
 		}
 
 		containerId := context.Args().First()
+		processConfig := context.String("process")
+		command := context.Args()[1:]
+		cwd := context.String("cwd")
+		user := context.String("user")
+		env := context.StringSlice("env")
 		pidFile := context.String("pid-file")
 		detach := context.Bool("detach")
 
-		processConfig := &specs.Process{
-			Args: context.Args()[1:],
+		logger := logrus.WithField("containerId", containerId)
+
+		spec, err := ValidateProcess(logger, processConfig, &specs.Process{
+			Args: command,
+			Cwd:  cwd,
+			User: specs.User{
+				Username: user,
+			},
+			Env: env,
+		})
+		if err != nil {
+			return err
 		}
 
-		logrus.WithFields(logrus.Fields{
-			"containerId": containerId,
-			"pidFile":     pidFile,
-			"command":     processConfig.Args,
+		logger.WithFields(logrus.Fields{
+			"processConfig": processConfig,
+			"pidFile":       pidFile,
+			"command":       spec.Args,
+			"cwd":           spec.Cwd,
+			"user":          spec.User.Username,
+			"env":           env,
+			"detach":        detach,
 		}).Debug("executing process in container")
 
 		client := hcsclient.HCSClient{}
@@ -87,7 +109,7 @@ following will output a list of processes running in the container:
 		sm := sandbox.NewManager(&client, cp.Name)
 		cm := container.NewManager(&client, sm, containerId)
 
-		process, err := cm.Exec(processConfig)
+		process, err := cm.Exec(spec)
 		if err != nil {
 			return err
 		}

@@ -167,10 +167,19 @@ func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, er
 		return nil, err
 	}
 
+	env := map[string]string{}
+	for _, e := range processSpec.Env {
+		v := strings.Split(e, "=")
+		env[v[0]] = strings.Join(v[1:], "=")
+	}
+
 	pc := &hcsshim.ProcessConfig{
 		CommandLine:      strings.Join(processSpec.Args, " "),
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
+		WorkingDirectory: processSpec.Cwd,
+		User:             processSpec.User.Username,
+		Environment:      env,
 	}
 	p, err := container.CreateProcess(pc)
 	if err != nil {

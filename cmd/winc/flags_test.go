@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
 	"code.cloudfoundry.org/winc/container"
@@ -37,7 +36,7 @@ var _ = Describe("Flags", func() {
 		wincCmd := exec.Command(wincBin, args...)
 		session, err = gexec.Start(wincCmd, GinkgoWriter, GinkgoWriter)
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(session, defaultCommandTimeout).Should(gexec.Exit(expectedExitCode))
+		Eventually(session).Should(gexec.Exit(expectedExitCode))
 	})
 
 	Context("when passed a nonexistent flag", func() {
@@ -81,7 +80,10 @@ var _ = Describe("Flags", func() {
 		var logFile string
 
 		BeforeEach(func() {
-			logFile = filepath.Join(os.TempDir(), string(time.Now().UnixNano()))
+			f, err := ioutil.TempFile("", "winc.log")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			logFile = f.Name()
 			args = []string{"--log", logFile}
 		})
 
@@ -91,11 +93,6 @@ var _ = Describe("Flags", func() {
 
 		It("accepts the flag and prints the --log flag usage", func() {
 			Expect(session.Out).To(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--log value"))
-		})
-
-		It("creates the log file", func() {
-			_, err := os.Stat(logFile)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("when the winc command logs non error messages", func() {

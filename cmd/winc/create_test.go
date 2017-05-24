@@ -21,8 +21,6 @@ import (
 )
 
 var _ = Describe("Create", func() {
-	const createTimeout = time.Second * 2
-
 	var (
 		config      []byte
 		containerId string
@@ -58,7 +56,7 @@ var _ = Describe("Create", func() {
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(session, createTimeout).Should(gexec.Exit(0))
+			Eventually(session).Should(gexec.Exit(0))
 
 			Expect(containerExists(containerId)).To(BeTrue())
 
@@ -100,7 +98,7 @@ var _ = Describe("Create", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(session, createTimeout).Should(gexec.Exit(0))
+				Eventually(session).Should(gexec.Exit(0))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
@@ -112,7 +110,10 @@ var _ = Describe("Create", func() {
 			var pidFile string
 
 			BeforeEach(func() {
-				pidFile = filepath.Join(os.TempDir(), string(time.Now().UnixNano()))
+				f, err := ioutil.TempFile("", "pid")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(f.Close()).To(Succeed())
+				pidFile = f.Name()
 			})
 
 			AfterEach(func() {
@@ -124,7 +125,7 @@ var _ = Describe("Create", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(session, createTimeout).Should(gexec.Exit(0))
+				Eventually(session).Should(gexec.Exit(0))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
@@ -145,7 +146,7 @@ var _ = Describe("Create", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(session, createTimeout).Should(gexec.Exit(0))
+				Eventually(session).Should(gexec.Exit(0))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
