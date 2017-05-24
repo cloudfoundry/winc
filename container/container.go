@@ -168,7 +168,9 @@ func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, er
 	}
 
 	pc := &hcsshim.ProcessConfig{
-		CommandLine: strings.Join(processSpec.Args, " "),
+		CommandLine:      strings.Join(processSpec.Args, " "),
+		CreateStdOutPipe: true,
+		CreateStdErrPipe: true,
 	}
 	p, err := container.CreateProcess(pc)
 	if err != nil {

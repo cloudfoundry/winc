@@ -48,7 +48,9 @@ var _ = Describe("Exec", func() {
 				Args: commandArgs,
 			}
 			expectedProcessConfig = &hcsshim.ProcessConfig{
-				CommandLine: strings.Join(commandArgs, " "),
+				CommandLine:      strings.Join(commandArgs, " "),
+				CreateStdErrPipe: true,
+				CreateStdOutPipe: true,
 			}
 
 			fakeProcess.PidReturns(666)

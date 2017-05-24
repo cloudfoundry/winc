@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -97,6 +98,20 @@ following will output a list of processes running in the container:
 		}
 
 		if !detach {
+			_, stdout, stderr, err := process.Stdio()
+			if err != nil {
+				return err
+			}
+
+			go func() {
+				io.Copy(os.Stdout, stdout)
+				stdout.Close()
+			}()
+			go func() {
+				io.Copy(os.Stderr, stderr)
+				stderr.Close()
+			}()
+
 			if err := process.Wait(); err != nil {
 				return err
 			}
