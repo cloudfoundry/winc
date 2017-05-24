@@ -18,10 +18,20 @@ func (e *MissingBundleConfigError) Error() string {
 	return fmt.Sprintf("bundle %s does not exist: %s", specConfig, e.BundlePath)
 }
 
-type BundleConfigInvalidJSONError struct{}
+type BundleConfigInvalidJSONError struct {
+	BundlePath string
+}
 
 func (e *BundleConfigInvalidJSONError) Error() string {
-	return fmt.Sprintf("bundle %s contains invalid JSON: ", specConfig)
+	return fmt.Sprintf("bundle %s contains invalid JSON: %s", specConfig, e.BundlePath)
+}
+
+type BundleConfigInvalidEncodingError struct {
+	BundlePath string
+}
+
+func (e *BundleConfigInvalidEncodingError) Error() string {
+	return fmt.Sprintf("bundle %s not encoded in UTF-8: %s", specConfig, e.BundlePath)
 }
 
 type BundleConfigValidationError struct {

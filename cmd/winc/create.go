@@ -84,11 +84,11 @@ your host.`,
 			return &MissingBundleConfigError{BundlePath: bundlePath}
 		}
 		if !utf8.Valid(content) {
-			return fmt.Errorf("%q is not encoded in UTF-8", configPath)
+			return &BundleConfigInvalidEncodingError{BundlePath: bundlePath}
 		}
 		var spec specs.Spec
 		if err = json.Unmarshal(content, &spec); err != nil {
-			return &BundleConfigInvalidJSONError{}
+			return &BundleConfigInvalidJSONError{BundlePath: bundlePath}
 		}
 
 		validator := validate.NewValidator(&spec, bundlePath, true)
