@@ -1,9 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 type MissingBundleError struct {
 	BundlePath string
@@ -28,11 +25,11 @@ func (e *BundleConfigInvalidJSONError) Error() string {
 }
 
 type BundleConfigValidationError struct {
-	Msgs []string
+	BundlePath string
 }
 
 func (e *BundleConfigValidationError) Error() string {
-	return fmt.Sprintf("bundle %s is invalid: %s", specConfig, strings.Join(e.Msgs, ", "))
+	return fmt.Sprintf("bundle %s is invalid: %s", specConfig, e.BundlePath)
 }
 
 type InvalidLogFormatError struct {

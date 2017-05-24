@@ -59,11 +59,12 @@ your host.`,
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
 
-		logrus.WithFields(logrus.Fields{
+		logger := logrus.WithFields(logrus.Fields{
 			"bundle":      bundlePath,
 			"containerId": containerId,
 			"pidFile":     pidFile,
-		}).Debug("creating container")
+		})
+		logger.Debug("creating container")
 
 		if bundlePath == "" {
 			var err error
@@ -94,7 +95,10 @@ your host.`,
 
 		m := validator.CheckMandatoryFields()
 		if len(m) != 0 {
-			return &BundleConfigValidationError{m}
+			for _, v := range m {
+				logger.WithField("bundleConfigError", v).Error(fmt.Sprintf("error in bundle %s", specConfig))
+			}
+			return &BundleConfigValidationError{BundlePath: bundlePath}
 		}
 
 		client := hcsclient.HCSClient{}
