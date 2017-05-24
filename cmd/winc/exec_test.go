@@ -1,11 +1,13 @@
 package main_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -68,6 +70,15 @@ var _ = Describe("Exec", func() {
 		}
 
 		return foundParent
+	}
+
+	sendCtrlBreak := func(s *gexec.Session) {
+		d, err := syscall.LoadDLL("kernel32.dll")
+		Expect(err).ToNot(HaveOccurred())
+		p, err := d.FindProc("GenerateConsoleCtrlEvent")
+		Expect(err).ToNot(HaveOccurred())
+		r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(s.Command.Process.Pid))
+		Expect(r).ToNot(Equal(0), fmt.Sprintf("GenerateConsoleCtrlEvent: %v\n", err))
 	}
 
 	BeforeEach(func() {
@@ -134,6 +145,25 @@ var _ = Describe("Exec", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session, "10s").Should(gexec.Exit(5))
 					Expect(session.Err).To(gbytes.Say("hey-winc"))
+				})
+
+				It("captures the CTRL+C", func() {
+					cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "While($true) {Write-Host hey-winc; Start-Sleep 1;}")
+					cmd.SysProcAttr = &syscall.SysProcAttr{
+						CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
+					}
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Consistently(session, "3s").ShouldNot(gexec.Exit(0))
+					Expect(session.Out).To(gbytes.Say("hey-winc"))
+					pl := containerProcesses(containerId, "powershell.exe")
+					Expect(len(pl)).To(Equal(1))
+
+					sendCtrlBreak(session)
+					Eventually(session, "3s").Should(gexec.Exit(1067))
+					pl = containerProcesses(containerId, "powershell.exe")
+					Expect(len(pl)).To(Equal(0))
+
 				})
 			})
 

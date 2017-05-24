@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
@@ -110,6 +111,13 @@ following will output a list of processes running in the container:
 			go func() {
 				io.Copy(os.Stderr, stderr)
 				stderr.Close()
+			}()
+
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, os.Interrupt)
+			go func() {
+				<-c
+				process.Kill()
 			}()
 
 			if err := process.Wait(); err != nil {
