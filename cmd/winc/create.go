@@ -1,21 +1,15 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
-	"unicode/utf8"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
 
 	"github.com/Sirupsen/logrus"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/urfave/cli"
 )
 
@@ -74,31 +68,9 @@ your host.`,
 			}
 		}
 
-		if _, err := os.Stat(bundlePath); err != nil {
-			return &MissingBundleError{BundlePath: bundlePath}
-		}
-
-		configPath := filepath.Join(bundlePath, specConfig)
-		content, err := ioutil.ReadFile(configPath)
+		spec, err := ValidateBundle(logger, bundlePath)
 		if err != nil {
-			return &MissingBundleConfigError{BundlePath: bundlePath}
-		}
-		if !utf8.Valid(content) {
-			return &BundleConfigInvalidEncodingError{BundlePath: bundlePath}
-		}
-		var spec specs.Spec
-		if err = json.Unmarshal(content, &spec); err != nil {
-			return &BundleConfigInvalidJSONError{BundlePath: bundlePath}
-		}
-
-		validator := validate.NewValidator(&spec, bundlePath, true)
-
-		m := validator.CheckMandatoryFields()
-		if len(m) != 0 {
-			for _, v := range m {
-				logger.WithField("bundleConfigError", v).Error(fmt.Sprintf("error in bundle %s", specConfig))
-			}
-			return &BundleConfigValidationError{BundlePath: bundlePath}
+			return err
 		}
 
 		client := hcsclient.HCSClient{}

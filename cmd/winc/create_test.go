@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
 
-	. "code.cloudfoundry.org/winc/cmd/winc"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -46,7 +45,7 @@ var _ = Describe("Create", func() {
 	})
 
 	JustBeforeEach(func() {
-		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
+		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 	})
 
 	Context("when provided valid arguments", func() {
@@ -184,57 +183,6 @@ var _ = Describe("Create", func() {
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.InvalidIdError{Id: containerId}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
-
-			Expect(containerExists(containerId)).To(BeFalse())
-		})
-	})
-
-	Context("when provided a nonexistent bundle directory", func() {
-		It("errors and does not create the container", func() {
-			cmd := exec.Command(wincBin, "create", "-b", "idontexist", containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &MissingBundleError{BundlePath: "idontexist"}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
-
-			Expect(containerExists(containerId)).To(BeFalse())
-		})
-	})
-
-	Context("when provided a bundle with a config.json that is invalid JSON", func() {
-		BeforeEach(func() {
-			config = []byte("{")
-		})
-
-		It("errors and does not create the container", func() {
-			wincCmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(wincCmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &BundleConfigInvalidJSONError{}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
-
-			Expect(containerExists(containerId)).To(BeFalse())
-		})
-	})
-
-	Context("when provided a bundle with a config.json that does not conform to the runtime spec", func() {
-		It("errors and does not create the container", func() {
-			bundleSpec.Platform.OS = ""
-			config, err := json.Marshal(&bundleSpec)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
-			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &BundleConfigValidationError{}
 			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
 
 			Expect(containerExists(containerId)).To(BeFalse())
