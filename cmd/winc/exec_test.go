@@ -124,9 +124,15 @@ var _ = Describe("Exec", func() {
 				Expect(f.Close()).To(Succeed())
 				processConfig = f.Name()
 				expectedSpec := processSpecGenerator()
+				expectedSpec.User.Username = "Guest"
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Enable-LocalUser -Name Guest")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
 			})
 
 			AfterEach(func() {
@@ -159,15 +165,22 @@ var _ = Describe("Exec", func() {
 		})
 
 		Context("when the '--user' flag is provided", func() {
-			It("runs the process as the specified user", func() {
-				cmd := exec.Command(wincBin, "exec", "--user", "Administrator", containerId, "powershell.exe", "-Command", "Write-Host $env:UserName")
+			BeforeEach(func() {
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Enable-LocalUser -Name Guest")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say("Administrator"))
 			})
 
-			Context("when the specified user does not exist", func() {
+			It("runs the process as the specified user", func() {
+				cmd := exec.Command(wincBin, "exec", "--user", "Guest", containerId, "powershell.exe", "-Command", "Write-Host $env:UserName")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				Expect(session.Out).To(gbytes.Say("Guest"))
+			})
+
+			Context("when the specified user does not exist or cannot be used", func() {
 				var logFile string
 
 				BeforeEach(func() {
@@ -228,7 +241,7 @@ var _ = Describe("Exec", func() {
 				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Exit 5")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session, "5s").Should(gexec.Exit(5))
+				Eventually(session).Should(gexec.Exit(5))
 
 				pl := containerProcesses(containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(0))
@@ -257,13 +270,13 @@ var _ = Describe("Exec", func() {
 				}
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Consistently(session, "3s").ShouldNot(gexec.Exit(0))
+				Consistently(session).ShouldNot(gexec.Exit(0))
 				Expect(session.Out).To(gbytes.Say("hey-winc"))
 				pl := containerProcesses(containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				sendCtrlBreak(session)
-				Eventually(session, "3s").Should(gexec.Exit(1067))
+				Eventually(session).Should(gexec.Exit(1067))
 				pl = containerProcesses(containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(0))
 			})

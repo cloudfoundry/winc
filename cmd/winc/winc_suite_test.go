@@ -15,7 +15,8 @@ import (
 	"testing"
 )
 
-const defaultCommandTimeout = time.Millisecond * 2500
+const defaultTimeout = time.Second * 5
+const defaultInterval = time.Millisecond * 200
 
 var (
 	wincBin    string
@@ -25,7 +26,10 @@ var (
 
 func TestWinc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	SetDefaultEventuallyTimeout(defaultCommandTimeout)
+	SetDefaultEventuallyTimeout(defaultTimeout)
+	SetDefaultEventuallyPollingInterval(defaultInterval)
+	SetDefaultConsistentlyDuration(defaultTimeout)
+	SetDefaultConsistentlyPollingInterval(defaultInterval)
 
 	BeforeSuite(func() {
 		var (
