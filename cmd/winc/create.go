@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
@@ -67,6 +68,7 @@ your host.`,
 				return err
 			}
 		}
+		bundlePath = filepath.Clean(bundlePath)
 
 		spec, err := ValidateBundle(logger, bundlePath)
 		if err != nil {

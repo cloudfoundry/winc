@@ -106,6 +106,20 @@ var _ = Describe("Create", func() {
 			})
 		})
 
+		Context("when the bundle path ends with a \\", func() {
+			It("creates a container sucessfully", func() {
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath+"\\", containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(session).Should(gexec.Exit(0))
+
+				state, err := cm.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(state.Pid).ToNot(Equal(-1))
+			})
+		})
+
 		Context("when the '--pid-file' flag is provided", func() {
 			var pidFile string
 
@@ -141,8 +155,7 @@ var _ = Describe("Create", func() {
 
 		Context("when the '--no-new-keyring' flag is provided", func() {
 			It("ignores it and creates and starts a container", func() {
-				cmd := exec.Command(wincBin, "create", containerId, "--no-new-keyring")
-				cmd.Dir = bundlePath
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 
