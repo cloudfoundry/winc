@@ -75,7 +75,7 @@ func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 
 func processSpecGenerator() specs.Process {
 	return specs.Process{
-		Cwd:  "C:\\",
+		Cwd:  "C:\\Windows",
 		Args: []string{"powershell.exe"},
 		Env:  []string{"var1=foo", "var2=bar"},
 		User: specs.User{

@@ -204,11 +204,23 @@ var _ = Describe("Validate", func() {
 				Expect(spec).To(Equal(processConfigOverrides))
 			})
 
-			Context("when the overrides do not specify required values", func() {
+			Context("when the overrides do not specify a cwd", func() {
+				BeforeEach(func() {
+					processConfigOverrides.Cwd = ""
+				})
+
+				It("defaults the cwd to C:\\", func() {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(spec.Cwd).To(Equal("C:\\"))
+				})
+			})
+
+			Context("when the overrides do not specify required values or specify invalid values", func() {
 				var logOutput *bytes.Buffer
 
 				BeforeEach(func() {
 					processConfigOverrides = &specs.Process{
+						Cwd: "foo/bar",
 						Env: []string{"var1"},
 					}
 
@@ -223,7 +235,7 @@ var _ = Describe("Validate", func() {
 
 				It("logs the invalid fields", func() {
 					logOutputStr := logOutput.String()
-					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "" is not an absolute path"`))
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "foo/bar" is not an absolute path"`))
 					Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
 					Expect(logOutputStr).To(ContainSubstring(`processConfigError="env "var1" should be in the form of 'key=value'`))
 				})
@@ -272,30 +284,33 @@ var _ = Describe("Validate", func() {
 		})
 
 		Context("when the process config file does not conform to the runtime spec", func() {
-			var logOutput *bytes.Buffer
+			var (
+				logOutput   *bytes.Buffer
+				invalidSpec *specs.Process
+			)
 
 			BeforeEach(func() {
-				var spec specs.Process
-				config, err := json.Marshal(&spec)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
-
-				processConfigOverrides = &specs.Process{
+				invalidSpec = &specs.Process{
+					Cwd: "foo/bar",
 					Env: []string{"var1"},
 				}
+
+				config, err := json.Marshal(&invalidSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
 
 				logOutput = &bytes.Buffer{}
 				logrus.SetOutput(logOutput)
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&ProcessConfigValidationError{processConfigOverrides}))
+				Expect(err).To(MatchError(&ProcessConfigValidationError{invalidSpec}))
 				Expect(spec).To(BeNil())
 			})
 
 			It("logs the invalid fields", func() {
 				logOutputStr := logOutput.String()
-				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "" is not an absolute path"`))
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "foo/bar" is not an absolute path"`))
 				Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
 				Expect(logOutputStr).To(ContainSubstring(`processConfigError="env "var1" should be in the form of 'key=value'`))
 			})

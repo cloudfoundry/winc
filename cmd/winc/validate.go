@@ -15,6 +15,8 @@ import (
 	"github.com/opencontainers/runtime-tools/validate"
 )
 
+const defaultCwd = "C:\\"
+
 func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error) {
 	logger.Debug("validating bundle")
 
@@ -55,7 +57,9 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 
 	var spec specs.Process
 
-	if processConfig != "" {
+	if processConfig == "" {
+		spec.Cwd = defaultCwd
+	} else {
 		content, err := ioutil.ReadFile(processConfig)
 		if err != nil {
 			return nil, &MissingProcessConfigError{ProcessConfig: processConfig}

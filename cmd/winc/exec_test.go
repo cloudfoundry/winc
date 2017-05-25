@@ -102,7 +102,7 @@ var _ = Describe("Exec", func() {
 		})
 
 		It("the process runs in the container", func() {
-			cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", "--detach", containerId, "powershell.exe")
+			cmd := exec.Command(wincBin, "exec", "--detach", containerId, "powershell.exe")
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
@@ -160,7 +160,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the '--user' flag is provided", func() {
 			It("runs the process as the specified user", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", "--user", "Administrator", containerId, "powershell.exe", "-Command", "Write-Host $env:UserName")
+				cmd := exec.Command(wincBin, "exec", "--user", "Administrator", containerId, "powershell.exe", "-Command", "Write-Host $env:UserName")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -182,7 +182,7 @@ var _ = Describe("Exec", func() {
 				})
 
 				It("errors", func() {
-					cmd := exec.Command(wincBin, "--log", logFile, "--debug", "exec", "--cwd", "C:\\", "--user", "doesntexist", containerId, "powershell.exe", "-Command", "Write-Host $env:UserName")
+					cmd := exec.Command(wincBin, "--log", logFile, "--debug", "exec", "--user", "doesntexist", containerId, "powershell.exe", "-Command", "Write-Host $env:UserName")
 					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(1))
@@ -198,7 +198,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the '--env' flag is provided", func() {
 			It("runs the process with the specified environment variables", func() {
-				cmd := exec.Command(wincBin, "exec", "--env", "var1=foo", "--env", "var2=bar", "--cwd", "C:\\", containerId, "powershell.exe", "-Command", "Get-ChildItem Env:")
+				cmd := exec.Command(wincBin, "exec", "--env", "var1=foo", "--env", "var2=bar", containerId, "powershell.exe", "-Command", "Get-ChildItem Env:")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -209,7 +209,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the --detach flag is passed", func() {
 			It("the process runs in the container and returns immediately", func() {
-				cmd := exec.Command(wincBin, "exec", "--detach", "--cwd", "C:\\", containerId, "powershell.exe", "-Command", "Start-Sleep -s 10")
+				cmd := exec.Command(wincBin, "exec", "--detach", containerId, "powershell.exe", "-Command", "Start-Sleep -s 10")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -225,7 +225,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the --detach flag is not passed", func() {
 			It("the process runs in the container and returns the exit code when the process finishes", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", containerId, "powershell.exe", "-Command", "Exit 5")
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Exit 5")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session, "5s").Should(gexec.Exit(5))
@@ -235,7 +235,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("captures the stdout", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", containerId, "powershell.exe", "-Command", "Write-Host hey-winc")
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Write-Host hey-winc")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session, "10s").Should(gexec.Exit(0))
@@ -243,7 +243,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("captures the stderr", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", containerId, "powershell.exe", "-Command", "Write-Error hey-winc; Exit 5;")
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Write-Error hey-winc; Exit 5;")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session, "10s").Should(gexec.Exit(5))
@@ -251,7 +251,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("captures the CTRL+C", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", containerId, "powershell.exe", "-Command", "While($true) {Write-Host hey-winc; Start-Sleep 1;}")
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "While($true) {Write-Host hey-winc; Start-Sleep 1;}")
 				cmd.SysProcAttr = &syscall.SysProcAttr{
 					CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
 				}
@@ -284,7 +284,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("places the started process id in the specified file", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", "--detach", "--pid-file", pidFile, containerId, "powershell.exe")
+				cmd := exec.Command(wincBin, "exec", "--detach", "--pid-file", pidFile, containerId, "powershell.exe")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -302,7 +302,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the command is invalid", func() {
 			It("errors", func() {
-				cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", containerId, "invalid.exe")
+				cmd := exec.Command(wincBin, "exec", containerId, "invalid.exe")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -315,7 +315,7 @@ var _ = Describe("Exec", func() {
 
 	Context("given a nonexistent container id", func() {
 		It("errors", func() {
-			cmd := exec.Command(wincBin, "exec", "--cwd", "C:\\", "doesntexist", "powershell.exe")
+			cmd := exec.Command(wincBin, "exec", "doesntexist", "powershell.exe")
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 
