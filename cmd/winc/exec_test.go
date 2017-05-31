@@ -92,7 +92,8 @@ var _ = Describe("Exec", func() {
 
 	Context("when the container exists", func() {
 		BeforeEach(func() {
-			Expect(cm.Create(rootfsPath)).To(Succeed())
+			bundleSpec := runtimeSpecGenerator(rootfsPath)
+			Expect(cm.Create(&bundleSpec)).To(Succeed())
 			pl := containerProcesses(containerId, "powershell.exe")
 			Expect(pl).To(BeEmpty())
 		})

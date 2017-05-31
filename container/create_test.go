@@ -14,6 +14,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Create", func() {
@@ -30,6 +31,7 @@ var _ = Describe("Create", func() {
 		sandboxManager       *sandboxfakes.FakeSandboxManager
 		containerManager     container.ContainerManager
 		expectedQuery        hcsshim.ComputeSystemQuery
+		spec                 *specs.Spec
 	)
 
 	BeforeEach(func() {
@@ -50,6 +52,9 @@ var _ = Describe("Create", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(expectedBundlePath, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
+
+		spec = &specs.Spec{}
+		spec.Root.Path = rootfs
 	})
 
 	AfterEach(func() {
@@ -75,6 +80,7 @@ var _ = Describe("Create", func() {
 
 			layerGuid := hcsshim.NewGUID("layerguid")
 			hcsClient.NameToGuidReturns(*layerGuid, nil)
+			expectedHcsshimLayers = []hcsshim.Layer{}
 			for _, l := range expectedLayerPaths {
 				expectedHcsshimLayers = append(expectedHcsshimLayers, hcsshim.Layer{
 					ID:   layerGuid.ToString(),
@@ -86,7 +92,7 @@ var _ = Describe("Create", func() {
 		})
 
 		It("creates and starts it", func() {
-			Expect(containerManager.Create(rootfs)).To(Succeed())
+			Expect(containerManager.Create(spec)).To(Succeed())
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
@@ -111,15 +117,41 @@ var _ = Describe("Create", func() {
 			containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
 			Expect(containerId).To(Equal(expectedContainerId))
 			Expect(containerConfig).To(Equal(&hcsshim.ContainerConfig{
-				SystemType:      "Container",
-				Name:            expectedBundlePath,
-				VolumePath:      containerVolume,
-				Owner:           "winc",
-				LayerFolderPath: expectedBundlePath,
-				Layers:          expectedHcsshimLayers,
+				SystemType:        "Container",
+				Name:              expectedBundlePath,
+				VolumePath:        containerVolume,
+				Owner:             "winc",
+				LayerFolderPath:   expectedBundlePath,
+				Layers:            expectedHcsshimLayers,
+				MappedDirectories: []hcsshim.MappedDir{},
 			}))
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
+		})
+
+		Context("when mounts are specified in the spec", func() {
+			var expectedMappedDirs []hcsshim.MappedDir
+
+			BeforeEach(func() {
+				spec.Mounts = []specs.Mount{
+					{Source: "foo", Destination: "bar"},
+					{Source: "baz", Destination: "zoo"},
+				}
+
+				expectedMappedDirs = []hcsshim.MappedDir{
+					{HostPath: "foo", ContainerPath: "bar", ReadOnly: true},
+					{HostPath: "baz", ContainerPath: "zoo", ReadOnly: true},
+				}
+			})
+
+			It("creates the container with the specified mounts", func() {
+				Expect(containerManager.Create(spec)).To(Succeed())
+
+				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+				containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+				Expect(containerId).To(Equal(expectedContainerId))
+				Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+			})
 		})
 
 		Context("when the base of the bundlePath and container id do not match", func() {
@@ -128,7 +160,30 @@ var _ = Describe("Create", func() {
 			})
 
 			It("errors", func() {
-				Expect(containerManager.Create(rootfs)).To(Equal(&hcsclient.InvalidIdError{Id: expectedContainerId}))
+				Expect(containerManager.Create(spec)).To(Equal(&hcsclient.InvalidIdError{Id: expectedContainerId}))
+			})
+		})
+
+		Context("when CreateContainer fails", func() {
+			BeforeEach(func() {
+				hcsClient.CreateContainerReturns(nil, errors.New("couldn't create"))
+			})
+
+			It("deletes the sandbox", func() {
+				Expect(containerManager.Create(spec)).NotTo(Succeed())
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when container Start fails", func() {
+			BeforeEach(func() {
+				fakeContainer.StartReturns(errors.New("couldn't start"))
+			})
+
+			It("deletes the container and the sandbox", func() {
+				Expect(containerManager.Create(spec)).NotTo(Succeed())
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 			})
 		})
 
@@ -141,7 +196,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("errors", func() {
-					Expect(containerManager.Create(rootfs)).To(Equal(layerMountPathError))
+					Expect(containerManager.Create(spec)).To(Equal(layerMountPathError))
 				})
 			})
 
@@ -150,7 +205,7 @@ var _ = Describe("Create", func() {
 					hcsClient.GetLayerMountPathReturns("", nil)
 				})
 				It("errors", func() {
-					Expect(containerManager.Create(rootfs)).To(Equal(&hcsclient.MissingVolumePathError{Id: expectedContainerId}))
+					Expect(containerManager.Create(spec)).To(Equal(&hcsclient.MissingVolumePathError{Id: expectedContainerId}))
 				})
 			})
 		})

@@ -28,7 +28,8 @@ var _ = Describe("Delete", func() {
 			sm := sandbox.NewManager(&client, bundlePath)
 			cm = container.NewManager(&client, sm, containerId)
 
-			Expect(cm.Create(rootfsPath)).To(Succeed())
+			bundleSpec := runtimeSpecGenerator(rootfsPath)
+			Expect(cm.Create(&bundleSpec)).To(Succeed())
 		})
 
 		Context("when the container is not running", func() {

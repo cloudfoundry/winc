@@ -33,16 +33,17 @@ var _ = Describe("Create", func() {
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
 
-		bundleSpec = runtimeSpecGenerator(rootfsPath)
-		config, err = json.Marshal(&bundleSpec)
-		Expect(err).NotTo(HaveOccurred())
-
 		client = &hcsclient.HCSClient{}
 		sm := sandbox.NewManager(client, bundlePath)
 		cm = container.NewManager(client, sm, containerId)
+
+		bundleSpec = runtimeSpecGenerator(rootfsPath)
 	})
 
 	JustBeforeEach(func() {
+		config, err = json.Marshal(&bundleSpec)
+		Expect(err).NotTo(HaveOccurred())
+
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 	})
 
@@ -166,11 +167,79 @@ var _ = Describe("Create", func() {
 				Expect(state.Pid).ToNot(Equal(-1))
 			})
 		})
+
+		Context("when the bundle config.json specifies bind mounts", func() {
+			var (
+				mountSource string
+				mountDest   string
+			)
+
+			BeforeEach(func() {
+				var err error
+				mountSource, err = ioutil.TempDir("", "mountsource")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
+
+				mountDest = "C:\\mountdest"
+
+				mount := specs.Mount{Destination: mountDest, Source: mountSource}
+				bundleSpec.Mounts = []specs.Mount{mount}
+			})
+
+			AfterEach(func() {
+				Expect(os.RemoveAll(mountSource)).To(Succeed())
+			})
+
+			It("creates a container with the specified directories as mounts", func() {
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", filepath.Join(mountDest, "sentinel"))
+				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				Expect(session.Out).To(gbytes.Say("hello"))
+			})
+
+			It("the mounted directories are read only", func() {
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Set-Content", filepath.Join(mountDest, "sentinel2"), "hello")
+				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(1))
+			})
+		})
+	})
+
+	Context("when the mount source does not exist", func() {
+		BeforeEach(func() {
+			mountDest := "C:\\mnt"
+			mountSource := "C:\\not\\a\\directory\\mountsource"
+
+			mount := specs.Mount{Destination: mountDest, Source: mountSource}
+			bundleSpec.Mounts = []specs.Mount{mount}
+		})
+
+		It("errors and does not create the container", func() {
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(1))
+
+			Expect(containerExists(containerId)).To(BeFalse())
+		})
 	})
 
 	Context("when provided a container id that already exists", func() {
 		BeforeEach(func() {
-			Expect(cm.Create(rootfsPath)).To(Succeed())
+			Expect(cm.Create(&bundleSpec)).To(Succeed())
 		})
 
 		AfterEach(func() {

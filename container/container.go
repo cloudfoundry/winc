@@ -16,7 +16,7 @@ import (
 const destroyTimeout = time.Second
 
 type ContainerManager interface {
-	Create(rootfsPath string) error
+	Create(spec *specs.Spec) error
 	Delete() error
 	State() (*specs.State, error)
 	Exec(*specs.Process) (hcsshim.Process, error)
@@ -36,7 +36,7 @@ func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManage
 	}
 }
 
-func (c *containerManager) Create(rootfsPath string) error {
+func (c *containerManager) Create(spec *specs.Spec) error {
 	_, err := c.hcsClient.GetContainerProperties(c.id)
 	if err == nil {
 		return &hcsclient.AlreadyExistsError{Id: c.id}
@@ -50,7 +50,7 @@ func (c *containerManager) Create(rootfsPath string) error {
 		return &hcsclient.InvalidIdError{Id: c.id}
 	}
 
-	if err := c.sandboxManager.Create(rootfsPath); err != nil {
+	if err := c.sandboxManager.Create(spec.Root.Path); err != nil {
 		return err
 	}
 
@@ -89,22 +89,34 @@ func (c *containerManager) Create(rootfsPath string) error {
 		return &hcsclient.MissingVolumePathError{Id: c.id}
 	}
 
+	mappedDirs := []hcsshim.MappedDir{}
+	for _, d := range spec.Mounts {
+		mappedDirs = append(mappedDirs, hcsshim.MappedDir{
+			HostPath:      d.Source,
+			ContainerPath: d.Destination,
+			ReadOnly:      true,
+		})
+	}
+
 	containerConfig := &hcsshim.ContainerConfig{
-		SystemType:      "Container",
-		Name:            bundlePath,
-		VolumePath:      volumePath,
-		Owner:           "winc",
-		LayerFolderPath: bundlePath,
-		Layers:          layerInfos,
+		SystemType:        "Container",
+		Name:              bundlePath,
+		VolumePath:        volumePath,
+		Owner:             "winc",
+		LayerFolderPath:   bundlePath,
+		Layers:            layerInfos,
+		MappedDirectories: mappedDirs,
 	}
 
 	container, err := c.hcsClient.CreateContainer(c.id, containerConfig)
 	if err != nil {
+		_ = c.sandboxManager.Delete()
 		return err
 	}
 
 	err = container.Start()
 	if err != nil {
+		_ = c.terminateContainer(container)
 		return err
 	}
 
@@ -117,21 +129,7 @@ func (c *containerManager) Delete() error {
 		return err
 	}
 
-	err = container.Terminate()
-	if c.hcsClient.IsPending(err) {
-		err = container.WaitTimeout(destroyTimeout)
-		if err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-
-	if err := c.sandboxManager.Delete(); err != nil {
-		return err
-	}
-
-	return nil
+	return c.terminateContainer(container)
 }
 
 func (c *containerManager) State() (*specs.State, error) {
@@ -214,4 +212,22 @@ func (c *containerManager) containerPid(id string) (int, error) {
 	}
 
 	return int(process.ProcessId), nil
+}
+
+func (c *containerManager) terminateContainer(container hcsshim.Container) error {
+	err := container.Terminate()
+	if c.hcsClient.IsPending(err) {
+		err = container.WaitTimeout(destroyTimeout)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	if err := c.sandboxManager.Delete(); err != nil {
+		return err
+	}
+
+	return nil
 }

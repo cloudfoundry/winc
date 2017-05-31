@@ -79,7 +79,7 @@ your host.`,
 		sm := sandbox.NewManager(&client, bundlePath)
 		cm := container.NewManager(&client, sm, containerId)
 
-		if err := cm.Create(spec.Root.Path); err != nil {
+		if err := cm.Create(spec); err != nil {
 			return err
 		}
 
