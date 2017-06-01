@@ -37,6 +37,17 @@ type FakeSandboxManager struct {
 	bundlePathReturnsOnCall map[int]struct {
 		result1 string
 	}
+	MountStub        func(mountPath string) error
+	mountMutex       sync.RWMutex
+	mountArgsForCall []struct {
+		mountPath string
+	}
+	mountReturns struct {
+		result1 error
+	}
+	mountReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -169,6 +180,54 @@ func (fake *FakeSandboxManager) BundlePathReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
+func (fake *FakeSandboxManager) Mount(mountPath string) error {
+	fake.mountMutex.Lock()
+	ret, specificReturn := fake.mountReturnsOnCall[len(fake.mountArgsForCall)]
+	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
+		mountPath string
+	}{mountPath})
+	fake.recordInvocation("Mount", []interface{}{mountPath})
+	fake.mountMutex.Unlock()
+	if fake.MountStub != nil {
+		return fake.MountStub(mountPath)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.mountReturns.result1
+}
+
+func (fake *FakeSandboxManager) MountCallCount() int {
+	fake.mountMutex.RLock()
+	defer fake.mountMutex.RUnlock()
+	return len(fake.mountArgsForCall)
+}
+
+func (fake *FakeSandboxManager) MountArgsForCall(i int) string {
+	fake.mountMutex.RLock()
+	defer fake.mountMutex.RUnlock()
+	return fake.mountArgsForCall[i].mountPath
+}
+
+func (fake *FakeSandboxManager) MountReturns(result1 error) {
+	fake.MountStub = nil
+	fake.mountReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeSandboxManager) MountReturnsOnCall(i int, result1 error) {
+	fake.MountStub = nil
+	if fake.mountReturnsOnCall == nil {
+		fake.mountReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.mountReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeSandboxManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -178,6 +237,8 @@ func (fake *FakeSandboxManager) Invocations() map[string][][]interface{} {
 	defer fake.deleteMutex.RUnlock()
 	fake.bundlePathMutex.RLock()
 	defer fake.bundlePathMutex.RUnlock()
+	fake.mountMutex.RLock()
+	defer fake.mountMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

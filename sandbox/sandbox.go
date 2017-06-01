@@ -2,9 +2,11 @@ package sandbox
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 
@@ -18,6 +20,13 @@ type SandboxManager interface {
 	Create(rootfs string) error
 	Delete() error
 	BundlePath() string
+	Mount(mountPath string) error
+}
+
+//go:generate counterfeiter . Command
+type Command interface {
+	Run(command string, args ...string) error
+	CombinedOutput(command string, args ...string) ([]byte, error)
 }
 
 type sandboxManager struct {
@@ -25,9 +34,10 @@ type sandboxManager struct {
 	hcsClient  hcsclient.Client
 	id         string
 	driverInfo hcsshim.DriverInfo
+	command    Command
 }
 
-func NewManager(hcsClient hcsclient.Client, bundlePath string) SandboxManager {
+func NewManager(hcsClient hcsclient.Client, command Command, bundlePath string) SandboxManager {
 	driverInfo := hcsshim.DriverInfo{
 		HomeDir: filepath.Dir(bundlePath),
 		Flavour: 1,
@@ -35,6 +45,7 @@ func NewManager(hcsClient hcsclient.Client, bundlePath string) SandboxManager {
 
 	return &sandboxManager{
 		hcsClient:  hcsClient,
+		command:    command,
 		bundlePath: bundlePath,
 		id:         filepath.Base(bundlePath),
 		driverInfo: driverInfo,
@@ -112,4 +123,18 @@ func (s *sandboxManager) Delete() error {
 
 func (s *sandboxManager) BundlePath() string {
 	return s.bundlePath
+}
+
+func (s *sandboxManager) Mount(mountPath string) error {
+	if err := os.Mkdir(mountPath, 0755); err != nil {
+		return err
+	}
+
+	powershellCommand := fmt.Sprintf(`(get-diskimage "%s" | get-disk | get-partition | get-volume).Path`, filepath.Join(s.bundlePath, "sandbox.vhdx"))
+	volumeName, err := s.command.CombinedOutput("powershell.exe", "-Command", powershellCommand)
+	if err != nil {
+		return err
+	}
+
+	return s.command.Run("mountvol", mountPath, strings.TrimSpace(string(volumeName)))
 }

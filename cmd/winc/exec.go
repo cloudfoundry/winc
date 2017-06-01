@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strconv"
 
+	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -70,7 +71,7 @@ following will output a list of processes running in the container:
 
 		containerId := context.Args().First()
 		processConfig := context.String("process")
-		command := context.Args()[1:]
+		args := context.Args()[1:]
 		cwd := context.String("cwd")
 		user := context.String("user")
 		env := context.StringSlice("env")
@@ -80,7 +81,7 @@ following will output a list of processes running in the container:
 		logger := logrus.WithField("containerId", containerId)
 
 		spec, err := ValidateProcess(logger, processConfig, &specs.Process{
-			Args: command,
+			Args: args,
 			Cwd:  cwd,
 			User: specs.User{
 				Username: user,
@@ -94,7 +95,7 @@ following will output a list of processes running in the container:
 		logger.WithFields(logrus.Fields{
 			"processConfig": processConfig,
 			"pidFile":       pidFile,
-			"command":       spec.Args,
+			"args":          spec.Args,
 			"cwd":           spec.Cwd,
 			"user":          spec.User.Username,
 			"env":           env,
@@ -106,7 +107,7 @@ following will output a list of processes running in the container:
 		if err != nil {
 			return err
 		}
-		sm := sandbox.NewManager(&client, cp.Name)
+		sm := sandbox.NewManager(&client, &command.Command{}, cp.Name)
 		cm := container.NewManager(&client, sm, containerId)
 
 		process, err := cm.Exec(spec)

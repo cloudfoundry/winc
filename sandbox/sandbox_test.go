@@ -9,6 +9,7 @@ import (
 
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 
 	. "github.com/onsi/ginkgo"
@@ -25,6 +26,7 @@ var _ = Describe("Sandbox", func() {
 		expectedLayerId      string
 		expectedParentLayer  string
 		expectedParentLayers []byte
+		fakeCommand          *sandboxfakes.FakeCommand
 	)
 
 	BeforeEach(func() {
@@ -36,7 +38,8 @@ var _ = Describe("Sandbox", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		sandboxManager = sandbox.NewManager(hcsClient, bundlePath)
+		fakeCommand = &sandboxfakes.FakeCommand{}
+		sandboxManager = sandbox.NewManager(hcsClient, fakeCommand, bundlePath)
 
 		expectedDriverInfo = hcsshim.DriverInfo{
 			HomeDir: filepath.Dir(bundlePath),
@@ -220,6 +223,29 @@ var _ = Describe("Sandbox", func() {
 				err := sandboxManager.Delete()
 				Expect(err).To(Equal(deactivateLayerError))
 			})
+		})
+	})
+
+	Context("Mount", func() {
+		It("mounts the sandbox.vhdx at the mountPath", func() {
+			volumePath := "some-volume-path\n"
+			fakeCommand.CombinedOutputReturns([]byte(volumePath), nil)
+
+			mountPath := filepath.Join(bundlePath, "mnt")
+			Expect(sandboxManager.Mount(mountPath)).To(Succeed())
+
+			Expect(mountPath).To(BeADirectory())
+			Expect(fakeCommand.CombinedOutputCallCount()).To(Equal(1))
+			volumeCmd, volumeArgs := fakeCommand.CombinedOutputArgsForCall(0)
+			Expect(volumeCmd).To(Equal("powershell.exe"))
+			Expect(volumeArgs[0]).To(Equal("-Command"))
+			Expect(volumeArgs[1]).To(Equal(`(get-diskimage "` + filepath.Join(bundlePath, "sandbox.vhdx") + `" | get-disk | get-partition | get-volume).Path`))
+
+			Expect(fakeCommand.RunCallCount()).To(Equal(1))
+			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
+			Expect(runCmd).To(Equal("mountvol"))
+			Expect(runArgs[0]).To(Equal(mountPath))
+			Expect(runArgs[1]).To(Equal("some-volume-path"))
 		})
 	})
 })

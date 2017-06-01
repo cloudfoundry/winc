@@ -71,6 +71,7 @@ var _ = Describe("Create", func() {
 		)
 
 		BeforeEach(func() {
+			fakeContainer = hcsclientfakes.FakeContainer{}
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
 			hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 			sandboxManager.BundlePathReturns(expectedBundlePath)
@@ -127,6 +128,10 @@ var _ = Describe("Create", func() {
 			}))
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
+
+			Expect(sandboxManager.MountCallCount()).To(Equal(1))
+			mountPath := sandboxManager.MountArgsForCall(0)
+			Expect(mountPath).To(Equal(filepath.Join(expectedBundlePath, "mnt")))
 		})
 
 		Context("when mounts are specified in the spec", func() {
@@ -171,6 +176,18 @@ var _ = Describe("Create", func() {
 
 			It("deletes the sandbox", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when mounting the sandbox.vhdx fails", func() {
+			BeforeEach(func() {
+				sandboxManager.MountReturns(errors.New("couldn't mount"))
+			})
+
+			It("deletes the container and the sandbox", func() {
+				Expect(containerManager.Create(spec)).NotTo(Succeed())
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 			})
 		})

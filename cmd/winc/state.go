@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -35,7 +36,7 @@ instance of a container.`,
 		if err != nil {
 			return err
 		}
-		sm := sandbox.NewManager(&client, cp.Name)
+		sm := sandbox.NewManager(&client, &command.Command{}, cp.Name)
 		cm := container.NewManager(&client, sm, containerId)
 		state, err := cm.State()
 		if err != nil {

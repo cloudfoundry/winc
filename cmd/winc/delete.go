@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -43,7 +44,7 @@ status of "windows01" as "stopped" the following will delete resources held for
 		if err != nil {
 			return err
 		}
-		sm := sandbox.NewManager(&client, cp.Name)
+		sm := sandbox.NewManager(&client, &command.Command{}, cp.Name)
 		cm := container.NewManager(&client, sm, containerId)
 
 		return cm.Delete()

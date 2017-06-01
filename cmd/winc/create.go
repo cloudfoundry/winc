@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -76,7 +77,7 @@ your host.`,
 		}
 
 		client := hcsclient.HCSClient{}
-		sm := sandbox.NewManager(&client, bundlePath)
+		sm := sandbox.NewManager(&client, &command.Command{}, bundlePath)
 		cm := container.NewManager(&client, sm, containerId)
 
 		if err := cm.Create(spec); err != nil {

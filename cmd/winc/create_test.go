@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -34,7 +35,7 @@ var _ = Describe("Create", func() {
 		containerId = filepath.Base(bundlePath)
 
 		client = &hcsclient.HCSClient{}
-		sm := sandbox.NewManager(client, bundlePath)
+		sm := sandbox.NewManager(client, &command.Command{}, bundlePath)
 		cm = container.NewManager(client, sm, containerId)
 
 		bundleSpec = runtimeSpecGenerator(rootfsPath)
@@ -62,8 +63,7 @@ var _ = Describe("Create", func() {
 			Expect(containerExists(containerId)).To(BeTrue())
 
 			sandboxVHDX := filepath.Join(bundlePath, "sandbox.vhdx")
-			_, err = os.Stat(sandboxVHDX)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(sandboxVHDX).To(BeAnExistingFile())
 
 			cmd = exec.Command("powershell", "-Command", "Test-VHD", sandboxVHDX)
 			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
@@ -71,12 +71,10 @@ var _ = Describe("Create", func() {
 			Eventually(session, time.Second*3).Should(gexec.Exit(0))
 
 			sandboxInitialized := filepath.Join(bundlePath, "initialized")
-			_, err = os.Stat(sandboxInitialized)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(sandboxInitialized).To(BeAnExistingFile())
 
 			layerChainPath := filepath.Join(bundlePath, "layerchain.json")
-			_, err = os.Stat(layerChainPath)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(layerChainPath).To(BeAnExistingFile())
 
 			layerChain, err := ioutil.ReadFile(layerChainPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -90,6 +88,21 @@ var _ = Describe("Create", func() {
 			state, err := cm.State()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(state.Pid).ToNot(Equal(-1))
+		})
+
+		It("mounts the sandbox.vhdx at <bundle-dir>\\mnt", func() {
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "mnt", "test.txt"), []byte("contents"), 0644)).To(Succeed())
+			cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", "test.txt")
+			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(session.Out).To(gbytes.Say("contents"))
 		})
 
 		Context("when the bundle path is not provided", func() {

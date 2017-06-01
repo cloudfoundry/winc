@@ -114,8 +114,13 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	err = container.Start()
-	if err != nil {
+	if err := container.Start(); err != nil {
+		_ = c.terminateContainer(container)
+		return err
+	}
+
+	mountPath := filepath.Join(bundlePath, "mnt")
+	if err := c.sandboxManager.Mount(mountPath); err != nil {
 		_ = c.terminateContainer(container)
 		return err
 	}
