@@ -20,7 +20,8 @@ type SandboxManager interface {
 	Create(rootfs string) error
 	Delete() error
 	BundlePath() string
-	Mount(mountPath string) error
+	Mount() error
+	Unmount() error
 }
 
 //go:generate counterfeiter . Command
@@ -125,8 +126,12 @@ func (s *sandboxManager) BundlePath() string {
 	return s.bundlePath
 }
 
-func (s *sandboxManager) Mount(mountPath string) error {
-	if err := os.Mkdir(mountPath, 0755); err != nil {
+func (s *sandboxManager) mountPath() string {
+	return filepath.Join(s.bundlePath, "mnt")
+}
+
+func (s *sandboxManager) Mount() error {
+	if err := os.Mkdir(s.mountPath(), 0755); err != nil {
 		return err
 	}
 
@@ -136,5 +141,13 @@ func (s *sandboxManager) Mount(mountPath string) error {
 		return err
 	}
 
-	return s.command.Run("mountvol", mountPath, strings.TrimSpace(string(volumeName)))
+	return s.command.Run("mountvol", s.mountPath(), strings.TrimSpace(string(volumeName)))
+}
+
+func (s *sandboxManager) Unmount() error {
+	if err := s.command.Run("mountvol", s.mountPath(), "/D"); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(s.mountPath())
 }

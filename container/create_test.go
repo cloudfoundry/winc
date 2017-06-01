@@ -130,8 +130,6 @@ var _ = Describe("Create", func() {
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
 
 			Expect(sandboxManager.MountCallCount()).To(Equal(1))
-			mountPath := sandboxManager.MountArgsForCall(0)
-			Expect(mountPath).To(Equal(filepath.Join(expectedBundlePath, "mnt")))
 		})
 
 		Context("when mounts are specified in the spec", func() {

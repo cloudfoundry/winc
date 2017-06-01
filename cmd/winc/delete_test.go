@@ -49,8 +49,21 @@ var _ = Describe("Delete", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				_, err = os.Stat(bundlePath)
+				Expect(bundlePath).To(BeADirectory())
+			})
+
+			It("unmounts sandbox.vhdx", func() {
+				cmd := exec.Command(wincBin, "delete", containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				mountPath := filepath.Join(bundlePath, "mnt")
+				Expect(mountPath).NotTo(BeADirectory())
+
+				// if not cleanly unmounted, the mount point is left as a symlink
+				_, err = os.Lstat(mountPath)
+				Expect(err).NotTo(BeNil())
 			})
 		})
 	})

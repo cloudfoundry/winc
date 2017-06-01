@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
+	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -110,18 +111,24 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 
 	container, err := c.hcsClient.CreateContainer(c.id, containerConfig)
 	if err != nil {
-		_ = c.sandboxManager.Delete()
+		if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
+			logrus.Error(deleteErr.Error())
+		}
+
 		return err
 	}
 
 	if err := container.Start(); err != nil {
-		_ = c.terminateContainer(container)
+		if terminateErr := c.terminateContainer(container); terminateErr != nil {
+			logrus.Error(terminateErr.Error())
+		}
 		return err
 	}
 
-	mountPath := filepath.Join(bundlePath, "mnt")
-	if err := c.sandboxManager.Mount(mountPath); err != nil {
-		_ = c.terminateContainer(container)
+	if err := c.sandboxManager.Mount(); err != nil {
+		if terminateErr := c.terminateContainer(container); terminateErr != nil {
+			logrus.Error(terminateErr.Error())
+		}
 		return err
 	}
 
@@ -129,12 +136,22 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 }
 
 func (c *containerManager) Delete() error {
+	unmountErr := c.sandboxManager.Unmount()
+	if unmountErr != nil {
+		logrus.Error(unmountErr.Error())
+	}
+
 	container, err := c.hcsClient.OpenContainer(c.id)
 	if err != nil {
 		return err
 	}
 
-	return c.terminateContainer(container)
+	err = c.terminateContainer(container)
+	if err != nil {
+		return err
+	}
+
+	return unmountErr
 }
 
 func (c *containerManager) State() (*specs.State, error) {

@@ -227,13 +227,13 @@ var _ = Describe("Sandbox", func() {
 	})
 
 	Context("Mount", func() {
-		It("mounts the sandbox.vhdx at the mountPath", func() {
+		It("mounts the sandbox.vhdx at <bundle-dir>\\mnt", func() {
 			volumePath := "some-volume-path\n"
 			fakeCommand.CombinedOutputReturns([]byte(volumePath), nil)
 
-			mountPath := filepath.Join(bundlePath, "mnt")
-			Expect(sandboxManager.Mount(mountPath)).To(Succeed())
+			Expect(sandboxManager.Mount()).To(Succeed())
 
+			mountPath := filepath.Join(bundlePath, "mnt")
 			Expect(mountPath).To(BeADirectory())
 			Expect(fakeCommand.CombinedOutputCallCount()).To(Equal(1))
 			volumeCmd, volumeArgs := fakeCommand.CombinedOutputArgsForCall(0)
@@ -246,6 +246,26 @@ var _ = Describe("Sandbox", func() {
 			Expect(runCmd).To(Equal("mountvol"))
 			Expect(runArgs[0]).To(Equal(mountPath))
 			Expect(runArgs[1]).To(Equal("some-volume-path"))
+		})
+	})
+
+	Context("Unmount", func() {
+		var mountPath string
+		BeforeEach(func() {
+			mountPath = filepath.Join(bundlePath, "mnt")
+			Expect(os.MkdirAll(mountPath, 0755)).To(Succeed())
+		})
+
+		It("unmounts the sandbox.vhdx from <bundle-dir>\\mnt and removes the directory", func() {
+			Expect(sandboxManager.Unmount()).To(Succeed())
+
+			Expect(fakeCommand.RunCallCount()).To(Equal(1))
+			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
+			Expect(runCmd).To(Equal("mountvol"))
+			Expect(runArgs[0]).To(Equal(mountPath))
+			Expect(runArgs[1]).To(Equal("/D"))
+
+			Expect(mountPath).NotTo(BeADirectory())
 		})
 	})
 })

@@ -46,6 +46,8 @@ var _ = Describe("Delete", func() {
 		It("deletes it", func() {
 			Expect(containerManager.Delete()).To(Succeed())
 
+			Expect(sandboxManager.UnmountCallCount()).To(Equal(1))
+
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
 
@@ -55,6 +57,26 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.IsPendingArgsForCall(0)).To(BeNil())
 
 			Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+		})
+
+		Context("when unmounting the sandbox fails", func() {
+			BeforeEach(func() {
+				sandboxManager.UnmountReturns(errors.New("unmounting failed"))
+			})
+
+			It("continues deleting the container and returns an error", func() {
+				Expect(containerManager.Delete()).NotTo(Succeed())
+
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+
+				Expect(hcsClient.IsPendingCallCount()).To(Equal(1))
+				Expect(hcsClient.IsPendingArgsForCall(0)).To(BeNil())
+
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+			})
 		})
 
 		Context("when terminating the container does not immediately succeed", func() {
