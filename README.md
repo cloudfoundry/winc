@@ -12,9 +12,11 @@
 * [Install mingw-w64](https://sourceforge.net/projects/mingw-w64/)
   * Select `x86_64` as the target architecture
   * After install, ensure that `gcc.exe` is in your `PATH`
-* Open a new `powershell` instance
 * `go get code.cloudfoundry.org/winc/...`
-  * `winc.exe` will be in `$env:GOBIN` or `$env:GOPATH\bin`
+  * `winc.exe` will be in your `GOBIN` or `GOPATH\bin`
+* To build after you have already cloned the repository:
+  * `cd $GOPATH/src/code.cloudfoundry.org/winc`
+  * `go build ./cmd/winc`
 
 ## Testing
 
