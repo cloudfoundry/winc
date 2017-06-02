@@ -30,7 +30,6 @@ var _ = Describe("Create", func() {
 		hcsClient            *hcsclientfakes.FakeClient
 		sandboxManager       *sandboxfakes.FakeSandboxManager
 		containerManager     container.ContainerManager
-		expectedQuery        hcsshim.ComputeSystemQuery
 		spec                 *specs.Spec
 	)
 
@@ -44,10 +43,6 @@ var _ = Describe("Create", func() {
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
 
-		expectedQuery = hcsshim.ComputeSystemQuery{
-			IDs:    []string{expectedContainerId},
-			Owners: []string{"winc"},
-		}
 		expectedParentLayers = []byte(`["path1", "path2"]`)
 
 		Expect(err).ToNot(HaveOccurred())
@@ -154,6 +149,31 @@ var _ = Describe("Create", func() {
 				containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
 				Expect(containerId).To(Equal(expectedContainerId))
 				Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+			})
+		})
+
+		Context("when memory limits are specified in the spec", func() {
+			var expectedMemoryMaxinMB uint64
+
+			BeforeEach(func() {
+				expectedMemoryMaxinMB = uint64(64)
+				expectedMemoryMaxinBytes := expectedMemoryMaxinMB * 1024 * 1024
+				spec.Windows = &specs.Windows{
+					Resources: &specs.WindowsResources{
+						Memory: &specs.WindowsMemoryResources{
+							Limit: &expectedMemoryMaxinBytes,
+						},
+					},
+				}
+
+			})
+
+			It("creates the container with the specified mounts", func() {
+				Expect(containerManager.Create(spec)).To(Succeed())
+
+				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+				Expect(containerConfig.MemoryMaximumInMB).To(Equal(int64(expectedMemoryMaxinMB)))
 			})
 		})
 

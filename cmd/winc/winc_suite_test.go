@@ -6,7 +6,10 @@ import (
 	"runtime"
 	"time"
 
+	"code.cloudfoundry.org/winc/hcsclient"
+
 	"github.com/Microsoft/hcsshim"
+	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -96,4 +99,49 @@ func containerExists(containerId string) bool {
 	containers, err := hcsshim.GetContainers(query)
 	Expect(err).ToNot(HaveOccurred())
 	return len(containers) > 0
+}
+
+func containerProcesses(client hcsclient.Client, containerId, filter string) []hcsshim.ProcessListItem {
+	container, err := client.OpenContainer(containerId)
+	Expect(err).To(Succeed())
+
+	pl, err := container.ProcessList()
+	Expect(err).To(Succeed())
+
+	if filter != "" {
+		var filteredPL []hcsshim.ProcessListItem
+		for _, v := range pl {
+			if v.ImageName == filter {
+				filteredPL = append(filteredPL, v)
+			}
+		}
+
+		return filteredPL
+	}
+
+	return pl
+}
+
+func isParentOf(parentPid, childPid int) bool {
+	var (
+		process ps.Process
+		err     error
+	)
+
+	var foundParent bool
+	for {
+		process, err = ps.FindProcess(childPid)
+		Expect(err).To(Succeed())
+
+		if process == nil {
+			break
+		}
+		if process.PPid() == parentPid {
+			foundParent = true
+			break
+		}
+		childPid = process.PPid()
+	}
+
+	return foundParent
 }

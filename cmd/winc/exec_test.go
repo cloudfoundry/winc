@@ -14,8 +14,6 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
-	"github.com/Microsoft/hcsshim"
-	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -28,51 +26,6 @@ var _ = Describe("Exec", func() {
 		cm          container.ContainerManager
 		client      hcsclient.HCSClient
 	)
-
-	containerProcesses := func(containerId, filter string) []hcsshim.ProcessListItem {
-		container, err := client.OpenContainer(containerId)
-		Expect(err).To(Succeed())
-
-		pl, err := container.ProcessList()
-		Expect(err).To(Succeed())
-
-		if filter != "" {
-			var filteredPL []hcsshim.ProcessListItem
-			for _, v := range pl {
-				if v.ImageName == filter {
-					filteredPL = append(filteredPL, v)
-				}
-			}
-
-			return filteredPL
-		}
-
-		return pl
-	}
-
-	isParentOf := func(parentPid, childPid int) bool {
-		var (
-			process ps.Process
-			err     error
-		)
-
-		var foundParent bool
-		for {
-			process, err = ps.FindProcess(childPid)
-			Expect(err).To(Succeed())
-
-			if process == nil {
-				break
-			}
-			if process.PPid() == parentPid {
-				foundParent = true
-				break
-			}
-			childPid = process.PPid()
-		}
-
-		return foundParent
-	}
 
 	sendCtrlBreak := func(s *gexec.Session) {
 		d, err := syscall.LoadDLL("kernel32.dll")
@@ -95,7 +48,7 @@ var _ = Describe("Exec", func() {
 		BeforeEach(func() {
 			bundleSpec := runtimeSpecGenerator(rootfsPath)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
-			pl := containerProcesses(containerId, "powershell.exe")
+			pl := containerProcesses(&client, containerId, "powershell.exe")
 			Expect(pl).To(BeEmpty())
 		})
 
@@ -109,7 +62,7 @@ var _ = Describe("Exec", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
 
-			pl := containerProcesses(containerId, "powershell.exe")
+			pl := containerProcesses(&client, containerId, "powershell.exe")
 			Expect(len(pl)).To(Equal(1))
 
 			state, err := cm.State()
@@ -147,7 +100,7 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				pl := containerProcesses(containerId, "powershell.exe")
+				pl := containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				state, err := cm.State()
@@ -229,7 +182,7 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				pl := containerProcesses(containerId, "powershell.exe")
+				pl := containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				state, err := cm.State()
@@ -245,7 +198,7 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(5))
 
-				pl := containerProcesses(containerId, "powershell.exe")
+				pl := containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(0))
 			})
 
@@ -274,12 +227,12 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Consistently(session).ShouldNot(gexec.Exit(0))
 				Expect(session.Out).To(gbytes.Say("hey-winc"))
-				pl := containerProcesses(containerId, "powershell.exe")
+				pl := containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				sendCtrlBreak(session)
 				Eventually(session).Should(gexec.Exit(1067))
-				pl = containerProcesses(containerId, "powershell.exe")
+				pl = containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(0))
 			})
 		})
@@ -304,7 +257,7 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				pl := containerProcesses(containerId, "powershell.exe")
+				pl := containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				pidBytes, err := ioutil.ReadFile(pidFile)

@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -227,6 +228,38 @@ var _ = Describe("Create", func() {
 				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
+			})
+		})
+
+		Context("when the bundle config.json specifies a container memory limit", func() {
+			var memLimitMB = uint64(128)
+
+			BeforeEach(func() {
+				memLimitBytes := memLimitMB * 1024 * 1024
+				bundleSpec.Windows = &specs.Windows{
+					Resources: &specs.WindowsResources{
+						Memory: &specs.WindowsMemoryResources{
+							Limit: &memLimitBytes,
+						},
+					},
+				}
+			})
+
+			It("the container memory is constrained by that limit", func() {
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				grabMemory := func(mem int, exitCode int) *gbytes.Buffer {
+					cmd = exec.Command(wincBin, "exec", containerId, "powershell", fmt.Sprintf("$memstress = @(); $memstress += 'a' * %dMB", mem))
+					session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session).Should(gexec.Exit(exitCode))
+					return session.Err
+				}
+				Consistently(grabMemory(24, 0).Contents()).Should(BeEmpty())
+				Consistently(grabMemory(int(memLimitMB), 1)).Should(gbytes.Say("Exception of type 'System.OutOfMemoryException' was thrown"))
 			})
 		})
 	})

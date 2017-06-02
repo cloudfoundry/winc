@@ -109,6 +109,17 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		MappedDirectories: mappedDirs,
 	}
 
+	if spec.Windows != nil {
+		if spec.Windows.Resources != nil {
+			if spec.Windows.Resources.Memory != nil {
+				if spec.Windows.Resources.Memory.Limit != nil {
+					memBytes := *spec.Windows.Resources.Memory.Limit
+					containerConfig.MemoryMaximumInMB = int64(memBytes/1024/1024)
+				}
+			}
+		}
+	}
+
 	container, err := c.hcsClient.CreateContainer(c.id, containerConfig)
 	if err != nil {
 		if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
