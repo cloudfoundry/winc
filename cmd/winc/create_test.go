@@ -229,6 +229,47 @@ var _ = Describe("Create", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
 			})
+
+			Context("when a file is supplied as a mount", func() {
+				var (
+					logFile   string
+					mountFile string
+				)
+
+				BeforeEach(func() {
+					l, err := ioutil.TempFile("", "winc.log")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(l.Close()).To(Succeed())
+					logFile = l.Name()
+
+					m, err := ioutil.TempFile("", "mountfile")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(m.Close()).To(Succeed())
+					mountFile = m.Name()
+
+					bundleSpec.Mounts = append(bundleSpec.Mounts, specs.Mount{
+						Source:      mountFile,
+						Destination: "C:\\foobar",
+					})
+				})
+
+				AfterEach(func() {
+					Expect(os.RemoveAll(logFile)).To(Succeed())
+					Expect(os.RemoveAll(mountFile)).To(Succeed())
+				})
+
+				It("ignores it and logs that it did so", func() {
+					cmd := exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId)
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session).Should(gexec.Exit(0))
+
+					contents, err := ioutil.ReadFile(logFile)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(string(contents)).To(ContainSubstring("mount is not a directory, ignoring"))
+					Expect(string(contents)).To(ContainSubstring(fmt.Sprintf("mount=\"%s\"", mountFile)))
+				})
+			})
 		})
 
 		Context("when the bundle config.json specifies a container memory limit", func() {

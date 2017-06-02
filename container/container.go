@@ -3,6 +3,7 @@ package container
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -92,6 +93,18 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 
 	mappedDirs := []hcsshim.MappedDir{}
 	for _, d := range spec.Mounts {
+		fileInfo, err := os.Stat(d.Source)
+		if err != nil {
+			if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
+				logrus.Error(deleteErr.Error())
+			}
+			return err
+		}
+		if !fileInfo.IsDir() {
+			logrus.WithField("mount", d.Source).Error("mount is not a directory, ignoring")
+			continue
+		}
+
 		mappedDirs = append(mappedDirs, hcsshim.MappedDir{
 			HostPath:      d.Source,
 			ContainerPath: d.Destination,
@@ -114,7 +127,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 			if spec.Windows.Resources.Memory != nil {
 				if spec.Windows.Resources.Memory.Limit != nil {
 					memBytes := *spec.Windows.Resources.Memory.Limit
-					containerConfig.MemoryMaximumInMB = int64(memBytes/1024/1024)
+					containerConfig.MemoryMaximumInMB = int64(memBytes / 1024 / 1024)
 				}
 			}
 		}

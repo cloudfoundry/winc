@@ -128,18 +128,27 @@ var _ = Describe("Create", func() {
 		})
 
 		Context("when mounts are specified in the spec", func() {
-			var expectedMappedDirs []hcsshim.MappedDir
+			var (
+				expectedMappedDirs []hcsshim.MappedDir
+				mount              string
+			)
 
 			BeforeEach(func() {
+				var err error
+				mount, err = ioutil.TempDir("", "mountdir")
+				Expect(err).ToNot(HaveOccurred())
+
 				spec.Mounts = []specs.Mount{
-					{Source: "foo", Destination: "bar"},
-					{Source: "baz", Destination: "zoo"},
+					{Source: mount, Destination: "bar"},
 				}
 
 				expectedMappedDirs = []hcsshim.MappedDir{
-					{HostPath: "foo", ContainerPath: "bar", ReadOnly: true},
-					{HostPath: "baz", ContainerPath: "zoo", ReadOnly: true},
+					{HostPath: mount, ContainerPath: "bar", ReadOnly: true},
 				}
+			})
+
+			AfterEach(func() {
+				Expect(os.RemoveAll(mount)).To(Succeed())
 			})
 
 			It("creates the container with the specified mounts", func() {
@@ -149,6 +158,47 @@ var _ = Describe("Create", func() {
 				containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
 				Expect(containerId).To(Equal(expectedContainerId))
 				Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+			})
+
+			Context("when the mount does not exist", func() {
+				BeforeEach(func() {
+					Expect(os.RemoveAll(mount)).To(Succeed())
+				})
+
+				It("errors and removes the sandbox", func() {
+					err := containerManager.Create(spec)
+					Expect(os.IsNotExist(err)).To(BeTrue())
+					Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("when a file is specified as a mount", func() {
+				var mountFile string
+
+				BeforeEach(func() {
+					m, err := ioutil.TempFile("", "mountfile")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(m.Close()).To(Succeed())
+					mountFile = m.Name()
+
+					spec.Mounts = append(spec.Mounts, specs.Mount{
+						Source:      mountFile,
+						Destination: "foo",
+					})
+				})
+
+				AfterEach(func() {
+					Expect(os.RemoveAll(mountFile)).To(Succeed())
+				})
+
+				It("ignores it", func() {
+					Expect(containerManager.Create(spec)).To(Succeed())
+
+					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+					containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(containerId).To(Equal(expectedContainerId))
+					Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+				})
 			})
 		})
 
@@ -165,10 +215,9 @@ var _ = Describe("Create", func() {
 						},
 					},
 				}
-
 			})
 
-			It("creates the container with the specified mounts", func() {
+			It("creates the container with the specified memory limits", func() {
 				Expect(containerManager.Create(spec)).To(Succeed())
 
 				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
