@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
@@ -53,16 +54,21 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("unmounts sandbox.vhdx", func() {
+				state, err := cm.State()
+				Expect(err).NotTo(HaveOccurred())
+				rootPath := filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root")
+				_, err = os.Lstat(rootPath)
+				Expect(err).NotTo(HaveOccurred())
+
 				cmd := exec.Command(wincBin, "delete", containerId)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				mountPath := filepath.Join(bundlePath, "mnt")
-				Expect(mountPath).NotTo(BeADirectory())
+				Expect(rootPath).NotTo(BeADirectory())
 
 				// if not cleanly unmounted, the mount point is left as a symlink
-				_, err = os.Lstat(mountPath)
+				_, err = os.Lstat(rootPath)
 				Expect(err).NotTo(BeNil())
 			})
 		})

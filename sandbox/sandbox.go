@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -20,8 +21,8 @@ type SandboxManager interface {
 	Create(rootfs string) error
 	Delete() error
 	BundlePath() string
-	Mount() error
-	Unmount() error
+	Mount(pid int) error
+	Unmount(pid int) error
 }
 
 //go:generate counterfeiter . Command
@@ -126,12 +127,16 @@ func (s *sandboxManager) BundlePath() string {
 	return s.bundlePath
 }
 
-func (s *sandboxManager) mountPath() string {
-	return filepath.Join(s.bundlePath, "mnt")
+func (s *sandboxManager) mountPath(pid int) string {
+	return filepath.Join("c:\\", "proc", strconv.Itoa(pid))
 }
 
-func (s *sandboxManager) Mount() error {
-	if err := os.Mkdir(s.mountPath(), 0755); err != nil {
+func (s *sandboxManager) rootPath(pid int) string {
+	return filepath.Join(s.mountPath(pid), "root")
+}
+
+func (s *sandboxManager) Mount(pid int) error {
+	if err := os.MkdirAll(s.rootPath(pid), 0755); err != nil {
 		return err
 	}
 
@@ -141,13 +146,13 @@ func (s *sandboxManager) Mount() error {
 		return err
 	}
 
-	return s.command.Run("mountvol", s.mountPath(), strings.TrimSpace(string(volumeName)))
+	return s.command.Run("mountvol", s.rootPath(pid), strings.TrimSpace(string(volumeName)))
 }
 
-func (s *sandboxManager) Unmount() error {
-	if err := s.command.Run("mountvol", s.mountPath(), "/D"); err != nil {
+func (s *sandboxManager) Unmount(pid int) error {
+	if err := s.command.Run("mountvol", s.rootPath(pid), "/D"); err != nil {
 		return err
 	}
 
-	return os.RemoveAll(s.mountPath())
+	return os.RemoveAll(s.mountPath(pid))
 }

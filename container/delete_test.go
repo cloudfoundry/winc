@@ -39,7 +39,12 @@ var _ = Describe("Delete", func() {
 	})
 
 	Context("when the specified container is not running", func() {
+		var pid int
 		BeforeEach(func() {
+			pid = 42
+			fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
+			}, nil)
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
 		})
 
@@ -47,8 +52,9 @@ var _ = Describe("Delete", func() {
 			Expect(containerManager.Delete()).To(Succeed())
 
 			Expect(sandboxManager.UnmountCallCount()).To(Equal(1))
+			Expect(sandboxManager.UnmountArgsForCall(0)).To(Equal(pid))
 
-			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
 
 			Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
@@ -67,7 +73,7 @@ var _ = Describe("Delete", func() {
 			It("continues deleting the container and returns an error", func() {
 				Expect(containerManager.Delete()).NotTo(Succeed())
 
-				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
 
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))

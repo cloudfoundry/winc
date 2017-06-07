@@ -3,6 +3,7 @@ package sandbox_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -227,14 +228,15 @@ var _ = Describe("Sandbox", func() {
 	})
 
 	Context("Mount", func() {
-		It("mounts the sandbox.vhdx at <bundle-dir>\\mnt", func() {
+		It("mounts the sandbox.vhdx at C:\\proc\\{{pid}}\\root", func() {
 			volumePath := "some-volume-path\n"
 			fakeCommand.CombinedOutputReturns([]byte(volumePath), nil)
 
-			Expect(sandboxManager.Mount()).To(Succeed())
+			pid := 42
+			Expect(sandboxManager.Mount(pid)).To(Succeed())
 
-			mountPath := filepath.Join(bundlePath, "mnt")
-			Expect(mountPath).To(BeADirectory())
+			rootPath := filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid), "root")
+			Expect(rootPath).To(BeADirectory())
 			Expect(fakeCommand.CombinedOutputCallCount()).To(Equal(1))
 			volumeCmd, volumeArgs := fakeCommand.CombinedOutputArgsForCall(0)
 			Expect(volumeCmd).To(Equal("powershell.exe"))
@@ -244,25 +246,30 @@ var _ = Describe("Sandbox", func() {
 			Expect(fakeCommand.RunCallCount()).To(Equal(1))
 			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
 			Expect(runCmd).To(Equal("mountvol"))
-			Expect(runArgs[0]).To(Equal(mountPath))
+			Expect(runArgs[0]).To(Equal(rootPath))
 			Expect(runArgs[1]).To(Equal("some-volume-path"))
 		})
 	})
 
 	Context("Unmount", func() {
+		var pid int
 		var mountPath string
+		var rootPath string
+
 		BeforeEach(func() {
-			mountPath = filepath.Join(bundlePath, "mnt")
-			Expect(os.MkdirAll(mountPath, 0755)).To(Succeed())
+			pid = 42
+			mountPath = filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid))
+			rootPath = filepath.Join(mountPath, "root")
+			Expect(os.MkdirAll(rootPath, 0755)).To(Succeed())
 		})
 
-		It("unmounts the sandbox.vhdx from <bundle-dir>\\mnt and removes the directory", func() {
-			Expect(sandboxManager.Unmount()).To(Succeed())
+		It("unmounts the sandbox.vhdx from c:\\proc\\<pid>\\mnt and removes the directory", func() {
+			Expect(sandboxManager.Unmount(pid)).To(Succeed())
 
 			Expect(fakeCommand.RunCallCount()).To(Equal(1))
 			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
 			Expect(runCmd).To(Equal("mountvol"))
-			Expect(runArgs[0]).To(Equal(mountPath))
+			Expect(runArgs[0]).To(Equal(rootPath))
 			Expect(runArgs[1]).To(Equal("/D"))
 
 			Expect(mountPath).NotTo(BeADirectory())

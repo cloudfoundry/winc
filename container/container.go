@@ -149,7 +149,15 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	if err := c.sandboxManager.Mount(); err != nil {
+	pid, err := c.containerPid(c.id)
+	if err != nil {
+		if terminateErr := c.terminateContainer(container); terminateErr != nil {
+			logrus.Error(terminateErr.Error())
+		}
+		return err
+	}
+
+	if err := c.sandboxManager.Mount(pid); err != nil {
 		if terminateErr := c.terminateContainer(container); terminateErr != nil {
 			logrus.Error(terminateErr.Error())
 		}
@@ -160,7 +168,12 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 }
 
 func (c *containerManager) Delete() error {
-	unmountErr := c.sandboxManager.Unmount()
+	pid, err := c.containerPid(c.id)
+	if err != nil {
+		return err
+	}
+
+	unmountErr := c.sandboxManager.Unmount(pid)
 	if unmountErr != nil {
 		logrus.Error(unmountErr.Error())
 	}

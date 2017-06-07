@@ -41,7 +41,7 @@ func TestWinc(t *testing.T) {
 		)
 
 		rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
-		Expect(present).To(BeTrue())
+		Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 		wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 		Expect(err).ToNot(HaveOccurred())
 	})

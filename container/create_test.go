@@ -85,9 +85,15 @@ var _ = Describe("Create", func() {
 			}
 
 			hcsClient.CreateContainerReturns(&fakeContainer, nil)
+			hcsClient.OpenContainerReturns(&fakeContainer, nil)
 		})
 
 		It("creates and starts it", func() {
+			pid := 42
+			fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
+			}, nil)
+
 			Expect(containerManager.Create(spec)).To(Succeed())
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
@@ -125,6 +131,7 @@ var _ = Describe("Create", func() {
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
 
 			Expect(sandboxManager.MountCallCount()).To(Equal(1))
+			Expect(sandboxManager.MountArgsForCall(0)).To(Equal(pid))
 		})
 
 		Context("when mounts are specified in the spec", func() {
@@ -262,6 +269,18 @@ var _ = Describe("Create", func() {
 		Context("when container Start fails", func() {
 			BeforeEach(func() {
 				fakeContainer.StartReturns(errors.New("couldn't start"))
+			})
+
+			It("deletes the container and the sandbox", func() {
+				Expect(containerManager.Create(spec)).NotTo(Succeed())
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when getting container pid fails", func() {
+			BeforeEach(func() {
+				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
 			})
 
 			It("deletes the container and the sandbox", func() {

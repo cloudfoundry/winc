@@ -91,13 +91,16 @@ var _ = Describe("Create", func() {
 			Expect(state.Pid).ToNot(Equal(-1))
 		})
 
-		It("mounts the sandbox.vhdx at <bundle-dir>\\mnt", func() {
+		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
 
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "mnt", "test.txt"), []byte("contents"), 0644)).To(Succeed())
+			state, err := cm.State()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
 			cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", "test.txt")
 			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
