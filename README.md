@@ -1,28 +1,36 @@
 # winc
 
-## Introduction
-
 `winc` is a CLI tool for spawning and running containers on Windows according to the OCI specification.
 
 ## Building
 
-* Install [Golang 1.8](https://golang.org/dl/)
+### Requirements
+
+* [Golang 1.8](https://golang.org/dl/)
   * Make sure you have set a `GOPATH`
-* Install [git](https://git-for-windows.github.io/)
-* [Install mingw-w64](https://sourceforge.net/projects/mingw-w64/)
+* [Git](https://git-for-windows.github.io/)
+* [mingw-w64](https://sourceforge.net/projects/mingw-w64/)
   * Select `x86_64` as the target architecture
   * After install, ensure that `gcc.exe` is in your `PATH`
-* `go get code.cloudfoundry.org/winc/...`
-  * `winc.exe` will be in your `GOBIN` or `GOPATH\bin`
-* To build after you have already cloned the repository:
-  * `cd $GOPATH/src/code.cloudfoundry.org/winc`
-  * `go build ./cmd/winc`
+
+To clone and build `winc.exe`:
+
+```
+go get -d code.cloudfoundry.org/winc/...
+cd $GOPATH/src/code.cloudfoundry.org/winc
+./scripts/build.ps1
+```
 
 ## Testing
 
-* Install [Ginkgo](https://onsi.github.io/ginkgo/)
-  * `go get github.com/onsi/ginkgo/...`
-* Set the `WINC_TEST_ROOTFS` environment variable to the path to a container image
-  * e.g. in `powershell` to test with the `microsoft/windowsservercore` Docker image: `$env:WINC_TEST_ROOTFS = (docker inspect microsoft/windowsservercore | ConvertFrom-Json).GraphDriver.Data.Dir`
-* `cd $GOPATH/src/code.cloudfoundry.org/winc`
-* `ginkgo -r -race -keepGoing`
+Set the `WINC_TEST_ROOTFS` environment variable to the path to a container image, e.g. in `powershell` to test with the `microsoft/windowsservercore` Docker image:
+
+`$env:WINC_TEST_ROOTFS = (docker inspect microsoft/windowsservercore | ConvertFrom-Json).GraphDriver.Data.Dir`
+
+To install [Ginkgo](https://onsi.github.io/ginkgo/
+) and run the tests:
+```
+go get github.com/onsi/ginkgo/...
+cd $GOPATH/src/code.cloudfoundry.org/winc
+ginkgo -r -race -keepGoing
+```

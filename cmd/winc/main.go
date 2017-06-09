@@ -5,8 +5,10 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
 )
 
@@ -22,10 +24,28 @@ implementation of the Open Container Initiative specification.`
 	maxArgs
 )
 
+// version will be populated by the build flags, read from
+// VERSION file of the source code.
+var version = ""
+
+// gitCommit will be the hash that the binary was built from
+// and will be populated by the build flags
+var gitCommit = ""
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "winc.exe"
 	app.Usage = usage
+
+	var v []string
+	if version != "" {
+		v = append(v, version)
+	}
+	if gitCommit != "" {
+		v = append(v, fmt.Sprintf("commit: %s", gitCommit))
+	}
+	v = append(v, fmt.Sprintf("spec: %s", specs.Version))
+	app.Version = strings.Join(v, "\n")
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
