@@ -137,6 +137,7 @@ var _ = Describe("Validate", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f.Close()).To(Succeed())
 			processConfig = f.Name()
+			processConfigOverrides = &specs.Process{}
 		})
 
 		AfterEach(func() {
