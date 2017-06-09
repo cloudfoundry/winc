@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
@@ -69,7 +68,7 @@ var _ = Describe("Create", func() {
 			cmd = exec.Command("powershell", "-Command", "Test-VHD", sandboxVHDX)
 			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(session, time.Second*3).Should(gexec.Exit(0))
+			Eventually(session).Should(gexec.Exit(0))
 
 			sandboxInitialized := filepath.Join(bundlePath, "initialized")
 			Expect(sandboxInitialized).To(BeAnExistingFile())
