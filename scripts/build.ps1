@@ -1,15 +1,12 @@
 $CommitSha = (git rev-parse HEAD)
 if ($LASTEXITCODE -ne 0) {
-  $CommitSha = ""
-}
-$Commit = "$CommitSha-dirty"
-$changes = (git status --porcelain --untracked-files=no)
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "Command 'git status --porcelain --untracked-files=no' failed with exit code: $LASTEXITCODE"
+  Write-Host "Command 'git rev-parse HEAD' failed with exit code: $LASTEXITCODE"
   Exit 1
 }
-if ($changes -eq "") {
-  $Commit = $CommitSha
+$Commit = $CommitSha
+git diff --exit-code --quiet
+if ($LASTEXITCODE -ne 0) {
+  $Commit = "$CommitSha-dirty"
 }
 
 $Version = (Get-Content VERSION)
