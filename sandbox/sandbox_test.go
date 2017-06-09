@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 
@@ -232,7 +233,7 @@ var _ = Describe("Sandbox", func() {
 			volumePath := "some-volume-path\n"
 			fakeCommand.CombinedOutputReturns([]byte(volumePath), nil)
 
-			pid := 42
+			pid := rand.Int()
 			Expect(sandboxManager.Mount(pid)).To(Succeed())
 
 			rootPath := filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid), "root")
@@ -257,7 +258,7 @@ var _ = Describe("Sandbox", func() {
 		var rootPath string
 
 		BeforeEach(func() {
-			pid = 42
+			pid = rand.Int()
 			mountPath = filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid))
 			rootPath = filepath.Join(mountPath, "root")
 			Expect(os.MkdirAll(rootPath, 0755)).To(Succeed())
