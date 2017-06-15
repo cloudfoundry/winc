@@ -1,7 +1,6 @@
 package sandbox_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -20,15 +19,14 @@ import (
 
 var _ = Describe("Sandbox", func() {
 	var (
-		bundlePath           string
-		rootfs               string
-		hcsClient            *hcsclientfakes.FakeClient
-		sandboxManager       sandbox.SandboxManager
-		expectedDriverInfo   hcsshim.DriverInfo
-		expectedLayerId      string
-		expectedParentLayer  string
-		expectedParentLayers []byte
-		fakeCommand          *sandboxfakes.FakeCommand
+		bundlePath         string
+		rootfs             string
+		hcsClient          *hcsclientfakes.FakeClient
+		sandboxManager     sandbox.SandboxManager
+		expectedDriverInfo hcsshim.DriverInfo
+		expectedLayerId    string
+		rootfsParents      []byte
+		fakeCommand        *sandboxfakes.FakeCommand
 	)
 
 	BeforeEach(func() {
@@ -48,12 +46,11 @@ var _ = Describe("Sandbox", func() {
 			Flavour: 1,
 		}
 		expectedLayerId = filepath.Base(bundlePath)
-		expectedParentLayer = "path1"
-		expectedParentLayers = []byte(`["path1", "path2"]`)
+		rootfsParents = []byte(`["path1", "path2"]`)
 	})
 
 	JustBeforeEach(func() {
-		Expect(ioutil.WriteFile(filepath.Join(rootfs, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
+		Expect(ioutil.WriteFile(filepath.Join(rootfs, "layerchain.json"), rootfsParents, 0755)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -67,15 +64,13 @@ var _ = Describe("Sandbox", func() {
 				err := sandboxManager.Create(rootfs)
 				Expect(err).ToNot(HaveOccurred())
 
-				var expectedLayers []string
-				err = json.Unmarshal(expectedParentLayers, &expectedLayers)
-				Expect(err).ToNot(HaveOccurred())
+				expectedLayers := []string{rootfs, "path1", "path2"}
 
 				Expect(hcsClient.CreateSandboxLayerCallCount()).To(Equal(1))
 				driverInfo, layerId, parentLayer, parentLayers := hcsClient.CreateSandboxLayerArgsForCall(0)
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
 				Expect(layerId).To(Equal(expectedLayerId))
-				Expect(parentLayer).To(Equal(expectedParentLayer))
+				Expect(parentLayer).To(Equal(rootfs))
 				Expect(parentLayers).To(Equal(expectedLayers))
 
 				Expect(hcsClient.ActivateLayerCallCount()).To(Equal(1))
@@ -150,7 +145,7 @@ var _ = Describe("Sandbox", func() {
 
 		Context("when the rootfs has a layerchain.json that is invalid JSON", func() {
 			BeforeEach(func() {
-				expectedParentLayers = []byte("[")
+				rootfsParents = []byte("[")
 			})
 
 			It("errors", func() {

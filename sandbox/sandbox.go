@@ -78,8 +78,9 @@ func (s *sandboxManager) Create(rootfs string) error {
 	if err := json.Unmarshal(parentLayerChain, &parentLayers); err != nil {
 		return &InvalidRootfsLayerChainError{Msg: rootfs}
 	}
+	sandboxLayers := append([]string{rootfs}, parentLayers...)
 
-	if err := s.hcsClient.CreateSandboxLayer(s.driverInfo, s.id, parentLayers[0], parentLayers); err != nil {
+	if err := s.hcsClient.CreateSandboxLayer(s.driverInfo, s.id, rootfs, sandboxLayers); err != nil {
 		return err
 	}
 
@@ -87,11 +88,10 @@ func (s *sandboxManager) Create(rootfs string) error {
 		return err
 	}
 
-	if err := s.hcsClient.PrepareLayer(s.driverInfo, s.id, parentLayers); err != nil {
+	if err := s.hcsClient.PrepareLayer(s.driverInfo, s.id, sandboxLayers); err != nil {
 		return err
 	}
 
-	sandboxLayers := append([]string{rootfs}, parentLayers...)
 	sandboxLayerChain, err := json.Marshal(sandboxLayers)
 	if err != nil {
 		return err

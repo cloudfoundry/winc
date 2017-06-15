@@ -1,0 +1,2 @@
+FROM microsoft/windowsservercore
+RUN powershell.exe -Command Set-Content -Value 'hello from a text file' -Path C:\\hello.txt

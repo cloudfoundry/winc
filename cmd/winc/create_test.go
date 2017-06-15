@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
@@ -360,4 +362,42 @@ var _ = Describe("Create", func() {
 			Expect(containerExists(containerId)).To(BeFalse())
 		})
 	})
+
+	Context("when using a custom rootfs", func() {
+		var generatedTag string
+
+		BeforeEach(func() {
+			generatedTag = fmt.Sprintf("tag-%d", rand.Int())
+			err := exec.Command("docker", "build", "-t", generatedTag, "-f", "fixtures\\Dockerfile.custom", "fixtures").Run()
+			Expect(err).To(Succeed())
+
+			dockerCmd := fmt.Sprintf("(docker inspect %s | ConvertFrom-Json).GraphDriver.Data.Dir", generatedTag)
+			customRootfsPath, err := exec.Command("powershell.exe", dockerCmd).CombinedOutput()
+			Expect(err).To(Succeed())
+
+			bundleSpec = runtimeSpecGenerator(strings.TrimSpace(string(customRootfsPath)))
+		})
+
+		It("should find hello.txt in custom rootfs", func() {
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			Expect(containerExists(containerId)).To(BeTrue())
+
+			cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Get-Content C:\\hello.txt")
+			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+			Expect(session.Out).To(gbytes.Say("hello from a text file"))
+		})
+
+		AfterEach(func() {
+			Expect(cm.Delete()).To(Succeed())
+			err := exec.Command("docker", "rmi", generatedTag).Run()
+			Expect(err).To(Succeed())
+		})
+	})
+
 })
