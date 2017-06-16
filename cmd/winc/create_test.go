@@ -401,6 +401,7 @@ var _ = Describe("Create", func() {
 		})
 
 		It("should find hello.txt in custom rootfs", func() {
+			Skip("Waiting for a new GCP stemcell that can docker build")
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
