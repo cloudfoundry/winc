@@ -107,7 +107,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 
 		mappedDirs = append(mappedDirs, hcsshim.MappedDir{
 			HostPath:      d.Source,
-			ContainerPath: d.Destination,
+			ContainerPath: destToWindowsPath(d.Destination),
 			ReadOnly:      true,
 		})
 	}
@@ -289,4 +289,12 @@ func (c *containerManager) terminateContainer(container hcsshim.Container) error
 	}
 
 	return nil
+}
+
+func destToWindowsPath(input string) string {
+	vol := filepath.VolumeName(input)
+	if vol == "" {
+		input = filepath.Join("C:", input)
+	}
+	return filepath.Clean(input)
 }

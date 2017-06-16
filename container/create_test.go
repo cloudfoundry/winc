@@ -146,11 +146,11 @@ var _ = Describe("Create", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				spec.Mounts = []specs.Mount{
-					{Source: mount, Destination: "bar"},
+					{Source: mount, Destination: "/bar"},
 				}
 
 				expectedMappedDirs = []hcsshim.MappedDir{
-					{HostPath: mount, ContainerPath: "bar", ReadOnly: true},
+					{HostPath: mount, ContainerPath: "C:\\bar", ReadOnly: true},
 				}
 			})
 

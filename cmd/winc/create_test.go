@@ -234,6 +234,28 @@ var _ = Describe("Create", func() {
 				Eventually(session).Should(gexec.Exit(1))
 			})
 
+			Context("when the destination is /tmp/", func() {
+				BeforeEach(func() {
+					mountDest = "/tmp/mountdest"
+
+					mount := specs.Mount{Destination: mountDest, Source: mountSource}
+					bundleSpec.Mounts = []specs.Mount{mount}
+				})
+				It("mounts the specified directories", func() {
+					cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session).Should(gexec.Exit(0))
+
+					cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", filepath.Join(mountDest, "sentinel"))
+					session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					Expect(err).ToNot(HaveOccurred())
+					Eventually(session).Should(gexec.Exit(0))
+
+					Expect(session.Out).To(gbytes.Say("hello"))
+				})
+			})
+
 			Context("when a file is supplied as a mount", func() {
 				var (
 					logFile   string
