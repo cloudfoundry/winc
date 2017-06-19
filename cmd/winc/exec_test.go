@@ -206,7 +206,7 @@ var _ = Describe("Exec", func() {
 				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Write-Host hey-winc")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session, "10s").Should(gexec.Exit(0))
+				Eventually(session).Should(gexec.Exit(0))
 				Expect(session.Out).To(gbytes.Say("hey-winc"))
 			})
 
@@ -214,7 +214,7 @@ var _ = Describe("Exec", func() {
 				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Write-Error hey-winc; Exit 5;")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session, "10s").Should(gexec.Exit(5))
+				Eventually(session).Should(gexec.Exit(5))
 				Expect(session.Err).To(gbytes.Say("hey-winc"))
 			})
 
