@@ -102,7 +102,7 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
-			cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", "test.txt")
+			cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", "test.txt")
 			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
@@ -214,7 +214,7 @@ var _ = Describe("Create", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", filepath.Join(mountDest, "sentinel"))
+				cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel"))
 				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
@@ -228,7 +228,7 @@ var _ = Describe("Create", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Set-Content", filepath.Join(mountDest, "sentinel2"), "hello")
+				cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "echo hello > "+filepath.Join(mountDest, "sentinel2"))
 				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
@@ -247,7 +247,7 @@ var _ = Describe("Create", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(0))
 
-					cmd = exec.Command(wincBin, "exec", containerId, "powershell", "-Command", "Get-Content", filepath.Join(mountDest, "sentinel"))
+					cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel"))
 					session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(0))
@@ -409,7 +409,7 @@ var _ = Describe("Create", func() {
 
 			Expect(containerExists(containerId)).To(BeTrue())
 
-			cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Get-Content C:\\hello.txt")
+			cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type C:\\hello.txt")
 			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))

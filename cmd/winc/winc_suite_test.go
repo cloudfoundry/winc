@@ -31,8 +31,6 @@ func TestWinc(t *testing.T) {
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(defaultTimeout)
 	SetDefaultEventuallyPollingInterval(defaultInterval)
-	SetDefaultConsistentlyDuration(defaultTimeout)
-	SetDefaultConsistentlyPollingInterval(defaultInterval)
 
 	BeforeSuite(func() {
 		var (
@@ -83,7 +81,7 @@ func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 func processSpecGenerator() specs.Process {
 	return specs.Process{
 		Cwd:  "C:\\Windows",
-		Args: []string{"powershell.exe"},
+		Args: []string{"cmd.exe"},
 		Env:  []string{"var1=foo", "var2=bar"},
 		User: specs.User{
 			Username: "Administrator",
