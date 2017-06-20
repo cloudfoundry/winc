@@ -29,7 +29,7 @@ EXAMPLE:
 For example, if the container is configured to run the Windows ps command the
 following will output a list of processes running in the container:
 
-       # runc exec <container-id> ps`,
+       # winc exec <container-id> ps`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "pid-file",
@@ -122,11 +122,15 @@ following will output a list of processes running in the container:
 		}
 
 		if !detach {
-			_, stdout, stderr, err := process.Stdio()
+			stdin, stdout, stderr, err := process.Stdio()
 			if err != nil {
 				return err
 			}
 
+			go func() {
+				io.Copy(stdin, os.Stdin)
+				stdin.Close()
+			}()
 			go func() {
 				io.Copy(os.Stdout, stdout)
 				stdout.Close()

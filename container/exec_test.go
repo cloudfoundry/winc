@@ -54,6 +54,7 @@ var _ = Describe("Exec", func() {
 			}
 			expectedProcessConfig = &hcsshim.ProcessConfig{
 				CommandLine:      strings.Join(commandArgs, " "),
+				CreateStdInPipe:  true,
 				CreateStdErrPipe: true,
 				CreateStdOutPipe: true,
 				WorkingDirectory: processSpec.Cwd,

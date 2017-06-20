@@ -232,6 +232,7 @@ func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, er
 
 	pc := &hcsshim.ProcessConfig{
 		CommandLine:      strings.Join(processSpec.Args, " "),
+		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
 		WorkingDirectory: processSpec.Cwd,

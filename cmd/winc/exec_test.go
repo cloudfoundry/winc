@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"code.cloudfoundry.org/winc/command"
@@ -200,6 +201,15 @@ var _ = Describe("Exec", func() {
 
 				pl := containerProcesses(&client, containerId, "powershell.exe")
 				Expect(len(pl)).To(Equal(0))
+			})
+
+			It("passes stdin through to the process", func() {
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Read-Host 'echo'")
+				cmd.Stdin = strings.NewReader("hey-winc\n")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				Expect(session.Out).To(gbytes.Say("hey-winc"))
 			})
 
 			It("captures the stdout", func() {
