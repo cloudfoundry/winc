@@ -389,6 +389,7 @@ var _ = Describe("Create", func() {
 		var generatedTag string
 
 		BeforeEach(func() {
+			Skip("Waiting for a new GCP stemcell that can docker build")
 			generatedTag = fmt.Sprintf("tag-%d", rand.Int())
 			err := exec.Command("docker", "build", "-t", generatedTag, "-f", "fixtures\\Dockerfile.custom", "fixtures").Run()
 			Expect(err).To(Succeed())
@@ -401,7 +402,6 @@ var _ = Describe("Create", func() {
 		})
 
 		It("should find hello.txt in custom rootfs", func() {
-			Skip("Waiting for a new GCP stemcell that can docker build")
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
