@@ -217,7 +217,7 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say("hey-winc"))
+				Eventually(session.Out).Should(gbytes.Say("hey-winc"))
 			})
 
 			It("captures the stderr", func() {
@@ -225,7 +225,7 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(5))
-				Expect(session.Err).To(gbytes.Say("hey-winc"))
+				Eventually(session.Err).Should(gbytes.Say("hey-winc"))
 			})
 
 			It("captures the CTRL+C", func() {
