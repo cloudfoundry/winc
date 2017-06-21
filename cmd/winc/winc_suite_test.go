@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-const defaultTimeout = time.Second * 20
+const defaultTimeout = time.Second * 10
 const defaultInterval = time.Millisecond * 200
 
 var (

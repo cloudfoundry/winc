@@ -236,7 +236,7 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Consistently(session).ShouldNot(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say("hey-winc"))
+				Eventually(session.Out).Should(gbytes.Say("hey-winc"))
 				pl := containerProcesses(&client, containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(1))
 
