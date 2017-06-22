@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -246,7 +247,7 @@ func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, er
 	}
 
 	pc := &hcsshim.ProcessConfig{
-		CommandLine:      strings.Join(processSpec.Args, " "),
+		CommandLine:      makeCmdLine(processSpec.Args),
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -317,4 +318,16 @@ func destToWindowsPath(input string) string {
 		input = filepath.Join("C:", input)
 	}
 	return filepath.Clean(input)
+}
+
+func makeCmdLine(args []string) string {
+	var s string
+	for _, v := range args {
+		if s != "" {
+			s += " "
+		}
+		s += syscall.EscapeArg(v)
+	}
+
+	return s
 }

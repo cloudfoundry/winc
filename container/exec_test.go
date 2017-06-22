@@ -2,7 +2,6 @@ package container_test
 
 import (
 	"errors"
-	"strings"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -53,7 +52,7 @@ var _ = Describe("Exec", func() {
 				Env: []string{"a=b", "c=d"},
 			}
 			expectedProcessConfig = &hcsshim.ProcessConfig{
-				CommandLine:      strings.Join(commandArgs, " "),
+				CommandLine:      `powershell "Write-Host 'hi'"`,
 				CreateStdInPipe:  true,
 				CreateStdErrPipe: true,
 				CreateStdOutPipe: true,
@@ -75,6 +74,66 @@ var _ = Describe("Exec", func() {
 			Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 			Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			Expect(fakeProcess.PidCallCount()).To(Equal(1))
+		})
+
+		Context("when a command and arguments contain spaces", func() {
+			It("quotes the argument", func() {
+				commandArgs := []string{"command with spaces", "arg with spaces", "other arg"}
+				processSpec = specs.Process{
+					Args: commandArgs,
+				}
+				expectedProcessConfig = &hcsshim.ProcessConfig{
+					CommandLine:      `"command with spaces" "arg with spaces" "other arg"`,
+					CreateStdInPipe:  true,
+					CreateStdErrPipe: true,
+					CreateStdOutPipe: true,
+					Environment:      map[string]string{},
+				}
+
+				_, err := containerManager.Exec(&processSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+			})
+		})
+
+		Context("when a command argument is empty", func() {
+			It("quotes the argument", func() {
+				commandArgs := []string{"command", "", ""}
+				processSpec = specs.Process{
+					Args: commandArgs,
+				}
+				expectedProcessConfig = &hcsshim.ProcessConfig{
+					CommandLine:      `command "" ""`,
+					CreateStdInPipe:  true,
+					CreateStdErrPipe: true,
+					CreateStdOutPipe: true,
+					Environment:      map[string]string{},
+				}
+
+				_, err := containerManager.Exec(&processSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+			})
+		})
+
+		Context("when a command has no arguments", func() {
+			It("quotes the argument", func() {
+				commandArgs := []string{"command"}
+				processSpec = specs.Process{
+					Args: commandArgs,
+				}
+				expectedProcessConfig = &hcsshim.ProcessConfig{
+					CommandLine:      `command`,
+					CreateStdInPipe:  true,
+					CreateStdErrPipe: true,
+					CreateStdOutPipe: true,
+					Environment:      map[string]string{},
+				}
+
+				_, err := containerManager.Exec(&processSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+			})
 		})
 
 		Context("when creating a process in the container fails", func() {
