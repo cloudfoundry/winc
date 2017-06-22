@@ -33,7 +33,7 @@ var _ = Describe("Exec", func() {
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		sandboxManager.BundlePathReturns(expectedContainerBundleDir)
-		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
+		containerManager = container.NewManager(hcsClient, sandboxManager, nil, expectedContainerId)
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		fakeProcess = &hcsclientfakes.FakeProcess{}
 	})

@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -28,13 +29,14 @@ var _ = Describe("Delete", func() {
 
 			client := hcsclient.HCSClient{}
 			sm := sandbox.NewManager(&client, &command.Command{}, bundlePath)
-			cm = container.NewManager(&client, sm, containerId)
+			nm := networkManager(&client)
+			cm = container.NewManager(&client, sm, nm, containerId)
 
 			bundleSpec := runtimeSpecGenerator(rootfsPath)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
 		})
 
-		Context("when the container is not running", func() {
+		Context("when the container is running", func() {
 			It("deletes the container", func() {
 				cmd := exec.Command(wincBin, "delete", containerId)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
@@ -42,6 +44,24 @@ var _ = Describe("Delete", func() {
 				Eventually(session).Should(gexec.Exit(0))
 
 				Expect(containerExists(containerId)).To(BeFalse())
+			})
+
+			It("deletes the container endpoints", func() {
+				containerEndpoints := allEndpoints(containerId)
+
+				cmd := exec.Command(wincBin, "delete", containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				existingEndpoints, err := hcsshim.HNSListEndpointRequest()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, ep := range containerEndpoints {
+					for _, existing := range existingEndpoints {
+						Expect(ep).NotTo(Equal(existing.Id))
+					}
+				}
 			})
 
 			It("does not delete the bundle directory", func() {

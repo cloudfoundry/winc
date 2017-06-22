@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"os"
 
-	"code.cloudfoundry.org/winc/command"
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -31,13 +27,11 @@ instance of a container.`,
 			"containerId": containerId,
 		}).Debug("retrieving state of container")
 
-		client := hcsclient.HCSClient{}
-		cp, err := client.GetContainerProperties(containerId)
+		cm, err := wireContainerManager("", containerId)
 		if err != nil {
 			return err
 		}
-		sm := sandbox.NewManager(&client, &command.Command{}, cp.Name)
-		cm := container.NewManager(&client, sm, containerId)
+
 		state, err := cm.State()
 		if err != nil {
 			return err

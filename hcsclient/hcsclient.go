@@ -22,6 +22,10 @@ type Client interface {
 	DeactivateLayer(info hcsshim.DriverInfo, id string) error
 	DestroyLayer(info hcsshim.DriverInfo, id string) error
 	GetContainerProperties(id string) (hcsshim.ContainerProperties, error)
+	GetHNSNetworkByName(networkName string) (*hcsshim.HNSNetwork, error)
+	GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error)
+	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
+	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 }
 
 //go:generate counterfeiter . Container
@@ -124,4 +128,20 @@ func (c *HCSClient) GetContainerProperties(id string) (hcsshim.ContainerProperti
 	}
 
 	return cps[0], nil
+}
+
+func (c *HCSClient) CreateEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
+	return endpoint.Create()
+}
+
+func (c *HCSClient) DeleteEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
+	return endpoint.Delete()
+}
+
+func (c *HCSClient) GetHNSNetworkByName(networkName string) (*hcsshim.HNSNetwork, error) {
+	return hcsshim.GetHNSNetworkByName(networkName)
+}
+
+func (c *HCSClient) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {
+	return hcsshim.GetHNSEndpointByID(id)
 }

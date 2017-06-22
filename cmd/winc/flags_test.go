@@ -121,7 +121,8 @@ var _ = Describe("Flags", func() {
 			AfterEach(func() {
 				client := &hcsclient.HCSClient{}
 				sm := sandbox.NewManager(client, &command.Command{}, bundlePath)
-				cm := container.NewManager(client, sm, containerId)
+				nm := networkManager(client)
+				cm := container.NewManager(client, sm, nm, containerId)
 				Expect(cm.Delete()).To(Succeed())
 			})
 

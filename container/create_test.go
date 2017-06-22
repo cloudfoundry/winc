@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
+	"code.cloudfoundry.org/winc/network/networkfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -29,23 +30,29 @@ var _ = Describe("Create", func() {
 		expectedParentLayers []byte
 		hcsClient            *hcsclientfakes.FakeClient
 		sandboxManager       *sandboxfakes.FakeSandboxManager
+		networkManager       *networkfakes.FakeNetworkManager
 		containerManager     container.ContainerManager
 		spec                 *specs.Spec
 	)
 
 	BeforeEach(func() {
 		var err error
-
 		expectedBundlePath, err = ioutil.TempDir("", "sandbox")
+		Expect(err).ToNot(HaveOccurred())
+
 		expectedContainerId = filepath.Base(expectedBundlePath)
 
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
-		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
+		networkManager = &networkfakes.FakeNetworkManager{}
+		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, expectedContainerId)
 
 		expectedParentLayers = []byte(`["path1", "path2"]`)
+		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
+			config.EndpointList = []string{"endpoint-for-" + containerID}
+			return config, nil
+		}
 
-		Expect(err).ToNot(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(expectedBundlePath, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
 
 		spec = &specs.Spec{}
@@ -126,6 +133,7 @@ var _ = Describe("Create", func() {
 				LayerFolderPath:   expectedBundlePath,
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
+				EndpointList:      []string{"endpoint-for-" + expectedContainerId},
 			}))
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
@@ -243,9 +251,9 @@ var _ = Describe("Create", func() {
 			})
 		})
 
-		Context("when CreateContainer fails", func() {
+		Context("when attaching endpoint fails", func() {
 			BeforeEach(func() {
-				hcsClient.CreateContainerReturns(nil, errors.New("couldn't create"))
+				networkManager.AttachEndpointToConfigReturns(hcsshim.ContainerConfig{}, errors.New("couldn't attach"))
 			})
 
 			It("deletes the sandbox", func() {
@@ -254,15 +262,34 @@ var _ = Describe("Create", func() {
 			})
 		})
 
+		Context("when CreateContainer fails", func() {
+			BeforeEach(func() {
+				hcsClient.CreateContainerReturns(nil, errors.New("couldn't create"))
+			})
+
+			It("deletes the sandbox + endpoint", func() {
+				Expect(containerManager.Create(spec)).NotTo(Succeed())
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+				Expect(networkManager.DeleteEndpointsByIdCallCount()).To(Equal(1))
+				endpointIds, containerId := networkManager.DeleteEndpointsByIdArgsForCall(0)
+				Expect(endpointIds).To(Equal([]string{"endpoint-for-" + expectedContainerId}))
+				Expect(containerId).To(Equal(expectedContainerId))
+			})
+		})
+
 		Context("when mounting the sandbox.vhdx fails", func() {
 			BeforeEach(func() {
 				sandboxManager.MountReturns(errors.New("couldn't mount"))
 			})
 
-			It("deletes the container and the sandbox", func() {
+			It("deletes the container, sandbox, and endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
+				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				Expect(container).To(Equal(&fakeContainer))
+				Expect(containerID).To(Equal(expectedContainerId))
 			})
 		})
 
@@ -271,10 +298,14 @@ var _ = Describe("Create", func() {
 				fakeContainer.StartReturns(errors.New("couldn't start"))
 			})
 
-			It("deletes the container and the sandbox", func() {
+			It("deletes the container, sandbox, and endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
+				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				Expect(container).To(Equal(&fakeContainer))
+				Expect(containerID).To(Equal(expectedContainerId))
 			})
 		})
 
@@ -283,10 +314,14 @@ var _ = Describe("Create", func() {
 				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
 			})
 
-			It("deletes the container and the sandbox", func() {
+			It("deletes the container, sandbox, and endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
+				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				Expect(container).To(Equal(&fakeContainer))
+				Expect(containerID).To(Equal(expectedContainerId))
 			})
 		})
 

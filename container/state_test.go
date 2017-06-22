@@ -31,7 +31,7 @@ var _ = Describe("State", func() {
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		sandboxManager.BundlePathReturns(expectedContainerBundleDir)
-		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
+		containerManager = container.NewManager(hcsClient, sandboxManager, nil, expectedContainerId)
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
 			{ProcessId: 666, ImageName: "wininit.exe"},

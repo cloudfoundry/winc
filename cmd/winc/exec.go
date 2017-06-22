@@ -7,10 +7,6 @@ import (
 	"os/signal"
 	"strconv"
 
-	"code.cloudfoundry.org/winc/command"
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
@@ -102,13 +98,10 @@ following will output a list of processes running in the container:
 			"detach":        detach,
 		}).Debug("executing process in container")
 
-		client := hcsclient.HCSClient{}
-		cp, err := client.GetContainerProperties(containerId)
+		cm, err := wireContainerManager("", containerId)
 		if err != nil {
 			return err
 		}
-		sm := sandbox.NewManager(&client, &command.Command{}, cp.Name)
-		cm := container.NewManager(&client, sm, containerId)
 
 		process, err := cm.Exec(spec)
 		if err != nil {

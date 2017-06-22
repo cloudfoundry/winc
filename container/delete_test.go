@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
+	"code.cloudfoundry.org/winc/network/networkfakes"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 
@@ -22,20 +23,16 @@ var _ = Describe("Delete", func() {
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		fakeContainer    *hcsclientfakes.FakeContainer
+		networkManager   *networkfakes.FakeNetworkManager
 		containerManager container.ContainerManager
-		expectedQuery    hcsshim.ComputeSystemQuery
 	)
 
 	BeforeEach(func() {
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		fakeContainer = &hcsclientfakes.FakeContainer{}
-		containerManager = container.NewManager(hcsClient, sandboxManager, expectedContainerId)
-
-		expectedQuery = hcsshim.ComputeSystemQuery{
-			IDs:    []string{expectedContainerId},
-			Owners: []string{"winc"},
-		}
+		networkManager = &networkfakes.FakeNetworkManager{}
+		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, expectedContainerId)
 	})
 
 	Context("when the specified container is not running", func() {
@@ -57,6 +54,11 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
 
+			Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
+			container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+			Expect(container).To(Equal(fakeContainer))
+			Expect(containerID).To(Equal(expectedContainerId))
+
 			Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 
 			Expect(hcsClient.IsPendingCallCount()).To(Equal(1))
@@ -75,6 +77,11 @@ var _ = Describe("Delete", func() {
 
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+
+				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
+				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				Expect(container).To(Equal(fakeContainer))
+				Expect(containerID).To(Equal(expectedContainerId))
 
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 

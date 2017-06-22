@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
 	"github.com/Sirupsen/logrus"
@@ -27,13 +28,15 @@ type ContainerManager interface {
 type containerManager struct {
 	hcsClient      hcsclient.Client
 	sandboxManager sandbox.SandboxManager
+	networkManager network.NetworkManager
 	id             string
 }
 
-func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManager, containerId string) ContainerManager {
+func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManager, networkManager network.NetworkManager, containerId string) ContainerManager {
 	return &containerManager{
 		hcsClient:      hcsClient,
 		sandboxManager: sandboxManager,
+		networkManager: networkManager,
 		id:             containerId,
 	}
 }
@@ -112,7 +115,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		})
 	}
 
-	containerConfig := &hcsshim.ContainerConfig{
+	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
 		Name:              bundlePath,
 		VolumePath:        volumePath,
@@ -120,6 +123,15 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		LayerFolderPath:   bundlePath,
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
+	}
+
+	containerConfig, err = c.networkManager.AttachEndpointToConfig(containerConfig, c.id)
+	if err != nil {
+		if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
+			logrus.Error(deleteErr.Error())
+		}
+
+		return err
 	}
 
 	if spec.Windows != nil {
@@ -133,9 +145,12 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		}
 	}
 
-	container, err := c.hcsClient.CreateContainer(c.id, containerConfig)
+	container, err := c.hcsClient.CreateContainer(c.id, &containerConfig)
 	if err != nil {
 		if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
+			logrus.Error(deleteErr.Error())
+		}
+		if deleteErr := c.networkManager.DeleteEndpointsById(containerConfig.EndpointList, c.id); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 
@@ -275,6 +290,10 @@ func (c *containerManager) containerPid(id string) (int, error) {
 }
 
 func (c *containerManager) terminateContainer(container hcsshim.Container) error {
+	if err := c.networkManager.DeleteContainerEndpoints(container, c.id); err != nil {
+		logrus.Error(err.Error())
+	}
+
 	err := container.Terminate()
 	if c.hcsClient.IsPending(err) {
 		err = container.WaitTimeout(destroyTimeout)

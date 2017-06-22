@@ -7,6 +7,10 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/lib/filelock"
+	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/port_allocator"
 
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
@@ -87,6 +91,38 @@ func processSpecGenerator() specs.Process {
 			Username: "Administrator",
 		},
 	}
+}
+
+func networkManager(client hcsclient.Client) network.NetworkManager {
+	tracker := &port_allocator.Tracker{
+		StartPort: 40000,
+		Capacity:  5000,
+	}
+
+	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
+
+	pa := &port_allocator.PortAllocator{
+		Tracker:    tracker,
+		Serializer: &serial.Serial{},
+		Locker:     locker,
+	}
+
+	return network.NewNetworkManager(client, pa)
+}
+
+func allEndpoints(containerID string) []string {
+	container, err := hcsshim.OpenContainer(containerID)
+	Expect(err).To(Succeed())
+
+	stats, err := container.Statistics()
+	Expect(err).To(Succeed())
+
+	var endpointIDs []string
+	for _, network := range stats.Network {
+		endpointIDs = append(endpointIDs, network.EndpointId)
+	}
+
+	return endpointIDs
 }
 
 func containerExists(containerId string) bool {

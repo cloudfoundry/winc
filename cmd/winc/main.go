@@ -7,6 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"code.cloudfoundry.org/winc/command"
+	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/lib/filelock"
+	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/port_allocator"
+	"code.cloudfoundry.org/winc/sandbox"
+
 	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/urfave/cli"
@@ -160,4 +169,35 @@ func fatal(err error) {
 	logrus.Error(err)
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+func wireContainerManager(bundlePath, containerId string) (container.ContainerManager, error) {
+	client := hcsclient.HCSClient{}
+
+	if bundlePath == "" {
+		cp, err := client.GetContainerProperties(containerId)
+		if err != nil {
+			return nil, err
+		}
+		bundlePath = cp.Name
+	}
+
+	sm := sandbox.NewManager(&client, &command.Command{}, bundlePath)
+
+	tracker := &port_allocator.Tracker{
+		StartPort: 40000,
+		Capacity:  5000,
+	}
+
+	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
+
+	pa := &port_allocator.PortAllocator{
+		Tracker:    tracker,
+		Serializer: &serial.Serial{},
+		Locker:     locker,
+	}
+
+	nm := network.NewNetworkManager(&client, pa)
+
+	return container.NewManager(&client, sm, nm, containerId), nil
 }

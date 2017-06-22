@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
 
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -38,7 +39,8 @@ var _ = Describe("Create", func() {
 
 		client = &hcsclient.HCSClient{}
 		sm := sandbox.NewManager(client, &command.Command{}, bundlePath)
-		cm = container.NewManager(client, sm, containerId)
+		nm := networkManager(client)
+		cm = container.NewManager(client, sm, nm, containerId)
 
 		bundleSpec = runtimeSpecGenerator(rootfsPath)
 	})
@@ -59,7 +61,6 @@ var _ = Describe("Create", func() {
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
-
 			Eventually(session).Should(gexec.Exit(0))
 
 			Expect(containerExists(containerId)).To(BeTrue())
@@ -90,6 +91,33 @@ var _ = Describe("Create", func() {
 			state, err := cm.State()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(state.Pid).ToNot(Equal(-1))
+		})
+
+		It("attaches a network endpoint with a port mapping", func() {
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session).Should(gexec.Exit(0))
+
+			endpoints := allEndpoints(containerId)
+			Expect(len(endpoints)).To(Equal(1))
+
+			endpoint, err := client.GetHNSEndpointByID(endpoints[0])
+			Expect(err).To(Succeed())
+			Expect(endpoint.Name).To(Equal(containerId))
+			for _, pol := range endpoint.Policies {
+				natPolicy := hcsshim.NatPolicy{}
+
+				err := json.Unmarshal(pol, &natPolicy)
+				Expect(err).To(Succeed())
+				if natPolicy.Type != "NAT" {
+					continue
+				}
+
+				Expect(natPolicy.Protocol).To(Equal("TCP"))
+				Expect(natPolicy.InternalPort).To(Equal(uint16(8080)))
+				Expect(natPolicy.ExternalPort).To(BeNumerically(">=", 40000))
+			}
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {

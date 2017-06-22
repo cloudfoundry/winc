@@ -42,7 +42,8 @@ var _ = Describe("Exec", func() {
 
 		client = hcsclient.HCSClient{}
 		sm := sandbox.NewManager(&client, &command.Command{}, bundlePath)
-		cm = container.NewManager(&client, sm, containerId)
+		nm := networkManager(&client)
+		cm = container.NewManager(&client, sm, nm, containerId)
 	})
 
 	Context("when the container exists", func() {
