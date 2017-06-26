@@ -36,13 +36,28 @@ var _ = Describe("up", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("prints the correct port mapping for the container", func() {
-		cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
-		cmd.Stdin = strings.NewReader(`{"netin": [{"host_port": 0, "container_port": 8080}] }`)
-		output, err := cmd.CombinedOutput()
-		Expect(err).To(Succeed())
+	Context("stdin contains a port mapping request", func() {
+		It("prints the correct port mapping for the container", func() {
+			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).To(Succeed())
 
-		regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"{\\"host_port\\":\d+,\\"container_port\\":8080}"}}`
-		Expect(string(output)).To(MatchRegexp(regexp))
+			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"host_port\\":\d+,\\"container_port\\":8080}\]"}}`
+			Expect(string(output)).To(MatchRegexp(regexp))
+		})
 	})
+
+	Context("stdin does not contain a port mapping request", func() {
+		It("prints an empty list of mapped ports", func() {
+			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} }`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).To(Succeed())
+
+			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
+			Expect(string(output)).To(MatchRegexp(regexp))
+		})
+	})
+
 })

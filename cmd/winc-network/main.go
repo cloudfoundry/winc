@@ -58,14 +58,8 @@ func networkUp(containerId string) error {
 		return err
 	}
 
-	if len(inputs.NetIn) != 1 {
+	if len(inputs.NetIn) > 1 {
 		return fmt.Errorf("invalid number of port mappings: %d", len(inputs.NetIn))
-	}
-
-	mapping := inputs.NetIn[0]
-
-	if mapping.ContainerPort != 8080 || mapping.HostPort != 0 {
-		return fmt.Errorf("invalid port mapping: %+v", mapping)
 	}
 
 	container, err := hcsshim.OpenContainer(containerId)
@@ -87,25 +81,36 @@ func networkUp(containerId string) error {
 		return err
 	}
 
-	var mappedPort NetIn
-	natPolicy := hcsshim.NatPolicy{}
-
-	for _, pol := range endpoint.Policies {
-		if err := json.Unmarshal(pol, &natPolicy); err != nil {
-			return err
-		}
-		if natPolicy.Type == "NAT" {
-			mappedPort.HostPort = uint32(natPolicy.ExternalPort)
-			mappedPort.ContainerPort = uint32(natPolicy.InternalPort)
-			break
-		}
-	}
-
 	upOutputs := UpOutputs{}
 	upOutputs.Properties.ContainerIP = endpoint.IPAddress.String()
 	upOutputs.Properties.DeprecatedHostIP = "255.255.255.255"
 
-	portBytes, err := json.Marshal(mappedPort)
+	mappedPorts := []NetIn{}
+
+	if len(inputs.NetIn) == 1 {
+		mapping := inputs.NetIn[0]
+
+		if mapping.ContainerPort != 8080 || mapping.HostPort != 0 {
+			return fmt.Errorf("invalid port mapping: %+v", mapping)
+		}
+
+		natPolicy := hcsshim.NatPolicy{}
+
+		for _, pol := range endpoint.Policies {
+			if err := json.Unmarshal(pol, &natPolicy); err != nil {
+				return err
+			}
+			if natPolicy.Type == "NAT" {
+				mappedPorts = []NetIn{{
+					HostPort:      uint32(natPolicy.ExternalPort),
+					ContainerPort: uint32(natPolicy.InternalPort),
+				}}
+				break
+			}
+		}
+	}
+
+	portBytes, err := json.Marshal(mappedPorts)
 	if err != nil {
 		return err
 	}
