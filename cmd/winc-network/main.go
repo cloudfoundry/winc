@@ -58,7 +58,7 @@ func networkUp(containerId string) error {
 		return err
 	}
 
-	if len(inputs.NetIn) > 1 {
+	if len(inputs.NetIn) > 2 {
 		return fmt.Errorf("invalid number of port mappings: %d", len(inputs.NetIn))
 	}
 
@@ -87,10 +87,8 @@ func networkUp(containerId string) error {
 
 	mappedPorts := []NetIn{}
 
-	if len(inputs.NetIn) == 1 {
-		mapping := inputs.NetIn[0]
-
-		if mapping.ContainerPort != 8080 || mapping.HostPort != 0 {
+	for _, mapping := range inputs.NetIn {
+		if (mapping.ContainerPort != 8080 && mapping.ContainerPort != 2222) || mapping.HostPort != 0 {
 			return fmt.Errorf("invalid port mapping: %+v", mapping)
 		}
 
@@ -100,11 +98,13 @@ func networkUp(containerId string) error {
 			if err := json.Unmarshal(pol, &natPolicy); err != nil {
 				return err
 			}
-			if natPolicy.Type == "NAT" {
-				mappedPorts = []NetIn{{
-					HostPort:      uint32(natPolicy.ExternalPort),
+			if natPolicy.Type == "NAT" && uint32(natPolicy.InternalPort) == mapping.ContainerPort {
+				netIn := NetIn{
 					ContainerPort: uint32(natPolicy.InternalPort),
-				}}
+					HostPort:      uint32(natPolicy.ExternalPort),
+				}
+
+				mappedPorts = append(mappedPorts, netIn)
 				break
 			}
 		}

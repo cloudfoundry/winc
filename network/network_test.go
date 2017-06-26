@@ -31,16 +31,20 @@ var _ = Describe("Network", func() {
 
 	Describe("AtachEndpointToConfig", func() {
 		var (
-			port                int
-			networkId           string
-			containerId         string
-			endpoint            *hcsshim.HNSEndpoint
-			expectedPortMapping hcsshim.NatPolicy
+			port1                int
+			port2                int
+			networkId            string
+			containerId          string
+			endpoint             *hcsshim.HNSEndpoint
+			expectedPortMappings []hcsshim.NatPolicy
 		)
 
 		BeforeEach(func() {
-			port = 42
-			portAllocator.AllocatePortReturns(port, nil)
+			port1 = 42
+			port2 = 53
+
+			portAllocator.AllocatePortReturnsOnCall(0, port1, nil)
+			portAllocator.AllocatePortReturnsOnCall(1, port2, nil)
 
 			networkId = "network-id"
 			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId}, nil)
@@ -52,23 +56,31 @@ var _ = Describe("Network", func() {
 			}
 			hcsClient.CreateEndpointReturns(endpoint, nil)
 
-			expectedPortMapping = hcsshim.NatPolicy{
-				Type:         "NAT",
-				Protocol:     "TCP",
-				InternalPort: 8080,
-				ExternalPort: 42,
+			expectedPortMappings = []hcsshim.NatPolicy{
+				{Type: "NAT",
+					Protocol:     "TCP",
+					InternalPort: 2222,
+					ExternalPort: 53},
+				{Type: "NAT",
+					Protocol:     "TCP",
+					InternalPort: 8080,
+					ExternalPort: 42},
 			}
 		})
 
-		It("creates an endpoint on the nat network using an allocated port", func() {
+		It("creates an endpoint on the nat network with two allocated ports", func() {
 			config := hcsshim.ContainerConfig{}
 			var err error
 			config, err = networkManager.AttachEndpointToConfig(config, containerId)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
 
-			Expect(portAllocator.AllocatePortCallCount()).To(Equal(1))
+			Expect(portAllocator.AllocatePortCallCount()).To(Equal(2))
 			handle, requestedPort := portAllocator.AllocatePortArgsForCall(0)
+			Expect(handle).To(Equal(containerId))
+			Expect(requestedPort).To(Equal(0))
+
+			handle, requestedPort = portAllocator.AllocatePortArgsForCall(1)
 			Expect(handle).To(Equal(containerId))
 			Expect(requestedPort).To(Equal(0))
 
@@ -79,11 +91,17 @@ var _ = Describe("Network", func() {
 			endpointToCreate := hcsClient.CreateEndpointArgsForCall(0)
 			Expect(endpointToCreate.VirtualNetwork).To(Equal(networkId))
 			Expect(endpointToCreate.Name).To(Equal(containerId))
-			Expect(len(endpointToCreate.Policies)).To(Equal(1))
+			Expect(len(endpointToCreate.Policies)).To(Equal(2))
 
-			var requestedPortMapping hcsshim.NatPolicy
-			Expect(json.Unmarshal(endpointToCreate.Policies[0], &requestedPortMapping)).To(Succeed())
-			Expect(requestedPortMapping).To(Equal(expectedPortMapping))
+			requestedPortMappings := []hcsshim.NatPolicy{}
+			for _, pol := range endpointToCreate.Policies {
+				mapping := hcsshim.NatPolicy{}
+
+				Expect(json.Unmarshal(pol, &mapping)).To(Succeed())
+				Expect(mapping.Type).To(Equal("NAT"))
+				requestedPortMappings = append(requestedPortMappings, mapping)
+			}
+			Expect(requestedPortMappings).To(ConsistOf(expectedPortMappings))
 		})
 
 		Context("when getting the network fails", func() {

@@ -34,8 +34,15 @@ func NewNetworkManager(client hcsclient.Client, portAllocator PortAllocator) Net
 }
 
 func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
-	hostPort, err := n.portAllocator.AllocatePort(containerID, 0)
+	appPortMapping, err := n.portMapping(8080, containerID)
 	if err != nil {
+		n.cleanupPorts(containerID)
+		return hcsshim.ContainerConfig{}, err
+	}
+
+	sshPortMapping, err := n.portMapping(2222, containerID)
+	if err != nil {
+		n.cleanupPorts(containerID)
 		return hcsshim.ContainerConfig{}, err
 	}
 
@@ -45,23 +52,10 @@ func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, 
 		return hcsshim.ContainerConfig{}, err
 	}
 
-	portMapping := hcsshim.NatPolicy{
-		Type:         "NAT",
-		Protocol:     "TCP",
-		InternalPort: 8080,
-		ExternalPort: uint16(hostPort),
-	}
-
-	portMappingJSON, err := json.Marshal(portMapping)
-	if err != nil {
-		n.cleanupPorts(containerID)
-		return hcsshim.ContainerConfig{}, err
-	}
-
 	endpoint := &hcsshim.HNSEndpoint{
 		Name:           containerID,
 		VirtualNetwork: network.Id,
-		Policies:       []json.RawMessage{portMappingJSON},
+		Policies:       []json.RawMessage{appPortMapping, sshPortMapping},
 	}
 
 	endpoint, err = n.hcsClient.CreateEndpoint(endpoint)
@@ -72,6 +66,26 @@ func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, 
 
 	config.EndpointList = []string{endpoint.Id}
 	return config, nil
+}
+
+func (n *networkManager) portMapping(containerPort int, containerID string) (json.RawMessage, error) {
+	hostPort, err := n.portAllocator.AllocatePort(containerID, 0)
+	if err != nil {
+		return nil, err
+	}
+	portMapping := hcsshim.NatPolicy{
+		Type:         "NAT",
+		Protocol:     "TCP",
+		InternalPort: uint16(containerPort),
+		ExternalPort: uint16(hostPort),
+	}
+
+	portMappingJSON, err := json.Marshal(portMapping)
+	if err != nil {
+		return nil, err
+	}
+
+	return portMappingJSON, nil
 }
 
 func (n *networkManager) DeleteContainerEndpoints(container hcsclient.Container, containerID string) error {
