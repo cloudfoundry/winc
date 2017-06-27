@@ -87,7 +87,7 @@ var _ = Describe("Tracker", func() {
 					}
 				})
 
-				Expect(runtime.Seconds()).To(BeNumerically("<", 5), "Acquiring a port shouldn't take too long.")
+				Expect(runtime.Seconds()).To(BeNumerically("<", 6), "Acquiring a port shouldn't take too long.")
 			}, 10)
 		})
 	})
