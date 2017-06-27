@@ -72,6 +72,22 @@ var _ = Describe("Exec", func() {
 			Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
 		})
 
+		Context("when unix path is defined", func() {
+			It("the process runs in the container", func() {
+				cmd := exec.Command(wincBin, "exec", "--detach", containerId, "/Windows/System32/cmd")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				pl := containerProcesses(&client, containerId, "cmd.exe")
+				Expect(len(pl)).To(Equal(1))
+
+				state, err := cm.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
+			})
+		})
+
 		Context("when the '--process' flag is provided", func() {
 			var processConfig string
 

@@ -3,6 +3,7 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -292,6 +293,62 @@ var _ = Describe("Create", func() {
 					Eventually(session).Should(gexec.Exit(0))
 
 					Expect(session.Out).To(gbytes.Say("hello"))
+				})
+
+				Context("when calling the mounted executable", func() {
+					BeforeEach(func() {
+						copy := func(dst, src string) error {
+							in, err := os.Open(src)
+							if err != nil {
+								return err
+							}
+							defer in.Close()
+							out, err := os.Create(dst)
+							if err != nil {
+								return err
+							}
+							defer out.Close()
+							_, err = io.Copy(out, in)
+							cerr := out.Close()
+							if err != nil {
+								return err
+							}
+							return cerr
+						}
+
+						Expect(copy(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")).To(Succeed())
+
+					})
+					Context("when using the windows path", func() {
+						It("mounts the specified directories", func() {
+							cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+							session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+							Expect(err).ToNot(HaveOccurred())
+							Eventually(session).Should(gexec.Exit(0))
+
+							cmd = exec.Command(wincBin, "exec", containerId, filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel"))
+							session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+							Expect(err).ToNot(HaveOccurred())
+							Eventually(session).Should(gexec.Exit(0))
+
+							Expect(session.Out).To(gbytes.Say("hello"))
+						})
+					})
+					Context("when using the unix path", func() {
+						It("mounts the specified directories", func() {
+							cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+							session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+							Expect(err).ToNot(HaveOccurred())
+							Eventually(session).Should(gexec.Exit(0))
+
+							cmd = exec.Command(wincBin, "exec", containerId, mountDest+"/cmd", "/C", "type", filepath.Join(mountDest, "sentinel"))
+							session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+							Expect(err).ToNot(HaveOccurred())
+							Eventually(session).Should(gexec.Exit(0))
+
+							Expect(session.Out).To(gbytes.Say("hello"))
+						})
+					})
 				})
 			})
 

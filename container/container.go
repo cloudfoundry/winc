@@ -321,6 +321,9 @@ func destToWindowsPath(input string) string {
 }
 
 func makeCmdLine(args []string) string {
+	if len(args) > 0 {
+		args[0] = filepath.Clean(args[0])
+	}
 	var s string
 	for _, v := range args {
 		if s != "" {

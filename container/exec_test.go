@@ -136,6 +136,26 @@ var _ = Describe("Exec", func() {
 			})
 		})
 
+		Context("when a command has a unix path", func() {
+			It("converts it to a windows path", func() {
+				commandArgs := []string{"/path/to/command"}
+				processSpec = specs.Process{
+					Args: commandArgs,
+				}
+				expectedProcessConfig = &hcsshim.ProcessConfig{
+					CommandLine:      `\path\to\command`,
+					CreateStdInPipe:  true,
+					CreateStdErrPipe: true,
+					CreateStdOutPipe: true,
+					Environment:      map[string]string{},
+				}
+
+				_, err := containerManager.Exec(&processSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+			})
+		})
+
 		Context("when creating a process in the container fails", func() {
 			var couldNotCreateProcessError = &hcsclient.CouldNotCreateProcessError{
 				Id:      expectedContainerId,
