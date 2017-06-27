@@ -2,9 +2,9 @@
 
 `winc` is a CLI tool for spawning and running containers on Windows according to the OCI specification.
 
-## Building
+### Building
 
-### Requirements
+#### Requirements
 
 * [Golang 1.8](https://golang.org/dl/)
   * Make sure you have set a `GOPATH`
@@ -21,7 +21,7 @@ cd $GOPATH/src/code.cloudfoundry.org/winc
 ./scripts/build.ps1
 ```
 
-## Testing
+### Testing
 
 Set the `WINC_TEST_ROOTFS` environment variable to the path to a container image, e.g. in `powershell` to test with the `microsoft/windowsservercore` Docker image:
 
