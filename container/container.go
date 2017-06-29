@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -323,6 +324,11 @@ func destToWindowsPath(input string) string {
 func makeCmdLine(args []string) string {
 	if len(args) > 0 {
 		args[0] = filepath.Clean(args[0])
+		base := filepath.Base(args[0])
+		match, _ := regexp.MatchString(`\.[a-zA-Z]{3}$`, base)
+		if !match {
+			args[0] += ".exe"
+		}
 	}
 	var s string
 	for _, v := range args {

@@ -42,7 +42,7 @@ var _ = Describe("Exec", func() {
 
 		BeforeEach(func() {
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
-			commandArgs := []string{"powershell", "Write-Host 'hi'"}
+			commandArgs := []string{"powershell.exe", "Write-Host 'hi'"}
 			processSpec = specs.Process{
 				Args: commandArgs,
 				Cwd:  "C:\\",
@@ -52,7 +52,7 @@ var _ = Describe("Exec", func() {
 				Env: []string{"a=b", "c=d"},
 			}
 			expectedProcessConfig = &hcsshim.ProcessConfig{
-				CommandLine:      `powershell "Write-Host 'hi'"`,
+				CommandLine:      `powershell.exe "Write-Host 'hi'"`,
 				CreateStdInPipe:  true,
 				CreateStdErrPipe: true,
 				CreateStdOutPipe: true,
@@ -78,12 +78,12 @@ var _ = Describe("Exec", func() {
 
 		Context("when a command and arguments contain spaces", func() {
 			It("quotes the argument", func() {
-				commandArgs := []string{"command with spaces", "arg with spaces", "other arg"}
+				commandArgs := []string{"command with spaces.exe", "arg with spaces", "other arg"}
 				processSpec = specs.Process{
 					Args: commandArgs,
 				}
 				expectedProcessConfig = &hcsshim.ProcessConfig{
-					CommandLine:      `"command with spaces" "arg with spaces" "other arg"`,
+					CommandLine:      `"command with spaces.exe" "arg with spaces" "other arg"`,
 					CreateStdInPipe:  true,
 					CreateStdErrPipe: true,
 					CreateStdOutPipe: true,
@@ -98,12 +98,12 @@ var _ = Describe("Exec", func() {
 
 		Context("when a command argument is empty", func() {
 			It("quotes the argument", func() {
-				commandArgs := []string{"command", "", ""}
+				commandArgs := []string{"command.exe", "", ""}
 				processSpec = specs.Process{
 					Args: commandArgs,
 				}
 				expectedProcessConfig = &hcsshim.ProcessConfig{
-					CommandLine:      `command "" ""`,
+					CommandLine:      `command.exe "" ""`,
 					CreateStdInPipe:  true,
 					CreateStdErrPipe: true,
 					CreateStdOutPipe: true,
@@ -118,12 +118,12 @@ var _ = Describe("Exec", func() {
 
 		Context("when a command has no arguments", func() {
 			It("quotes the argument", func() {
-				commandArgs := []string{"command"}
+				commandArgs := []string{"command.exe"}
 				processSpec = specs.Process{
 					Args: commandArgs,
 				}
 				expectedProcessConfig = &hcsshim.ProcessConfig{
-					CommandLine:      `command`,
+					CommandLine:      `command.exe`,
 					CreateStdInPipe:  true,
 					CreateStdErrPipe: true,
 					CreateStdOutPipe: true,
@@ -137,13 +137,13 @@ var _ = Describe("Exec", func() {
 		})
 
 		Context("when a command has a unix path", func() {
-			It("converts it to a windows path", func() {
+			It("converts it to a windows path, adding .exe if there is no extension", func() {
 				commandArgs := []string{"/path/to/command"}
 				processSpec = specs.Process{
 					Args: commandArgs,
 				}
 				expectedProcessConfig = &hcsshim.ProcessConfig{
-					CommandLine:      `\path\to\command`,
+					CommandLine:      `\path\to\command.exe`,
 					CreateStdInPipe:  true,
 					CreateStdErrPipe: true,
 					CreateStdOutPipe: true,
@@ -159,7 +159,7 @@ var _ = Describe("Exec", func() {
 		Context("when creating a process in the container fails", func() {
 			var couldNotCreateProcessError = &hcsclient.CouldNotCreateProcessError{
 				Id:      expectedContainerId,
-				Command: "powershell",
+				Command: "powershell.exe",
 			}
 
 			BeforeEach(func() {

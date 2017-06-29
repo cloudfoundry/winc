@@ -88,6 +88,23 @@ var _ = Describe("Exec", func() {
 			})
 		})
 
+		Context("when there is cmd.exe and cmd", func() {
+			BeforeEach(func() {
+				state, err := cm.State()
+				Expect(err).To(Succeed())
+				cmdPath := filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root", "Windows", "System32", "cmd")
+				Expect(ioutil.WriteFile(cmdPath, []byte("xxx"), 0644)).To(Succeed())
+			})
+
+			It("runs the .exe for windows", func() {
+				cmd := exec.Command(wincBin, "exec", containerId, "/Windows/System32/cmd", "/C", "echo app is running")
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+				Expect(session).To(gbytes.Say("app is running"))
+			})
+		})
+
 		Context("when the '--process' flag is provided", func() {
 			var processConfig string
 
