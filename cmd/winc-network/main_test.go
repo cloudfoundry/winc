@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -45,8 +46,26 @@ var _ = Describe("up", func() {
 			output, err := cmd.CombinedOutput()
 			Expect(err).To(Succeed())
 
-			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080}\]"}}`
-			Expect(string(output)).To(MatchRegexp(regexp))
+			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080}\]"}}`
+			Expect(string(output)).To(MatchRegexp(regex))
+		})
+
+		It("outputs the host's public IP as the container IP", func() {
+			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).To(Succeed())
+
+			regex := regexp.MustCompile(`"garden\.network\.container-ip":"(\d+\.\d+\.\d+\.\d+)"`)
+			matches := regex.FindStringSubmatch(string(output))
+			Expect(len(matches)).To(Equal(2))
+
+			cmd = exec.Command("powershell", "-Command", "Get-NetIPAddress", matches[1])
+			output, err = cmd.CombinedOutput()
+			Expect(err).To(BeNil())
+			Expect(string(output)).NotTo(ContainSubstring("Loopback"))
+			Expect(string(output)).NotTo(ContainSubstring("HNS Internal NIC"))
+			Expect(string(output)).To(MatchRegexp("AddressFamily.*IPv4"))
 		})
 	})
 
@@ -57,8 +76,8 @@ var _ = Describe("up", func() {
 			output, err := cmd.CombinedOutput()
 			Expect(err).To(Succeed())
 
-			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080},{\\"HostPort\\":\d+,\\"ContainerPort\\":2222}\]"}}`
-			Expect(string(output)).To(MatchRegexp(regexp))
+			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080},{\\"HostPort\\":\d+,\\"ContainerPort\\":2222}\]"}}`
+			Expect(string(output)).To(MatchRegexp(regex))
 		})
 	})
 
@@ -69,8 +88,8 @@ var _ = Describe("up", func() {
 			output, err := cmd.CombinedOutput()
 			Expect(err).To(Succeed())
 
-			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
-			Expect(string(output)).To(MatchRegexp(regexp))
+			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
+			Expect(string(output)).To(MatchRegexp(regex))
 		})
 	})
 

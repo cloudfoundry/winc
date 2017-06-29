@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"code.cloudfoundry.org/localip"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -87,7 +88,10 @@ func networkUp(containerId string) error {
 	}
 
 	upOutputs := UpOutputs{}
-	upOutputs.Properties.ContainerIP = endpoint.IPAddress.String()
+	upOutputs.Properties.ContainerIP, err = localip.LocalIP()
+	if err != nil {
+		return err
+	}
 	upOutputs.Properties.DeprecatedHostIP = "255.255.255.255"
 
 	mappedPorts := []PortMapping{}

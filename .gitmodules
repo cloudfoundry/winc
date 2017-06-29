@@ -43,3 +43,6 @@
 [submodule "vendor/github.com/mitchellh/go-ps"]
 	path = vendor/github.com/mitchellh/go-ps
 	url = https://github.com/mitchellh/go-ps
+[submodule "vendor/code.cloudfoundry.org/localip"]
+	path = vendor/code.cloudfoundry.org/localip
+	url = https://github.com/cloudfoundry/localip
