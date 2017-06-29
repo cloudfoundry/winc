@@ -420,7 +420,7 @@ var _ = Describe("Create", func() {
 					cmd = exec.Command(wincBin, "exec", containerId, "powershell", fmt.Sprintf("$memstress = @(); $memstress += 'a' * %dMB", mem))
 					session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 					Expect(err).ToNot(HaveOccurred())
-					Eventually(session).Should(gexec.Exit(exitCode))
+					Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
 					return session.Err
 				}
 				Expect(grabMemory(10, 0).Contents()).Should(BeEmpty())
