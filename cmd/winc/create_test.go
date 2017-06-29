@@ -124,12 +124,14 @@ var _ = Describe("Create", func() {
 			Expect(len(natPolicies)).To(Equal(2))
 			sort.Slice(natPolicies, func(i, j int) bool { return natPolicies[i].InternalPort < natPolicies[j].InternalPort })
 			Expect(natPolicies[0].InternalPort).To(Equal(uint16(2222)))
-			Expect(natPolicies[0].ExternalPort).To(BeNumerically(">", 40000))
+			Expect(natPolicies[0].ExternalPort).To(BeNumerically(">=", 40000))
 			Expect(natPolicies[0].Protocol).To(Equal("TCP"))
 
 			Expect(natPolicies[1].InternalPort).To(Equal(uint16(8080)))
-			Expect(natPolicies[1].ExternalPort).To(BeNumerically(">", 40000))
+			Expect(natPolicies[1].ExternalPort).To(BeNumerically(">=", 40000))
 			Expect(natPolicies[1].Protocol).To(Equal("TCP"))
+
+			Expect(natPolicies[0].ExternalPort).NotTo(Equal(natPolicies[1].ExternalPort))
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
