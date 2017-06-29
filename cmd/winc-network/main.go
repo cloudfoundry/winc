@@ -9,6 +9,11 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
+type PortMapping struct {
+	HostPort      uint32
+	ContainerPort uint32
+}
+
 type NetIn struct {
 	HostPort      uint32 `json:"host_port"`
 	ContainerPort uint32 `json:"container_port"`
@@ -85,7 +90,7 @@ func networkUp(containerId string) error {
 	upOutputs.Properties.ContainerIP = endpoint.IPAddress.String()
 	upOutputs.Properties.DeprecatedHostIP = "255.255.255.255"
 
-	mappedPorts := []NetIn{}
+	mappedPorts := []PortMapping{}
 
 	for _, mapping := range inputs.NetIn {
 		if (mapping.ContainerPort != 8080 && mapping.ContainerPort != 2222) || mapping.HostPort != 0 {
@@ -99,12 +104,12 @@ func networkUp(containerId string) error {
 				return err
 			}
 			if natPolicy.Type == "NAT" && uint32(natPolicy.InternalPort) == mapping.ContainerPort {
-				netIn := NetIn{
+				mappedPort := PortMapping{
 					ContainerPort: uint32(natPolicy.InternalPort),
 					HostPort:      uint32(natPolicy.ExternalPort),
 				}
 
-				mappedPorts = append(mappedPorts, netIn)
+				mappedPorts = append(mappedPorts, mappedPort)
 				break
 			}
 		}

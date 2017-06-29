@@ -45,7 +45,7 @@ var _ = Describe("up", func() {
 			output, err := cmd.CombinedOutput()
 			Expect(err).To(Succeed())
 
-			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"host_port\\":\d+,\\"container_port\\":8080}\]"}}`
+			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080}\]"}}`
 			Expect(string(output)).To(MatchRegexp(regexp))
 		})
 	})
@@ -57,7 +57,7 @@ var _ = Describe("up", func() {
 			output, err := cmd.CombinedOutput()
 			Expect(err).To(Succeed())
 
-			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"host_port\\":\d+,\\"container_port\\":8080},{\\"host_port\\":\d+,\\"container_port\\":2222}\]"}}`
+			regexp := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080},{\\"HostPort\\":\d+,\\"ContainerPort\\":2222}\]"}}`
 			Expect(string(output)).To(MatchRegexp(regexp))
 		})
 	})
