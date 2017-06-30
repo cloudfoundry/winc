@@ -333,7 +333,7 @@ var _ = Describe("Create", func() {
 							Expect(err).ToNot(HaveOccurred())
 							Eventually(session).Should(gexec.Exit(0))
 
-							Expect(session.Out).To(gbytes.Say("hello"))
+							Eventually(session.Out).Should(gbytes.Say("hello"))
 						})
 					})
 					Context("when using the unix path", func() {
@@ -348,7 +348,7 @@ var _ = Describe("Create", func() {
 							Expect(err).ToNot(HaveOccurred())
 							Eventually(session).Should(gexec.Exit(0))
 
-							Expect(session.Out).To(gbytes.Say("hello"))
+							Eventually(session.Out).Should(gbytes.Say("hello"))
 						})
 					})
 				})
