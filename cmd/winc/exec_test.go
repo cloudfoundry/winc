@@ -242,7 +242,7 @@ var _ = Describe("Exec", func() {
 				cmd.Stdin = strings.NewReader("hey-winc\n")
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
+				Eventually(session, defaultTimeout*2).Should(gexec.Exit(0))
 				Eventually(session.Out).Should(gbytes.Say("hey-winc"))
 			})
 
