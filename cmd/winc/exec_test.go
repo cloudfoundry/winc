@@ -150,7 +150,7 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say(`C:\\Users`))
+				Eventually(session.Out).Should(gbytes.Say(`C:\\Users`))
 			})
 		})
 
@@ -167,7 +167,7 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say("test-user"))
+				Eventually(session.Out).Should(gbytes.Say("test-user"))
 			})
 
 			Context("when the specified user does not exist or cannot be used", func() {
