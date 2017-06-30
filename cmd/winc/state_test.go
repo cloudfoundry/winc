@@ -73,7 +73,7 @@ var _ = Describe("State", func() {
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 		})
 	})
 })

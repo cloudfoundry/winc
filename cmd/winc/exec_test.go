@@ -101,7 +101,7 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session).To(gbytes.Say("app is running"))
+				Eventually(session).Should(gbytes.Say("app is running"))
 			})
 		})
 
@@ -190,7 +190,7 @@ var _ = Describe("Exec", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(1))
 					expectedError := &hcsclient.CouldNotCreateProcessError{Id: containerId, Command: "cmd.exe"}
-					Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+					Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 
 					log, err := ioutil.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
@@ -205,8 +205,8 @@ var _ = Describe("Exec", func() {
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
-				Expect(session.Out).To(gbytes.Say(`\nvar1=foo`))
-				Expect(session.Out).To(gbytes.Say(`\nvar2=bar`))
+				Eventually(session.Out).Should(gbytes.Say(`\nvar1=foo`))
+				Eventually(session.Out).Should(gbytes.Say(`\nvar2=bar`))
 			})
 		})
 
@@ -320,7 +320,7 @@ var _ = Describe("Exec", func() {
 
 				Eventually(session).Should(gexec.Exit(1))
 				expectedError := &hcsclient.CouldNotCreateProcessError{Id: containerId, Command: "invalid.exe"}
-				Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+				Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 			})
 		})
 	})
@@ -333,7 +333,7 @@ var _ = Describe("Exec", func() {
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 		})
 	})
 })

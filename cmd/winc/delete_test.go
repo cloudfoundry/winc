@@ -102,7 +102,7 @@ var _ = Describe("Delete", func() {
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.NotFoundError{Id: "nonexistentcontainer"}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 		})
 	})
 })

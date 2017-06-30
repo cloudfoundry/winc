@@ -149,7 +149,7 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
 
-			Expect(session.Out).To(gbytes.Say("contents"))
+			Eventually(session.Out).Should(gbytes.Say("contents"))
 		})
 
 		Context("when the bundle path is not provided", func() {
@@ -294,7 +294,7 @@ var _ = Describe("Create", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(0))
 
-					Expect(session.Out).To(gbytes.Say("hello"))
+					Eventually(session.Out).Should(gbytes.Say("hello"))
 				})
 
 				Context("when calling the mounted executable", func() {
@@ -464,7 +464,7 @@ var _ = Describe("Create", func() {
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.AlreadyExistsError{Id: containerId}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 		})
 	})
 
@@ -477,7 +477,7 @@ var _ = Describe("Create", func() {
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.InvalidIdError{Id: containerId}
-			Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 
 			Expect(containerExists(containerId)).To(BeFalse())
 		})
@@ -511,7 +511,7 @@ var _ = Describe("Create", func() {
 			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(0))
-			Expect(session.Out).To(gbytes.Say("hello from a text file"))
+			Eventually(session.Out).Should(gbytes.Say("hello from a text file"))
 		})
 
 		AfterEach(func() {

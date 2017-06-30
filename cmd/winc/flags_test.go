@@ -47,13 +47,13 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("prints a message saying the flag does not exist", func() {
-			Expect(session.Err).To(gbytes.Say("flag provided but not defined: -nonexistent"))
+			Eventually(session.Err).Should(gbytes.Say("flag provided but not defined: -nonexistent"))
 		})
 	})
 
 	Context("when passed no flags", func() {
 		It("prints a help message", func() {
-			Expect(session.Out).To(gbytes.Say("NAME:\n.*winc.exe - Open Container Initiative runtime for Windows"))
+			Eventually(session.Out).Should(gbytes.Say("NAME:\n.*winc.exe - Open Container Initiative runtime for Windows"))
 		})
 	})
 
@@ -63,7 +63,7 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("prints a help message", func() {
-			Expect(session.Out).To(gbytes.Say("NAME:\n.*winc.exe - Open Container Initiative runtime for Windows"))
+			Eventually(session.Out).Should(gbytes.Say("NAME:\n.*winc.exe - Open Container Initiative runtime for Windows"))
 		})
 	})
 
@@ -73,7 +73,7 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("prints a help message", func() {
-			Expect(session.Out).To(gbytes.Say("NAME:\n.*winc.exe - Open Container Initiative runtime for Windows"))
+			Eventually(session.Out).Should(gbytes.Say("NAME:\n.*winc.exe - Open Container Initiative runtime for Windows"))
 		})
 	})
 
@@ -93,7 +93,7 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("accepts the flag and prints the --log flag usage", func() {
-			Expect(session.Out).To(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--log value"))
+			Eventually(session.Out).Should(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--log value"))
 		})
 
 		Context("when the winc command logs non error messages", func() {
@@ -151,7 +151,7 @@ var _ = Describe("Flags", func() {
 				log, err := ioutil.ReadFile(logFile)
 				Expect(err).ToNot(HaveOccurred())
 				expectedError := &MissingBundleConfigError{}
-				Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+				Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 				expectedLogContents := strings.Trim(string(session.Err.Contents()), "\n")
 				Expect(string(log)).To(ContainSubstring(expectedLogContents))
 			})
@@ -164,7 +164,7 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("accepts the flag and prints the --log-format flag usage", func() {
-			Expect(session.Out).To(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--log-format value"))
+			Eventually(session.Out).Should(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--log-format value"))
 		})
 
 		Context("when provided an invalid log format", func() {
@@ -175,7 +175,7 @@ var _ = Describe("Flags", func() {
 
 			It("errors", func() {
 				expectedError := &InvalidLogFormatError{Format: "invalid"}
-				Expect(session.Err).To(gbytes.Say(expectedError.Error()))
+				Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 			})
 		})
 	})
@@ -186,7 +186,7 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("accepts the flag and prints the --newuidmap flag usage", func() {
-			Expect(session.Out).To(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--newuidmap value"))
+			Eventually(session.Out).Should(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--newuidmap value"))
 		})
 	})
 
@@ -196,7 +196,7 @@ var _ = Describe("Flags", func() {
 		})
 
 		It("accepts the flag and prints the --newgidmap flag usage", func() {
-			Expect(session.Out).To(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--newgidmap value"))
+			Eventually(session.Out).Should(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--newgidmap value"))
 		})
 	})
 })
