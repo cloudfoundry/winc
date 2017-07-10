@@ -423,8 +423,8 @@ var _ = Describe("Create", func() {
 					Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
 					return session.Err
 				}
-				Expect(grabMemory(10, 0).Contents()).Should(BeEmpty())
 				Expect(grabMemory(int(memLimitMB), 1)).Should(gbytes.Say("Exception of type 'System.OutOfMemoryException' was thrown"))
+				Expect(grabMemory(10, 0).Contents()).Should(BeEmpty())
 			})
 		})
 	})
