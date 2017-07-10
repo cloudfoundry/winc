@@ -18,7 +18,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-const destroyTimeout = time.Second
+const destroyTimeout = time.Minute
 
 type ContainerManager interface {
 	Create(spec *specs.Spec) error
@@ -300,9 +300,11 @@ func (c *containerManager) terminateContainer(container hcsshim.Container) error
 	if c.hcsClient.IsPending(err) {
 		err = container.WaitTimeout(destroyTimeout)
 		if err != nil {
+			logrus.Error("hcsContainer.WaitTimeout error after Terminate", err)
 			return err
 		}
 	} else if err != nil {
+		logrus.Error("hcsContainer.Terminate error", err)
 		return err
 	}
 
