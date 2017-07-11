@@ -410,21 +410,30 @@ var _ = Describe("Create", func() {
 				}
 			})
 
-			It("the container memory is constrained by that limit", func() {
+			grabMemory := func(mem int, exitCode int) *gbytes.Buffer {
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell", fmt.Sprintf("$memstress = @(); $memstress += 'a' * %dMB", mem))
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
+				return session.Err
+			}
+
+			It("is not constrained by smaller memory limit", func() {
 				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(0))
 
-				grabMemory := func(mem int, exitCode int) *gbytes.Buffer {
-					cmd = exec.Command(wincBin, "exec", containerId, "powershell", fmt.Sprintf("$memstress = @(); $memstress += 'a' * %dMB", mem))
-					session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-					Expect(err).ToNot(HaveOccurred())
-					Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
-					return session.Err
-				}
-				Expect(grabMemory(int(memLimitMB), 1)).Should(gbytes.Say("Exception of type 'System.OutOfMemoryException' was thrown"))
 				Expect(grabMemory(10, 0).Contents()).Should(BeEmpty())
+			})
+
+			It("is constrained by hitting the memory limit", func() {
+				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session).Should(gexec.Exit(0))
+
+				Expect(grabMemory(int(memLimitMB), 1)).Should(gbytes.Say("Exception of type 'System.OutOfMemoryException' was thrown"))
 			})
 		})
 	})
