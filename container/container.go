@@ -160,23 +160,23 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 	}
 
 	if err := container.Start(); err != nil {
-		if terminateErr := c.terminateContainer(container); terminateErr != nil {
-			logrus.Error(terminateErr.Error())
+		if deleteErr := c.deleteContainer(container); deleteErr != nil {
+			logrus.Error(deleteErr.Error())
 		}
 		return err
 	}
 
 	pid, err := c.containerPid(c.id)
 	if err != nil {
-		if terminateErr := c.terminateContainer(container); terminateErr != nil {
-			logrus.Error(terminateErr.Error())
+		if deleteErr := c.deleteContainer(container); deleteErr != nil {
+			logrus.Error(deleteErr.Error())
 		}
 		return err
 	}
 
 	if err := c.sandboxManager.Mount(pid); err != nil {
-		if terminateErr := c.terminateContainer(container); terminateErr != nil {
-			logrus.Error(terminateErr.Error())
+		if deleteErr := c.deleteContainer(container); deleteErr != nil {
+			logrus.Error(deleteErr.Error())
 		}
 		return err
 	}
@@ -200,7 +200,7 @@ func (c *containerManager) Delete() error {
 		return err
 	}
 
-	err = c.terminateContainer(container)
+	err = c.deleteContainer(container)
 	if err != nil {
 		return err
 	}
@@ -291,25 +291,47 @@ func (c *containerManager) containerPid(id string) (int, error) {
 	return int(process.ProcessId), nil
 }
 
-func (c *containerManager) terminateContainer(container hcsshim.Container) error {
+func (c *containerManager) deleteContainer(container hcsshim.Container) error {
 	if err := c.networkManager.DeleteContainerEndpoints(container, c.id); err != nil {
 		logrus.Error(err.Error())
 	}
 
-	err := container.Terminate()
-	if c.hcsClient.IsPending(err) {
-		err = container.WaitTimeout(destroyTimeout)
-		if err != nil {
-			logrus.Error("hcsContainer.WaitTimeout error after Terminate", err)
+	if err := c.shutdownContainer(container); err != nil {
+		if err := c.terminateContainer(container); err != nil {
 			return err
 		}
-	} else if err != nil {
-		logrus.Error("hcsContainer.Terminate error", err)
-		return err
 	}
 
-	if err := c.sandboxManager.Delete(); err != nil {
-		return err
+	return c.sandboxManager.Delete()
+}
+
+func (c *containerManager) shutdownContainer(container hcsshim.Container) error {
+	if err := container.Shutdown(); err != nil {
+		if c.hcsClient.IsPending(err) {
+			if err := container.WaitTimeout(destroyTimeout); err != nil {
+				logrus.Error("hcsContainer.WaitTimeout error after Shutdown", err)
+				return err
+			}
+		} else {
+			logrus.Error("hcsContainer.Shutdown error", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *containerManager) terminateContainer(container hcsshim.Container) error {
+	if err := container.Terminate(); err != nil {
+		if c.hcsClient.IsPending(err) {
+			if err := container.WaitTimeout(destroyTimeout); err != nil {
+				logrus.Error("hcsContainer.WaitTimeout error after Terminate", err)
+				return err
+			}
+		} else {
+			logrus.Error("hcsContainer.Terminate error", err)
+			return err
+		}
 	}
 
 	return nil

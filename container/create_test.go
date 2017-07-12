@@ -284,7 +284,7 @@ var _ = Describe("Create", func() {
 
 			It("deletes the container, sandbox, and endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
-				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
@@ -300,7 +300,7 @@ var _ = Describe("Create", func() {
 
 			It("deletes the container, sandbox, and endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
-				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
@@ -316,7 +316,7 @@ var _ = Describe("Create", func() {
 
 			It("deletes the container, sandbox, and endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
-				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)

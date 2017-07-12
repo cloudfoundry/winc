@@ -59,10 +59,7 @@ var _ = Describe("Delete", func() {
 			Expect(container).To(Equal(fakeContainer))
 			Expect(containerID).To(Equal(expectedContainerId))
 
-			Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
-
-			Expect(hcsClient.IsPendingCallCount()).To(Equal(1))
-			Expect(hcsClient.IsPendingArgsForCall(0)).To(BeNil())
+			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 
 			Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 		})
@@ -83,46 +80,85 @@ var _ = Describe("Delete", func() {
 				Expect(container).To(Equal(fakeContainer))
 				Expect(containerID).To(Equal(expectedContainerId))
 
-				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
-
-				Expect(hcsClient.IsPendingCallCount()).To(Equal(1))
-				Expect(hcsClient.IsPendingArgsForCall(0)).To(BeNil())
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 			})
 		})
 
-		Context("when terminating the container does not immediately succeed", func() {
-			var terminateContainerError = errors.New("terminate container failed")
+		Context("when shutting down the container does not immediately succeed", func() {
+			var shutdownContainerError = errors.New("shutdown container failed")
 
 			BeforeEach(func() {
 				hcsClient.OpenContainerReturns(fakeContainer, nil)
-				fakeContainer.TerminateReturns(terminateContainerError)
+				fakeContainer.ShutdownReturns(shutdownContainerError)
 				hcsClient.IsPendingReturns(false)
 			})
 
-			It("errors", func() {
-				Expect(containerManager.Delete()).To(Equal(terminateContainerError))
+			It("calls terminate", func() {
+				Expect(containerManager.Delete()).To(Succeed())
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 			})
 
-			Context("when termination is pending", func() {
+			Context("when shutdown is pending", func() {
 				BeforeEach(func() {
-					hcsClient.IsPendingReturns(true)
+					hcsClient.IsPendingReturnsOnCall(0, true)
 				})
 
-				It("waits for termination to finish", func() {
+				It("waits for shutdown to finish", func() {
 					Expect(containerManager.Delete()).To(Succeed())
+					Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
+					Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				})
 
-				Context("when termination does not finish before the timeout", func() {
-					var terminateWaitError = errors.New("waiting for terminate failed")
+				Context("when shutdown does not finish before the timeout", func() {
+					var shutdownWaitError = errors.New("waiting for shutdown failed")
 
 					BeforeEach(func() {
-						fakeContainer.WaitTimeoutReturns(terminateWaitError)
+						fakeContainer.WaitTimeoutReturnsOnCall(0, shutdownWaitError)
 					})
 
-					It("errors", func() {
-						Expect(containerManager.Delete()).To(Equal(terminateWaitError))
+					It("it calls terminate", func() {
+						Expect(containerManager.Delete()).To(Succeed())
+						Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
+						Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+					})
+
+					Context("when terminate does not immediately succeed", func() {
+						var terminateContainerError = errors.New("terminate container failed")
+
+						BeforeEach(func() {
+							fakeContainer.TerminateReturns(terminateContainerError)
+						})
+
+						It("errors", func() {
+							Expect(containerManager.Delete()).To(Equal(terminateContainerError))
+						})
+
+						Context("when terminate is pending", func() {
+							BeforeEach(func() {
+								hcsClient.IsPendingReturnsOnCall(1, true)
+							})
+
+							It("waits for terminate to finish", func() {
+								Expect(containerManager.Delete()).To(Succeed())
+								Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+							})
+
+							Context("when terminate does not finish before the timeout", func() {
+								var terminateWaitError = errors.New("waiting for terminate failed")
+
+								BeforeEach(func() {
+									fakeContainer.WaitTimeoutReturnsOnCall(1, terminateWaitError)
+								})
+
+								It("errors", func() {
+									Expect(containerManager.Delete()).To(Equal(terminateWaitError))
+									Expect(sandboxManager.DeleteCallCount()).To(Equal(0))
+								})
+							})
+						})
 					})
 				})
 			})
