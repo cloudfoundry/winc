@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os/exec"
 	"path/filepath"
@@ -12,12 +13,21 @@ import (
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("State", func() {
+	var (
+		stdOut *bytes.Buffer
+		stdErr *bytes.Buffer
+	)
+
+	BeforeEach(func() {
+		stdOut = new(bytes.Buffer)
+		stdErr = new(bytes.Buffer)
+	})
+
 	Context("given an existing container id", func() {
 		var (
 			containerId string
@@ -45,13 +55,11 @@ var _ = Describe("State", func() {
 		Context("when the container has been created", func() {
 			It("prints the state of the container to stdout", func() {
 				cmd := exec.Command(wincBin, "state", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(0))
+				cmd.Stdout = stdOut
+				Expect(cmd.Run()).To(Succeed())
 
 				actualState = &specs.State{}
-				Expect(json.Unmarshal(session.Out.Contents(), actualState)).To(Succeed())
+				Expect(json.Unmarshal(stdOut.Bytes(), actualState)).To(Succeed())
 
 				Expect(actualState.Status).To(Equal("created"))
 				Expect(actualState.Version).To(Equal(specs.Version))
@@ -68,12 +76,12 @@ var _ = Describe("State", func() {
 	Context("given a nonexistent container id", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincBin, "state", "doesntexist")
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
-			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
+			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})
 })

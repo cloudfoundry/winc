@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os/exec"
@@ -10,7 +11,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -21,6 +21,8 @@ var _ = Describe("up", func() {
 		containerId string
 		bundleSpec  specs.Spec
 		err         error
+		stdOut      *bytes.Buffer
+		stdErr      *bytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -32,6 +34,9 @@ var _ = Describe("up", func() {
 
 		err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 		Expect(err).ToNot(HaveOccurred())
+
+		stdOut = new(bytes.Buffer)
+		stdErr = new(bytes.Buffer)
 	})
 
 	AfterEach(func() {
@@ -97,11 +102,11 @@ var _ = Describe("up", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 1234}, {"host_port": 0, "container_port": 2222}]}`)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).To(Succeed())
 
-			Eventually(session.Err).Should(gbytes.Say("invalid port mapping"))
 			Eventually(session).Should(gexec.Exit(1))
+			Expect(stdErr.String()).To(ContainSubstring("invalid port mapping"))
 		})
 	})
 })

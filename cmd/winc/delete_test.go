@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,11 +14,20 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("Delete", func() {
+	var (
+		stdOut *bytes.Buffer
+		stdErr *bytes.Buffer
+	)
+
+	BeforeEach(func() {
+		stdOut = new(bytes.Buffer)
+		stdErr = new(bytes.Buffer)
+	})
+
 	Context("when provided an existing container id", func() {
 		var (
 			containerId string
@@ -38,10 +48,8 @@ var _ = Describe("Delete", func() {
 
 		Context("when the container is running", func() {
 			It("deletes the container", func() {
-				cmd := exec.Command(wincBin, "delete", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "delete", containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
 				Expect(containerExists(containerId)).To(BeFalse())
 			})
@@ -49,10 +57,8 @@ var _ = Describe("Delete", func() {
 			It("deletes the container endpoints", func() {
 				containerEndpoints := allEndpoints(containerId)
 
-				cmd := exec.Command(wincBin, "delete", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "delete", containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
 				existingEndpoints, err := hcsshim.HNSListEndpointRequest()
 				Expect(err).NotTo(HaveOccurred())
@@ -65,10 +71,8 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("does not delete the bundle directory", func() {
-				cmd := exec.Command(wincBin, "delete", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "delete", containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
 				Expect(bundlePath).To(BeADirectory())
 			})
@@ -80,10 +84,8 @@ var _ = Describe("Delete", func() {
 				_, err = os.Lstat(rootPath)
 				Expect(err).NotTo(HaveOccurred())
 
-				cmd := exec.Command(wincBin, "delete", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err = exec.Command(wincBin, "delete", containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
 				Expect(rootPath).NotTo(BeADirectory())
 
@@ -97,12 +99,12 @@ var _ = Describe("Delete", func() {
 	Context("when provided a nonexistent container id", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincBin, "delete", "nonexistentcontainer")
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.NotFoundError{Id: "nonexistentcontainer"}
-			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
+			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})
 })

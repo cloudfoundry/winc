@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,7 +22,6 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -34,6 +34,8 @@ var _ = Describe("Create", func() {
 		cm          container.ContainerManager
 		bundleSpec  specs.Spec
 		err         error
+		stdOut      *bytes.Buffer
+		stdErr      *bytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -45,6 +47,9 @@ var _ = Describe("Create", func() {
 		cm = container.NewManager(client, sm, nm, containerId)
 
 		bundleSpec = runtimeSpecGenerator(rootfsPath)
+
+		stdOut = new(bytes.Buffer)
+		stdErr = new(bytes.Buffer)
 	})
 
 	JustBeforeEach(func() {
@@ -60,20 +65,16 @@ var _ = Describe("Create", func() {
 		})
 
 		It("creates and starts a container", func() {
-			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
 
 			Expect(containerExists(containerId)).To(BeTrue())
 
 			sandboxVHDX := filepath.Join(bundlePath, "sandbox.vhdx")
 			Expect(sandboxVHDX).To(BeAnExistingFile())
 
-			cmd = exec.Command("powershell", "-Command", "Test-VHD", sandboxVHDX)
-			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			err = exec.Command("powershell", "-Command", "Test-VHD", sandboxVHDX).Run()
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
 
 			sandboxInitialized := filepath.Join(bundlePath, "initialized")
 			Expect(sandboxInitialized).To(BeAnExistingFile())
@@ -96,10 +97,8 @@ var _ = Describe("Create", func() {
 		})
 
 		It("attaches a network endpoint with a port mapping", func() {
-			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
 
 			endpoints := allEndpoints(containerId)
 			Expect(len(endpoints)).To(Equal(1))
@@ -135,31 +134,26 @@ var _ = Describe("Create", func() {
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
-			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
 
 			state, err := cm.State()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
-			cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", "test.txt")
-			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
+			cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", "test.txt")
+			cmd.Stdout = stdOut
 
-			Eventually(session.Out).Should(gbytes.Say("contents"))
+			Expect(cmd.Run()).To(Succeed())
+
+			Expect(stdOut.String()).To(ContainSubstring("contents"))
 		})
 
 		Context("when the bundle path is not provided", func() {
 			It("uses the current directory as the bundle path", func() {
 				cmd := exec.Command(wincBin, "create", containerId)
 				cmd.Dir = bundlePath
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(0))
+				Expect(cmd.Run()).To(Succeed())
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
@@ -169,11 +163,8 @@ var _ = Describe("Create", func() {
 
 		Context("when the bundle path ends with a \\", func() {
 			It("creates a container sucessfully", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath+"\\", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath+"\\", containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(0))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
@@ -196,11 +187,8 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates and starts the container and writes the container pid to the specified file", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath, "--pid-file", pidFile, containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath, "--pid-file", pidFile, containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(0))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
@@ -216,11 +204,8 @@ var _ = Describe("Create", func() {
 
 		Context("when the '--no-new-keyring' flag is provided", func() {
 			It("ignores it and creates and starts a container", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(session).Should(gexec.Exit(0))
 
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
@@ -251,27 +236,22 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates a container with the specified directories as mounts", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
-				cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel"))
-				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
+				cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel"))
+				cmd.Stdout = stdOut
+				Expect(cmd.Run()).To(Succeed())
 
-				Eventually(session.Out).Should(gbytes.Say("hello"))
+				Expect(stdOut.String()).To(ContainSubstring("hello"))
 			})
 
 			It("the mounted directories are read only", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
-				cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "echo hello > "+filepath.Join(mountDest, "sentinel2"))
-				session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "echo hello > "+filepath.Join(mountDest, "sentinel2"))
+				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(1))
 			})
@@ -284,17 +264,14 @@ var _ = Describe("Create", func() {
 					bundleSpec.Mounts = []specs.Mount{mount}
 				})
 				It("mounts the specified directories", func() {
-					cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 					Expect(err).ToNot(HaveOccurred())
-					Eventually(session).Should(gexec.Exit(0))
 
-					cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel"))
-					session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-					Expect(err).ToNot(HaveOccurred())
-					Eventually(session).Should(gexec.Exit(0))
+					cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel"))
+					cmd.Stdout = stdOut
+					Expect(cmd.Run()).To(Succeed())
 
-					Eventually(session.Out).Should(gbytes.Say("hello"))
+					Expect(stdOut.String()).To(ContainSubstring("hello"))
 				})
 
 				Context("when calling the mounted executable", func() {
@@ -323,32 +300,26 @@ var _ = Describe("Create", func() {
 					})
 					Context("when using the windows path", func() {
 						It("mounts the specified directories", func() {
-							cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-							session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+							err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 							Expect(err).ToNot(HaveOccurred())
-							Eventually(session).Should(gexec.Exit(0))
 
-							cmd = exec.Command(wincBin, "exec", containerId, filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel"))
-							session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-							Expect(err).ToNot(HaveOccurred())
-							Eventually(session).Should(gexec.Exit(0))
+							cmd := exec.Command(wincBin, "exec", containerId, filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel"))
+							cmd.Stdout = stdOut
+							Expect(cmd.Run()).To(Succeed())
 
-							Eventually(session.Out).Should(gbytes.Say("hello"))
+							Expect(stdOut.String()).To(ContainSubstring("hello"))
 						})
 					})
 					Context("when using the unix path", func() {
 						It("mounts the specified directories", func() {
-							cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-							session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+							err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 							Expect(err).ToNot(HaveOccurred())
-							Eventually(session).Should(gexec.Exit(0))
 
-							cmd = exec.Command(wincBin, "exec", containerId, mountDest+"/cmd", "/C", "type", filepath.Join(mountDest, "sentinel"))
-							session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-							Expect(err).ToNot(HaveOccurred())
-							Eventually(session).Should(gexec.Exit(0))
+							cmd := exec.Command(wincBin, "exec", containerId, mountDest+"/cmd", "/C", "type", filepath.Join(mountDest, "sentinel"))
+							cmd.Stdout = stdOut
+							Expect(cmd.Run()).To(Succeed())
 
-							Eventually(session.Out).Should(gbytes.Say("hello"))
+							Expect(stdOut.String()).To(ContainSubstring("hello"))
 						})
 					})
 				})
@@ -383,10 +354,8 @@ var _ = Describe("Create", func() {
 				})
 
 				It("ignores it and logs that it did so", func() {
-					cmd := exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId)
-					session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+					err := exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId).Run()
 					Expect(err).ToNot(HaveOccurred())
-					Eventually(session).Should(gexec.Exit(0))
 
 					contents, err := ioutil.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
@@ -410,30 +379,26 @@ var _ = Describe("Create", func() {
 				}
 			})
 
-			grabMemory := func(mem int, exitCode int) *gbytes.Buffer {
+			grabMemory := func(mem int, exitCode int) string {
 				cmd := exec.Command(wincBin, "exec", containerId, "powershell", fmt.Sprintf("$memstress = @(); $memstress += 'a' * %dMB", mem))
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				session, err := gexec.Start(cmd, stdOut, stdErr)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
-				return session.Err
+				return stdErr.String()
 			}
 
 			It("is not constrained by smaller memory limit", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
-				Expect(grabMemory(10, 0).Contents()).Should(BeEmpty())
+				Expect(grabMemory(10, 0)).To(Equal(""))
 			})
 
 			It("is constrained by hitting the memory limit", func() {
-				cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(session).Should(gexec.Exit(0))
 
-				Expect(grabMemory(int(memLimitMB), 1)).Should(gbytes.Say("Exception of type 'System.OutOfMemoryException' was thrown"))
+				Expect(grabMemory(int(memLimitMB), 1)).To(ContainSubstring("Exception of type 'System.OutOfMemoryException' was thrown"))
 			})
 		})
 	})
@@ -468,12 +433,12 @@ var _ = Describe("Create", func() {
 
 		It("errors", func() {
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.AlreadyExistsError{Id: containerId}
-			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
+			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})
 
@@ -481,12 +446,12 @@ var _ = Describe("Create", func() {
 		It("errors and does not create the container", func() {
 			containerId = "doesnotmatchbundle"
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
 			expectedError := &hcsclient.InvalidIdError{Id: containerId}
-			Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
+			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 
 			Expect(containerExists(containerId)).To(BeFalse())
 		})
@@ -508,18 +473,15 @@ var _ = Describe("Create", func() {
 		})
 
 		It("should find hello.txt in custom rootfs", func() {
-			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
 
 			Expect(containerExists(containerId)).To(BeTrue())
 
-			cmd = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type C:\\hello.txt")
-			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(0))
-			Eventually(session.Out).Should(gbytes.Say("hello from a text file"))
+			cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type C:\\hello.txt")
+			cmd.Stdout = stdOut
+			Expect(cmd.Run()).To(Succeed())
+			Expect(stdOut.String()).To(ContainSubstring("hello from a text file"))
 		})
 
 		AfterEach(func() {
