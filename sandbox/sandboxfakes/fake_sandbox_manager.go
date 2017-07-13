@@ -8,16 +8,18 @@ import (
 )
 
 type FakeSandboxManager struct {
-	CreateStub        func(rootfs string) error
+	CreateStub        func(rootfs string) (string, error)
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
 		rootfs string
 	}
 	createReturns struct {
-		result1 error
+		result1 string
+		result2 error
 	}
 	createReturnsOnCall map[int]struct {
-		result1 error
+		result1 string
+		result2 error
 	}
 	DeleteStub        func() error
 	deleteMutex       sync.RWMutex
@@ -63,7 +65,7 @@ type FakeSandboxManager struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeSandboxManager) Create(rootfs string) error {
+func (fake *FakeSandboxManager) Create(rootfs string) (string, error) {
 	fake.createMutex.Lock()
 	ret, specificReturn := fake.createReturnsOnCall[len(fake.createArgsForCall)]
 	fake.createArgsForCall = append(fake.createArgsForCall, struct {
@@ -75,9 +77,9 @@ func (fake *FakeSandboxManager) Create(rootfs string) error {
 		return fake.CreateStub(rootfs)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fake.createReturns.result1
+	return fake.createReturns.result1, fake.createReturns.result2
 }
 
 func (fake *FakeSandboxManager) CreateCallCount() int {
@@ -92,23 +94,26 @@ func (fake *FakeSandboxManager) CreateArgsForCall(i int) string {
 	return fake.createArgsForCall[i].rootfs
 }
 
-func (fake *FakeSandboxManager) CreateReturns(result1 error) {
+func (fake *FakeSandboxManager) CreateReturns(result1 string, result2 error) {
 	fake.CreateStub = nil
 	fake.createReturns = struct {
-		result1 error
-	}{result1}
+		result1 string
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeSandboxManager) CreateReturnsOnCall(i int, result1 error) {
+func (fake *FakeSandboxManager) CreateReturnsOnCall(i int, result1 string, result2 error) {
 	fake.CreateStub = nil
 	if fake.createReturnsOnCall == nil {
 		fake.createReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 string
+			result2 error
 		})
 	}
 	fake.createReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 string
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeSandboxManager) Delete() error {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
@@ -18,6 +19,8 @@ import (
 )
 
 var _ = Describe("Sandbox", func() {
+	const containerVolume = "containerVolume"
+
 	var (
 		bundlePath         string
 		rootfs             string
@@ -47,6 +50,8 @@ var _ = Describe("Sandbox", func() {
 		}
 		expectedLayerId = filepath.Base(bundlePath)
 		rootfsParents = []byte(`["path1", "path2"]`)
+
+		hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -61,8 +66,9 @@ var _ = Describe("Sandbox", func() {
 	Context("Create", func() {
 		Context("when provided a rootfs layer", func() {
 			It("creates and activates the bundlePath", func() {
-				err := sandboxManager.Create(rootfs)
+				cv, err := sandboxManager.Create(rootfs)
 				Expect(err).ToNot(HaveOccurred())
+				Expect(cv).To(Equal(containerVolume))
 
 				expectedLayers := []string{rootfs, "path1", "path2"}
 
@@ -93,7 +99,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs)
 					Expect(err).To(Equal(createSandboxLayerError))
 				})
 			})
@@ -106,7 +112,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs)
 					Expect(err).To(Equal(activateLayerError))
 				})
 			})
@@ -119,7 +125,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs)
 					Expect(err).To(Equal(prepareLayerError))
 				})
 			})
@@ -127,7 +133,7 @@ var _ = Describe("Sandbox", func() {
 
 		Context("when provided a nonexistent rootfs layer", func() {
 			It("errors", func() {
-				err := sandboxManager.Create("nonexistentrootfs")
+				_, err := sandboxManager.Create("nonexistentrootfs")
 				Expect(err).To(Equal(&sandbox.MissingRootfsError{Msg: "nonexistentrootfs"}))
 			})
 		})
@@ -138,7 +144,7 @@ var _ = Describe("Sandbox", func() {
 			})
 
 			It("errors", func() {
-				err := sandboxManager.Create(rootfs)
+				_, err := sandboxManager.Create(rootfs)
 				Expect(err).To(Equal(&sandbox.MissingRootfsLayerChainError{Msg: rootfs}))
 			})
 		})
@@ -149,7 +155,7 @@ var _ = Describe("Sandbox", func() {
 			})
 
 			It("errors", func() {
-				err := sandboxManager.Create(rootfs)
+				_, err := sandboxManager.Create(rootfs)
 				Expect(err).To(Equal(&sandbox.InvalidRootfsLayerChainError{Msg: rootfs}))
 			})
 		})
@@ -160,8 +166,34 @@ var _ = Describe("Sandbox", func() {
 			})
 
 			It("errors", func() {
-				err := sandboxManager.Create(rootfs)
+				_, err := sandboxManager.Create(rootfs)
 				Expect(err).To(Equal(&sandbox.MissingBundlePathError{Msg: bundlePath}))
+			})
+		})
+
+		Context("when getting the volume mount path of the container fails", func() {
+			Context("when getting the volume returned an error", func() {
+				var layerMountPathError = errors.New("could not get volume")
+
+				BeforeEach(func() {
+					hcsClient.GetLayerMountPathReturns("", layerMountPathError)
+				})
+
+				It("errors", func() {
+					_, err := sandboxManager.Create(rootfs)
+					Expect(err).To(Equal(layerMountPathError))
+				})
+			})
+
+			Context("when the volume returned is empty", func() {
+				BeforeEach(func() {
+					hcsClient.GetLayerMountPathReturns("", nil)
+				})
+
+				It("errors", func() {
+					_, err := sandboxManager.Create(rootfs)
+					Expect(err).To(Equal(&hcsclient.MissingVolumePathError{Id: expectedLayerId}))
+				})
 			})
 		})
 	})
@@ -225,25 +257,20 @@ var _ = Describe("Sandbox", func() {
 
 	Context("Mount", func() {
 		It("mounts the sandbox.vhdx at C:\\proc\\{{pid}}\\root", func() {
-			volumePath := "some-volume-path\n"
-			fakeCommand.CombinedOutputReturns([]byte(volumePath), nil)
+			_, err := sandboxManager.Create(rootfs)
+			Expect(err).ToNot(HaveOccurred())
 
 			pid := rand.Int()
 			Expect(sandboxManager.Mount(pid)).To(Succeed())
 
 			rootPath := filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid), "root")
 			Expect(rootPath).To(BeADirectory())
-			Expect(fakeCommand.CombinedOutputCallCount()).To(Equal(1))
-			volumeCmd, volumeArgs := fakeCommand.CombinedOutputArgsForCall(0)
-			Expect(volumeCmd).To(Equal("powershell.exe"))
-			Expect(volumeArgs[0]).To(Equal("-Command"))
-			Expect(volumeArgs[1]).To(Equal(`(get-diskimage "` + filepath.Join(bundlePath, "sandbox.vhdx") + `" | get-disk | get-partition | get-volume).Path`))
 
 			Expect(fakeCommand.RunCallCount()).To(Equal(1))
 			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
 			Expect(runCmd).To(Equal("mountvol"))
 			Expect(runArgs[0]).To(Equal(rootPath))
-			Expect(runArgs[1]).To(Equal("some-volume-path"))
+			Expect(runArgs[1]).To(Equal(containerVolume))
 		})
 	})
 

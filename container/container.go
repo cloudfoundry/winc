@@ -57,7 +57,8 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return &hcsclient.InvalidIdError{Id: c.id}
 	}
 
-	if err := c.sandboxManager.Create(spec.Root.Path); err != nil {
+	volumePath, err := c.sandboxManager.Create(spec.Root.Path)
+	if err != nil {
 		return err
 	}
 
@@ -83,17 +84,6 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 			ID:   layerGuid.ToString(),
 			Path: layerPath,
 		})
-	}
-
-	driverInfo := hcsshim.DriverInfo{
-		HomeDir: filepath.Dir(bundlePath),
-		Flavour: 1,
-	}
-	volumePath, err := c.hcsClient.GetLayerMountPath(driverInfo, c.id)
-	if err != nil {
-		return err
-	} else if volumePath == "" {
-		return &hcsclient.MissingVolumePathError{Id: c.id}
 	}
 
 	mappedDirs := []hcsshim.MappedDir{}

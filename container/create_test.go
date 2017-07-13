@@ -75,8 +75,8 @@ var _ = Describe("Create", func() {
 		BeforeEach(func() {
 			fakeContainer = hcsclientfakes.FakeContainer{}
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
-			hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 			sandboxManager.BundlePathReturns(expectedBundlePath)
+			sandboxManager.CreateReturns(containerVolume, nil)
 
 			err := json.Unmarshal(expectedParentLayers, &expectedLayerPaths)
 			Expect(err).ToNot(HaveOccurred())
@@ -113,14 +113,6 @@ var _ = Describe("Create", func() {
 			for i, l := range expectedLayerPaths {
 				Expect(hcsClient.NameToGuidArgsForCall(i)).To(Equal(l))
 			}
-
-			Expect(hcsClient.GetLayerMountPathCallCount()).To(Equal(1))
-			driverInfo, containerId := hcsClient.GetLayerMountPathArgsForCall(0)
-			Expect(driverInfo).To(Equal(hcsshim.DriverInfo{
-				HomeDir: filepath.Dir(expectedBundlePath),
-				Flavour: 1,
-			}))
-			Expect(containerId).To(Equal(expectedContainerId))
 
 			Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 			containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -322,29 +314,6 @@ var _ = Describe("Create", func() {
 				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
 				Expect(containerID).To(Equal(expectedContainerId))
-			})
-		})
-
-		Context("when getting the volume mount path of the container fails", func() {
-			Context("when getting the volume returned an error", func() {
-				var layerMountPathError = errors.New("could not get volume")
-
-				BeforeEach(func() {
-					hcsClient.GetLayerMountPathReturns("", layerMountPathError)
-				})
-
-				It("errors", func() {
-					Expect(containerManager.Create(spec)).To(Equal(layerMountPathError))
-				})
-			})
-
-			Context("when the volume returned is empty", func() {
-				BeforeEach(func() {
-					hcsClient.GetLayerMountPathReturns("", nil)
-				})
-				It("errors", func() {
-					Expect(containerManager.Create(spec)).To(Equal(&hcsclient.MissingVolumePathError{Id: expectedContainerId}))
-				})
 			})
 		})
 	})

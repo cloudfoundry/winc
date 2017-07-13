@@ -2,12 +2,10 @@ package sandbox
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 
@@ -18,7 +16,7 @@ var sandboxFiles = []string{"Hives", "initialized", "sandbox.vhdx", "layerchain.
 
 //go:generate counterfeiter . SandboxManager
 type SandboxManager interface {
-	Create(rootfs string) error
+	Create(rootfs string) (string, error)
 	Delete() error
 	BundlePath() string
 	Mount(pid int) error
@@ -37,6 +35,7 @@ type sandboxManager struct {
 	id         string
 	driverInfo hcsshim.DriverInfo
 	command    Command
+	volumePath string
 }
 
 func NewManager(hcsClient hcsclient.Client, command Command, bundlePath string) SandboxManager {
@@ -54,54 +53,63 @@ func NewManager(hcsClient hcsclient.Client, command Command, bundlePath string) 
 	}
 }
 
-func (s *sandboxManager) Create(rootfs string) error {
+func (s *sandboxManager) Create(rootfs string) (string, error) {
 	_, err := os.Stat(s.bundlePath)
 	if os.IsNotExist(err) {
-		return &MissingBundlePathError{Msg: s.bundlePath}
+		return "", &MissingBundlePathError{Msg: s.bundlePath}
 	} else if err != nil {
-		return err
+		return "", err
 	}
 
 	_, err = os.Stat(rootfs)
 	if os.IsNotExist(err) {
-		return &MissingRootfsError{Msg: rootfs}
+		return "", &MissingRootfsError{Msg: rootfs}
 	} else if err != nil {
-		return err
+		return "", err
 	}
 
 	parentLayerChain, err := ioutil.ReadFile(filepath.Join(rootfs, "layerchain.json"))
 	if err != nil {
-		return &MissingRootfsLayerChainError{Msg: rootfs}
+		return "", &MissingRootfsLayerChainError{Msg: rootfs}
 	}
 
 	parentLayers := []string{}
 	if err := json.Unmarshal(parentLayerChain, &parentLayers); err != nil {
-		return &InvalidRootfsLayerChainError{Msg: rootfs}
+		return "", &InvalidRootfsLayerChainError{Msg: rootfs}
 	}
 	sandboxLayers := append([]string{rootfs}, parentLayers...)
 
 	if err := s.hcsClient.CreateSandboxLayer(s.driverInfo, s.id, rootfs, sandboxLayers); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := s.hcsClient.ActivateLayer(s.driverInfo, s.id); err != nil {
-		return err
+		return "", err
 	}
 
 	if err := s.hcsClient.PrepareLayer(s.driverInfo, s.id, sandboxLayers); err != nil {
-		return err
+		return "", err
 	}
 
 	sandboxLayerChain, err := json.Marshal(sandboxLayers)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := ioutil.WriteFile(filepath.Join(s.bundlePath, "layerchain.json"), sandboxLayerChain, 0755); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	volumePath, err := s.hcsClient.GetLayerMountPath(s.driverInfo, s.id)
+	if err != nil {
+		return "", err
+	} else if volumePath == "" {
+		return "", &hcsclient.MissingVolumePathError{Id: s.id}
+	}
+
+	s.volumePath = volumePath
+
+	return volumePath, nil
 }
 
 func (s *sandboxManager) Delete() error {
@@ -140,13 +148,7 @@ func (s *sandboxManager) Mount(pid int) error {
 		return err
 	}
 
-	powershellCommand := fmt.Sprintf(`(get-diskimage "%s" | get-disk | get-partition | get-volume).Path`, filepath.Join(s.bundlePath, "sandbox.vhdx"))
-	volumeName, err := s.command.CombinedOutput("powershell.exe", "-Command", powershellCommand)
-	if err != nil {
-		return err
-	}
-
-	return s.command.Run("mountvol", s.rootPath(pid), strings.TrimSpace(string(volumeName)))
+	return s.command.Run("mountvol", s.rootPath(pid), s.volumePath)
 }
 
 func (s *sandboxManager) Unmount(pid int) error {
