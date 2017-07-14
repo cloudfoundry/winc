@@ -228,7 +228,13 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("passes stdin through to the process", func() {
-				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "Read-Host 'echo'")
+				state, err := cm.State()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = copy(filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root", "read.exe"), readBin)
+				Expect(err).NotTo(HaveOccurred())
+
+				cmd := exec.Command(wincBin, "exec", containerId, "c:\\read.exe")
 				cmd.Stdin = strings.NewReader("hey-winc\n")
 				cmd.Stdout = stdOut
 				Expect(cmd.Run()).To(Succeed())

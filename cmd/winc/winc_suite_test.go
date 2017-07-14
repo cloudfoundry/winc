@@ -28,6 +28,7 @@ const defaultInterval = time.Millisecond * 200
 
 var (
 	wincBin    string
+	readBin    string
 	consumeBin string
 	rootfsPath string
 	bundlePath string
@@ -49,6 +50,8 @@ func TestWinc(t *testing.T) {
 		wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 		Expect(err).ToNot(HaveOccurred())
 		consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/consume")
+		Expect(err).ToNot(HaveOccurred())
+		readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
