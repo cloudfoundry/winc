@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -276,25 +275,6 @@ var _ = Describe("Create", func() {
 
 				Context("when calling the mounted executable", func() {
 					BeforeEach(func() {
-						copy := func(dst, src string) error {
-							in, err := os.Open(src)
-							if err != nil {
-								return err
-							}
-							defer in.Close()
-							out, err := os.Create(dst)
-							if err != nil {
-								return err
-							}
-							defer out.Close()
-							_, err = io.Copy(out, in)
-							cerr := out.Close()
-							if err != nil {
-								return err
-							}
-							return cerr
-						}
-
 						Expect(copy(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")).To(Succeed())
 
 					})
@@ -379,8 +359,18 @@ var _ = Describe("Create", func() {
 				}
 			})
 
+			JustBeforeEach(func() {
+				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
+				Expect(err).ToNot(HaveOccurred())
+
+				state, err := cm.State()
+				Expect(err).ToNot(HaveOccurred())
+				err = copy(filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root", "consume.exe"), consumeBin)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
 			grabMemory := func(mem int, exitCode int) string {
-				cmd := exec.Command(wincBin, "exec", containerId, "powershell", fmt.Sprintf("$memstress = @(); $memstress += 'a' * %dMB", mem))
+				cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(mem*1024*1024))
 				session, err := gexec.Start(cmd, stdOut, stdErr)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
@@ -388,17 +378,11 @@ var _ = Describe("Create", func() {
 			}
 
 			It("is not constrained by smaller memory limit", func() {
-				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
-				Expect(err).ToNot(HaveOccurred())
-
 				Expect(grabMemory(10, 0)).To(Equal(""))
 			})
 
 			It("is constrained by hitting the memory limit", func() {
-				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(grabMemory(int(memLimitMB), 1)).To(ContainSubstring("Exception of type 'System.OutOfMemoryException' was thrown"))
+				Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: runtime: cannot map pages in arena address space"))
 			})
 		})
 	})

@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -27,6 +28,7 @@ const defaultInterval = time.Millisecond * 200
 
 var (
 	wincBin    string
+	consumeBin string
 	rootfsPath string
 	bundlePath string
 )
@@ -45,6 +47,8 @@ func TestWinc(t *testing.T) {
 		rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
 		Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 		wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
+		Expect(err).ToNot(HaveOccurred())
+		consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/consume")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -178,4 +182,23 @@ func isParentOf(parentPid, childPid int) bool {
 	}
 
 	return foundParent
+}
+
+func copy(dst, src string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	cerr := out.Close()
+	if err != nil {
+		return err
+	}
+	return cerr
 }
