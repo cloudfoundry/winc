@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
-	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/mounter"
 	"code.cloudfoundry.org/winc/sandbox"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,7 +44,7 @@ var _ = Describe("Exec", func() {
 		containerId = filepath.Base(bundlePath)
 
 		client = hcsclient.HCSClient{}
-		sm := sandbox.NewManager(&client, &command.Command{}, bundlePath)
+		sm := sandbox.NewManager(&client, &mounter.Mounter{}, bundlePath)
 		nm := networkManager(&client)
 		cm = container.NewManager(&client, sm, nm, containerId)
 

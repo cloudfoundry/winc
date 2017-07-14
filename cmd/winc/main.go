@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"code.cloudfoundry.org/winc/command"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/mounter"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -182,7 +182,7 @@ func wireContainerManager(bundlePath, containerId string) (container.ContainerMa
 		bundlePath = cp.Name
 	}
 
-	sm := sandbox.NewManager(&client, &command.Command{}, bundlePath)
+	sm := sandbox.NewManager(&client, &mounter.Mounter{}, bundlePath)
 
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,

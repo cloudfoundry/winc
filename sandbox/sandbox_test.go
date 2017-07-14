@@ -29,7 +29,7 @@ var _ = Describe("Sandbox", func() {
 		expectedDriverInfo hcsshim.DriverInfo
 		expectedLayerId    string
 		rootfsParents      []byte
-		fakeCommand        *sandboxfakes.FakeCommand
+		fakeMounter        *sandboxfakes.FakeMounter
 	)
 
 	BeforeEach(func() {
@@ -41,8 +41,8 @@ var _ = Describe("Sandbox", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		fakeCommand = &sandboxfakes.FakeCommand{}
-		sandboxManager = sandbox.NewManager(hcsClient, fakeCommand, bundlePath)
+		fakeMounter = &sandboxfakes.FakeMounter{}
+		sandboxManager = sandbox.NewManager(hcsClient, fakeMounter, bundlePath)
 
 		expectedDriverInfo = hcsshim.DriverInfo{
 			HomeDir: filepath.Dir(bundlePath),
@@ -266,11 +266,10 @@ var _ = Describe("Sandbox", func() {
 			rootPath := filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid), "root")
 			Expect(rootPath).To(BeADirectory())
 
-			Expect(fakeCommand.RunCallCount()).To(Equal(1))
-			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
-			Expect(runCmd).To(Equal("mountvol"))
-			Expect(runArgs[0]).To(Equal(rootPath))
-			Expect(runArgs[1]).To(Equal(containerVolume))
+			Expect(fakeMounter.SetPointCallCount()).To(Equal(1))
+			mp, vol := fakeMounter.SetPointArgsForCall(0)
+			Expect(mp).To(Equal(rootPath))
+			Expect(vol).To(Equal(containerVolume))
 		})
 	})
 
@@ -289,11 +288,9 @@ var _ = Describe("Sandbox", func() {
 		It("unmounts the sandbox.vhdx from c:\\proc\\<pid>\\mnt and removes the directory", func() {
 			Expect(sandboxManager.Unmount(pid)).To(Succeed())
 
-			Expect(fakeCommand.RunCallCount()).To(Equal(1))
-			runCmd, runArgs := fakeCommand.RunArgsForCall(0)
-			Expect(runCmd).To(Equal("mountvol"))
-			Expect(runArgs[0]).To(Equal(rootPath))
-			Expect(runArgs[1]).To(Equal("/D"))
+			Expect(fakeMounter.DeletePointCallCount()).To(Equal(1))
+			mp := fakeMounter.DeletePointArgsForCall(0)
+			Expect(mp).To(Equal(rootPath))
 
 			Expect(mountPath).NotTo(BeADirectory())
 		})

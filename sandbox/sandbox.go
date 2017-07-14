@@ -23,10 +23,10 @@ type SandboxManager interface {
 	Unmount(pid int) error
 }
 
-//go:generate counterfeiter . Command
-type Command interface {
-	Run(command string, args ...string) error
-	CombinedOutput(command string, args ...string) ([]byte, error)
+//go:generate counterfeiter . Mounter
+type Mounter interface {
+	SetPoint(string, string) error
+	DeletePoint(string) error
 }
 
 type sandboxManager struct {
@@ -34,11 +34,11 @@ type sandboxManager struct {
 	hcsClient  hcsclient.Client
 	id         string
 	driverInfo hcsshim.DriverInfo
-	command    Command
+	mounter    Mounter
 	volumePath string
 }
 
-func NewManager(hcsClient hcsclient.Client, command Command, bundlePath string) SandboxManager {
+func NewManager(hcsClient hcsclient.Client, mounter Mounter, bundlePath string) SandboxManager {
 	driverInfo := hcsshim.DriverInfo{
 		HomeDir: filepath.Dir(bundlePath),
 		Flavour: 1,
@@ -46,7 +46,7 @@ func NewManager(hcsClient hcsclient.Client, command Command, bundlePath string) 
 
 	return &sandboxManager{
 		hcsClient:  hcsClient,
-		command:    command,
+		mounter:    mounter,
 		bundlePath: bundlePath,
 		id:         filepath.Base(bundlePath),
 		driverInfo: driverInfo,
@@ -148,11 +148,11 @@ func (s *sandboxManager) Mount(pid int) error {
 		return err
 	}
 
-	return s.command.Run("mountvol", s.rootPath(pid), s.volumePath)
+	return s.mounter.SetPoint(s.rootPath(pid), s.volumePath)
 }
 
 func (s *sandboxManager) Unmount(pid int) error {
-	if err := s.command.Run("mountvol", s.rootPath(pid), "/D"); err != nil {
+	if err := s.mounter.DeletePoint(s.rootPath(pid)); err != nil {
 		return err
 	}
 
