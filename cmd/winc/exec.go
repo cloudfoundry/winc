@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -120,17 +122,23 @@ following will output a list of processes running in the container:
 				return err
 			}
 
+			var wg sync.WaitGroup
+
 			go func() {
 				io.Copy(stdin, os.Stdin)
 				stdin.Close()
 			}()
 			go func() {
+				wg.Add(1)
 				io.Copy(os.Stdout, stdout)
 				stdout.Close()
+				wg.Done()
 			}()
 			go func() {
+				wg.Add(1)
 				io.Copy(os.Stderr, stderr)
 				stderr.Close()
+				wg.Done()
 			}()
 
 			c := make(chan os.Signal, 1)
@@ -140,7 +148,9 @@ following will output a list of processes running in the container:
 				process.Kill()
 			}()
 
-			if err := process.Wait(); err != nil {
+			err = process.Wait()
+			waitWithTimeout(&wg, 1*time.Second)
+			if err != nil {
 				return err
 			}
 
@@ -154,4 +164,17 @@ following will output a list of processes running in the container:
 		return nil
 	},
 	SkipArgReorder: true,
+}
+
+func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
+	wgEmpty := make(chan interface{}, 1)
+	go func() {
+		wg.Wait()
+		wgEmpty <- nil
+	}()
+
+	select {
+	case <-time.After(timeout):
+	case <-wgEmpty:
+	}
 }
