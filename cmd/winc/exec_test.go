@@ -115,13 +115,9 @@ var _ = Describe("Exec", func() {
 				Expect(f.Close()).To(Succeed())
 				processConfig = f.Name()
 				expectedSpec := processSpecGenerator()
-				expectedSpec.User.Username = "test-user"
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
-
-				err = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "net user test-user /ADD /passwordreq:no && runas /user:test-user whoami").Run()
-				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {

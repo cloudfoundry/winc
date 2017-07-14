@@ -95,7 +95,7 @@ func processSpecGenerator() specs.Process {
 		Args: []string{"cmd.exe"},
 		Env:  []string{"var1=foo", "var2=bar"},
 		User: specs.User{
-			Username: "Administrator",
+			Username: "vcap",
 		},
 	}
 }
