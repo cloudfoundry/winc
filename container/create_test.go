@@ -55,7 +55,7 @@ var _ = Describe("Create", func() {
 
 		Expect(ioutil.WriteFile(filepath.Join(expectedBundlePath, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
 
-		spec = &specs.Spec{}
+		spec = &specs.Spec{Root: &specs.Root{}}
 		spec.Root.Path = rootfs
 	})
 

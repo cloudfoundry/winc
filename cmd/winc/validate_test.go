@@ -117,9 +117,7 @@ var _ = Describe("Validate", func() {
 
 			It("logs the invalid fields", func() {
 				logOutputStr := logOutput.String()
-				Expect(logOutputStr).To(ContainSubstring("'Platform.OS' should not be empty."))
-				Expect(logOutputStr).To(ContainSubstring("'Platform.Arch' should not be empty."))
-				Expect(logOutputStr).To(ContainSubstring("'Root.Path' should not be empty."))
+				Expect(logOutputStr).To(ContainSubstring("'Spec.Version' should not be empty."))
 			})
 		})
 	})

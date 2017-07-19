@@ -4,7 +4,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -75,15 +74,11 @@ func TestWinc(t *testing.T) {
 func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
-		Platform: specs.Platform{
-			OS:   runtime.GOOS,
-			Arch: runtime.GOARCH,
-		},
 		Process: &specs.Process{
 			Args: []string{"powershell"},
 			Cwd:  "/",
 		},
-		Root: specs.Root{
+		Root: &specs.Root{
 			Path: rootfsPath,
 		},
 	}

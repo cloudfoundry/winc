@@ -37,7 +37,10 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 		return nil, &BundleConfigInvalidJSONError{BundlePath: bundlePath}
 	}
 
-	validator := validate.NewValidator(&spec, bundlePath, true)
+	validator, err := validate.NewValidatorFromPath(bundlePath, true, "windows")
+	if err != nil {
+		return nil, err
+	}
 
 	msgs := validator.CheckMandatoryFields()
 	if len(msgs) != 0 {

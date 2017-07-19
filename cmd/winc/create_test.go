@@ -351,6 +351,7 @@ var _ = Describe("Create", func() {
 			BeforeEach(func() {
 				memLimitBytes := memLimitMB * 1024 * 1024
 				bundleSpec.Windows = &specs.Windows{
+					LayerFolders: []string{"hello"},
 					Resources: &specs.WindowsResources{
 						Memory: &specs.WindowsMemoryResources{
 							Limit: &memLimitBytes,
@@ -360,7 +361,8 @@ var _ = Describe("Create", func() {
 			})
 
 			JustBeforeEach(func() {
-				err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
+				output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
+				fmt.Println(string(output))
 				Expect(err).ToNot(HaveOccurred())
 
 				state, err := cm.State()
