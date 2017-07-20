@@ -36,18 +36,21 @@ func NewNetworkManager(client hcsclient.Client, portAllocator PortAllocator) Net
 func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
 	appPortMapping, err := n.portMapping(8080, containerID)
 	if err != nil {
+		logrus.Error(err.Error())
 		n.cleanupPorts(containerID)
 		return hcsshim.ContainerConfig{}, err
 	}
 
 	sshPortMapping, err := n.portMapping(2222, containerID)
 	if err != nil {
+		logrus.Error(err.Error())
 		n.cleanupPorts(containerID)
 		return hcsshim.ContainerConfig{}, err
 	}
 
 	network, err := n.hcsClient.GetHNSNetworkByName("nat")
 	if err != nil {
+		logrus.Error(err.Error())
 		n.cleanupPorts(containerID)
 		return hcsshim.ContainerConfig{}, err
 	}
@@ -60,6 +63,7 @@ func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, 
 
 	endpoint, err = n.hcsClient.CreateEndpoint(endpoint)
 	if err != nil {
+		logrus.Error(err.Error())
 		n.cleanupPorts(containerID)
 		return hcsshim.ContainerConfig{}, err
 	}
