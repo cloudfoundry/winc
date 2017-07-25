@@ -119,16 +119,50 @@ var _ = Describe("Network", func() {
 		})
 
 		Context("creating the endpoint fails", func() {
-			BeforeEach(func() {
-				hcsClient.CreateEndpointReturns(nil, errors.New("cannot create endpoint"))
+			Context("when the error is an unspecified HNS error", func() {
+				BeforeEach(func() {
+					hcsClient.CreateEndpointReturnsOnCall(0, nil, errors.New("HNS failed with error : Unspecified error"))
+					hcsClient.CreateEndpointReturnsOnCall(1, nil, errors.New("HNS failed with error : Unspecified error"))
+					hcsClient.CreateEndpointReturnsOnCall(2, endpoint, nil)
+				})
+
+				It("retries creating the endpoint", func() {
+					config := hcsshim.ContainerConfig{}
+					var err error
+					config, err = networkManager.AttachEndpointToConfig(config, containerId)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
+				})
 			})
 
-			It("deallocates the port", func() {
-				_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{}, containerId)
-				Expect(err).To(MatchError("cannot create endpoint"))
+			Context("it fails 3 times with an unspecified HNS error", func() {
+				BeforeEach(func() {
+					hcsClient.CreateEndpointReturns(nil, errors.New("HNS failed with error : Unspecified error"))
+				})
 
-				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
+				It("returns an error and deallocates the ports", func() {
+					_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{}, containerId)
+					Expect(err).To(MatchError("HNS failed with error : Unspecified error"))
+					Expect(hcsClient.CreateEndpointCallCount()).To(Equal(3))
+
+					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+					Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
+				})
+			})
+
+			Context("when the error is some other error", func() {
+				BeforeEach(func() {
+					hcsClient.CreateEndpointReturns(nil, errors.New("cannot create endpoint"))
+				})
+
+				It("deallocates the port", func() {
+					_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{}, containerId)
+					Expect(err).To(MatchError("cannot create endpoint"))
+					Expect(hcsClient.CreateEndpointCallCount()).To(Equal(1))
+
+					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+					Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
+				})
 			})
 		})
 	})

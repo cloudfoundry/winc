@@ -61,14 +61,27 @@ func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, 
 		Policies:       []json.RawMessage{appPortMapping, sshPortMapping},
 	}
 
-	endpoint, err = n.hcsClient.CreateEndpoint(endpoint)
-	if err != nil {
-		logrus.Error(err.Error())
+	retries := 3
+	success := false
+	var createErr error
+	var createdEndpoint *hcsshim.HNSEndpoint
+	for i := 0; i < retries && success == false; i++ {
+		createdEndpoint, createErr = n.hcsClient.CreateEndpoint(endpoint)
+		if createErr != nil {
+			logrus.Error(createErr.Error())
+			if createErr.Error() != "HNS failed with error : Unspecified error" {
+				break
+			}
+		} else {
+			success = true
+		}
+	}
+	if !success {
 		n.cleanupPorts(containerID)
-		return hcsshim.ContainerConfig{}, err
+		return hcsshim.ContainerConfig{}, createErr
 	}
 
-	config.EndpointList = []string{endpoint.Id}
+	config.EndpointList = []string{createdEndpoint.Id}
 	return config, nil
 }
 
