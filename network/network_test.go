@@ -47,7 +47,7 @@ var _ = Describe("Network", func() {
 			portAllocator.AllocatePortReturnsOnCall(1, port2, nil)
 
 			networkId = "network-id"
-			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId}, nil)
+			hcsClient.HNSListNetworkRequestReturns([]hcsshim.HNSNetwork{{Id: networkId, Name: network.WINC_NETWORK}}, nil)
 
 			containerId = "container-id"
 
@@ -84,8 +84,7 @@ var _ = Describe("Network", func() {
 			Expect(handle).To(Equal(containerId))
 			Expect(requestedPort).To(Equal(0))
 
-			Expect(hcsClient.GetHNSNetworkByNameCallCount()).To(Equal(1))
-			Expect(hcsClient.GetHNSNetworkByNameArgsForCall(0)).To(Equal("nat"))
+			Expect(hcsClient.HNSListNetworkRequestCallCount()).To(Equal(1))
 
 			Expect(hcsClient.CreateEndpointCallCount()).To(Equal(1))
 			endpointToCreate := hcsClient.CreateEndpointArgsForCall(0)
@@ -98,23 +97,32 @@ var _ = Describe("Network", func() {
 				mapping := hcsshim.NatPolicy{}
 
 				Expect(json.Unmarshal(pol, &mapping)).To(Succeed())
-				Expect(mapping.Type).To(Equal("NAT"))
+				Expect(mapping.Type).To(Equal(hcsshim.PolicyType("NAT")))
 				requestedPortMappings = append(requestedPortMappings, mapping)
 			}
 			Expect(requestedPortMappings).To(ConsistOf(expectedPortMappings))
 		})
 
-		Context("when getting the network fails", func() {
+		Context("winc-nat network does not already exist", func() {
+			var oldNAT hcsshim.HNSNetwork
+
 			BeforeEach(func() {
-				hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("cannot get network"))
+				oldNAT = hcsshim.HNSNetwork{Id: networkId, Name: "some-other-nat-network", Type: "nat"}
+				hcsClient.HNSListNetworkRequestReturns([]hcsshim.HNSNetwork{oldNAT}, nil)
+				hcsClient.CreateNetworkReturns(&hcsshim.HNSNetwork{Id: networkId, Name: network.WINC_NETWORK}, nil)
 			})
 
-			It("deallocates the port", func() {
-				_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{}, containerId)
-				Expect(err).To(MatchError("cannot get network"))
+			It("deletes any existing nat networks and creates winc-nat", func() {
+				config := hcsshim.ContainerConfig{}
+				var err error
+				_, err = networkManager.AttachEndpointToConfig(config, containerId)
+				Expect(err).NotTo(HaveOccurred())
 
-				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.DeleteNetworkArgsForCall(0)).To(Equal(&oldNAT))
+				newNAT := hcsClient.CreateNetworkArgsForCall(0)
+				Expect(newNAT.Name).To(Equal("winc-nat"))
+				Expect(newNAT.Type).To(Equal("nat"))
+				Expect(newNAT.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "172.35.0.0/22", GatewayAddress: "172.35.0.1"}))
 			})
 		})
 

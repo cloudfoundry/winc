@@ -22,10 +22,12 @@ type Client interface {
 	DeactivateLayer(info hcsshim.DriverInfo, id string) error
 	DestroyLayer(info hcsshim.DriverInfo, id string) error
 	GetContainerProperties(id string) (hcsshim.ContainerProperties, error)
-	GetHNSNetworkByName(networkName string) (*hcsshim.HNSNetwork, error)
+	HNSListNetworkRequest() ([]hcsshim.HNSNetwork, error)
 	GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error)
 	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
+	CreateNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
+	DeleteNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
 }
 
 //go:generate counterfeiter . Container
@@ -138,8 +140,16 @@ func (c *HCSClient) DeleteEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSE
 	return endpoint.Delete()
 }
 
-func (c *HCSClient) GetHNSNetworkByName(networkName string) (*hcsshim.HNSNetwork, error) {
-	return hcsshim.GetHNSNetworkByName(networkName)
+func (c *HCSClient) CreateNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
+	return network.Create()
+}
+
+func (c *HCSClient) DeleteNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
+	return network.Delete()
+}
+
+func (c *HCSClient) HNSListNetworkRequest() ([]hcsshim.HNSNetwork, error) {
+	return hcsshim.HNSListNetworkRequest("GET", "", "")
 }
 
 func (c *HCSClient) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {

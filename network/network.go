@@ -2,11 +2,16 @@ package network
 
 import (
 	"encoding/json"
+	"strings"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 )
+
+const WINC_NETWORK = "winc-nat"
+const SUBNET_RANGE = "172.35.0.0/22"
+const GATEWAY_ADDRESS = "172.35.0.1"
 
 //go:generate counterfeiter . NetworkManager
 type NetworkManager interface {
@@ -34,6 +39,42 @@ func NewNetworkManager(client hcsclient.Client, portAllocator PortAllocator) Net
 }
 
 func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
+	hnsNetworks, err := n.hcsClient.HNSListNetworkRequest()
+	if err != nil {
+		logrus.Error(err.Error())
+		return hcsshim.ContainerConfig{}, err
+	}
+
+	var wincNATNetwork *hcsshim.HNSNetwork
+	for _, net := range hnsNetworks {
+		if strings.ToUpper(net.Type) == "NAT" && net.Name != WINC_NETWORK {
+			_, err := n.hcsClient.DeleteNetwork(&net)
+			if err != nil {
+				logrus.Error(err.Error())
+				return hcsshim.ContainerConfig{}, err
+			}
+		}
+
+		if net.Name == WINC_NETWORK {
+			wincNATNetwork = &net
+		}
+	}
+
+	if wincNATNetwork == nil {
+		network := &hcsshim.HNSNetwork{
+			Name: WINC_NETWORK,
+			Type: "nat",
+			Subnets: []hcsshim.Subnet{
+				{AddressPrefix: SUBNET_RANGE, GatewayAddress: GATEWAY_ADDRESS},
+			},
+		}
+		wincNATNetwork, err = n.hcsClient.CreateNetwork(network)
+		if err != nil {
+			logrus.Error(err.Error())
+			return hcsshim.ContainerConfig{}, err
+		}
+	}
+
 	appPortMapping, err := n.portMapping(8080, containerID)
 	if err != nil {
 		logrus.Error(err.Error())
@@ -48,16 +89,9 @@ func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, 
 		return hcsshim.ContainerConfig{}, err
 	}
 
-	network, err := n.hcsClient.GetHNSNetworkByName("nat")
-	if err != nil {
-		logrus.Error(err.Error())
-		n.cleanupPorts(containerID)
-		return hcsshim.ContainerConfig{}, err
-	}
-
 	endpoint := &hcsshim.HNSEndpoint{
 		Name:           containerID,
-		VirtualNetwork: network.Id,
+		VirtualNetwork: wincNATNetwork.Id,
 		Policies:       []json.RawMessage{appPortMapping, sshPortMapping},
 	}
 
