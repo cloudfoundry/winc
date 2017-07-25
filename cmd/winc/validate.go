@@ -10,9 +10,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-tools/validate"
+	"github.com/sirupsen/logrus"
 )
 
 const defaultCwd = "C:\\"

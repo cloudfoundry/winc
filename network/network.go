@@ -5,7 +5,7 @@ import (
 
 	"code.cloudfoundry.org/winc/hcsclient"
 	"github.com/Microsoft/hcsshim"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate counterfeiter . NetworkManager

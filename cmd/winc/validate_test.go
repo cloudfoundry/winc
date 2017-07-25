@@ -10,10 +10,10 @@ import (
 	"golang.org/x/text/encoding/unicode"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
-	"github.com/Sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Validate", func() {
@@ -234,9 +234,9 @@ var _ = Describe("Validate", func() {
 
 				It("logs the invalid fields", func() {
 					logOutputStr := logOutput.String()
-					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "foo/bar" is not an absolute path"`))
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd \"foo/bar\" is not an absolute path"`))
 					Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
-					Expect(logOutputStr).To(ContainSubstring(`processConfigError="env "var1" should be in the form of 'key=value'`))
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="env \"var1\" should be in the form of 'key=value'`))
 				})
 			})
 		})
@@ -309,9 +309,9 @@ var _ = Describe("Validate", func() {
 
 			It("logs the invalid fields", func() {
 				logOutputStr := logOutput.String()
-				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd "foo/bar" is not an absolute path"`))
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd \"foo/bar\" is not an absolute path"`))
 				Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
-				Expect(logOutputStr).To(ContainSubstring(`processConfigError="env "var1" should be in the form of 'key=value'`))
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="env \"var1\" should be in the form of 'key=value'`))
 			})
 		})
 	})

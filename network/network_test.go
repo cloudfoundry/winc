@@ -9,9 +9,9 @@ import (
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/networkfakes"
 	"github.com/Microsoft/hcsshim"
-	"github.com/Sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Network", func() {

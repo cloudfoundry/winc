@@ -14,8 +14,8 @@ import (
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
-	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 const destroyTimeout = time.Minute

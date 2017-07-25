@@ -16,8 +16,8 @@ import (
 	"code.cloudfoundry.org/winc/port_allocator"
 	"code.cloudfoundry.org/winc/sandbox"
 
-	"github.com/Sirupsen/logrus"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
