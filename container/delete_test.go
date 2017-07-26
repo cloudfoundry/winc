@@ -2,6 +2,9 @@ package container_test
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
@@ -14,12 +17,9 @@ import (
 )
 
 var _ = Describe("Delete", func() {
-	const (
-		expectedContainerId        = "containerid"
-		expectedContainerBundleDir = "C:\\bundle"
-	)
-
 	var (
+		containerId      string
+		bundlePath       string
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		fakeContainer    *hcsclientfakes.FakeContainer
@@ -28,11 +28,21 @@ var _ = Describe("Delete", func() {
 	)
 
 	BeforeEach(func() {
+		var err error
+		bundlePath, err = ioutil.TempDir("", "bundlePath")
+		Expect(err).ToNot(HaveOccurred())
+
+		containerId = filepath.Base(bundlePath)
+
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		networkManager = &networkfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, expectedContainerId)
+		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, containerId)
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	Context("when the specified container is not running", func() {
@@ -52,12 +62,12 @@ var _ = Describe("Delete", func() {
 			Expect(sandboxManager.UnmountArgsForCall(0)).To(Equal(pid))
 
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
-			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 			Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-			container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+			container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 			Expect(container).To(Equal(fakeContainer))
-			Expect(containerID).To(Equal(expectedContainerId))
+			Expect(actualContainerId).To(Equal(containerId))
 
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 
@@ -73,12 +83,12 @@ var _ = Describe("Delete", func() {
 				Expect(containerManager.Delete()).NotTo(Succeed())
 
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
-				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(fakeContainer))
-				Expect(containerID).To(Equal(expectedContainerId))
+				Expect(actualContainerId).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 

@@ -31,15 +31,17 @@ type containerManager struct {
 	hcsClient      hcsclient.Client
 	sandboxManager sandbox.SandboxManager
 	networkManager network.NetworkManager
+	bundlePath     string
 	id             string
 }
 
-func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManager, networkManager network.NetworkManager, containerId string) ContainerManager {
+func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManager, networkManager network.NetworkManager, bundlePath string) ContainerManager {
 	return &containerManager{
 		hcsClient:      hcsClient,
 		sandboxManager: sandboxManager,
 		networkManager: networkManager,
-		id:             containerId,
+		bundlePath:     bundlePath,
+		id:             filepath.Base(bundlePath),
 	}
 }
 
@@ -57,8 +59,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	bundlePath := c.sandboxManager.BundlePath()
-	layerChain, err := ioutil.ReadFile(filepath.Join(bundlePath, "layerchain.json"))
+	layerChain, err := ioutil.ReadFile(filepath.Join(c.bundlePath, "layerchain.json"))
 	if err != nil {
 		return err
 	}
@@ -105,10 +106,10 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
-		Name:              bundlePath,
+		Name:              c.bundlePath,
 		VolumePath:        volumePath,
 		Owner:             "winc",
-		LayerFolderPath:   bundlePath,
+		LayerFolderPath:   c.bundlePath,
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
 	}

@@ -205,5 +205,5 @@ func wireContainerManager(bundlePath, containerId string) (container.ContainerMa
 
 	nm := network.NewNetworkManager(&client, pa)
 
-	return container.NewManager(&client, sm, nm, containerId), nil
+	return container.NewManager(&client, sm, nm, bundlePath), nil
 }

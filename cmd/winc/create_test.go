@@ -46,7 +46,7 @@ var _ = Describe("Create", func() {
 		client = &hcsclient.HCSClient{}
 		sm := sandbox.NewManager(client, &mounter.Mounter{}, depotDir, containerId)
 		nm := networkManager(client)
-		cm = container.NewManager(client, sm, nm, containerId)
+		cm = container.NewManager(client, sm, nm, bundlePath)
 
 		bundleSpec = runtimeSpecGenerator(rootfsPath)
 

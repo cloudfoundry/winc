@@ -25,42 +25,42 @@ var _ = Describe("Create", func() {
 	)
 
 	var (
-		expectedContainerId  string
-		expectedBundlePath   string
-		expectedParentLayers []byte
-		hcsClient            *hcsclientfakes.FakeClient
-		sandboxManager       *sandboxfakes.FakeSandboxManager
-		networkManager       *networkfakes.FakeNetworkManager
-		containerManager     container.ContainerManager
-		spec                 *specs.Spec
+		containerId      string
+		bundlePath       string
+		parentLayers     []byte
+		hcsClient        *hcsclientfakes.FakeClient
+		sandboxManager   *sandboxfakes.FakeSandboxManager
+		networkManager   *networkfakes.FakeNetworkManager
+		containerManager container.ContainerManager
+		spec             *specs.Spec
 	)
 
 	BeforeEach(func() {
 		var err error
-		expectedBundlePath, err = ioutil.TempDir("", "sandbox")
+		bundlePath, err = ioutil.TempDir("", "bundlePath")
 		Expect(err).ToNot(HaveOccurred())
 
-		expectedContainerId = filepath.Base(expectedBundlePath)
+		containerId = filepath.Base(bundlePath)
 
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
 		networkManager = &networkfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, expectedContainerId)
+		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, bundlePath)
 
-		expectedParentLayers = []byte(`["path1", "path2"]`)
-		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
-			config.EndpointList = []string{"endpoint-for-" + containerID}
+		parentLayers = []byte(`["path1", "path2"]`)
+		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerId string) (hcsshim.ContainerConfig, error) {
+			config.EndpointList = []string{"endpoint-for-" + containerId}
 			return config, nil
 		}
 
-		Expect(ioutil.WriteFile(filepath.Join(expectedBundlePath, "layerchain.json"), expectedParentLayers, 0755)).To(Succeed())
+		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "layerchain.json"), parentLayers, 0755)).To(Succeed())
 
 		spec = &specs.Spec{Root: &specs.Root{}}
 		spec.Root.Path = rootfs
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(expectedBundlePath)).To(Succeed())
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	// TODO: fill in other happy path checks and error corner cases
@@ -75,10 +75,9 @@ var _ = Describe("Create", func() {
 		BeforeEach(func() {
 			fakeContainer = hcsclientfakes.FakeContainer{}
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
-			sandboxManager.BundlePathReturns(expectedBundlePath)
 			sandboxManager.CreateReturns(containerVolume, nil)
 
-			err := json.Unmarshal(expectedParentLayers, &expectedLayerPaths)
+			err := json.Unmarshal(parentLayers, &expectedLayerPaths)
 			Expect(err).ToNot(HaveOccurred())
 
 			layerGuid := hcsshim.NewGUID("layerguid")
@@ -104,10 +103,9 @@ var _ = Describe("Create", func() {
 			Expect(containerManager.Create(spec)).To(Succeed())
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
-			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
+			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 
 			Expect(sandboxManager.CreateCallCount()).To(Equal(1))
-			Expect(sandboxManager.BundlePathCallCount()).To(Equal(1))
 
 			Expect(hcsClient.NameToGuidCallCount()).To(Equal(len(expectedLayerPaths)))
 			for i, l := range expectedLayerPaths {
@@ -115,17 +113,17 @@ var _ = Describe("Create", func() {
 			}
 
 			Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
-			containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
-			Expect(containerId).To(Equal(expectedContainerId))
+			actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+			Expect(actualContainerId).To(Equal(containerId))
 			Expect(containerConfig).To(Equal(&hcsshim.ContainerConfig{
 				SystemType:        "Container",
-				Name:              expectedBundlePath,
+				Name:              bundlePath,
 				VolumePath:        containerVolume,
 				Owner:             "winc",
-				LayerFolderPath:   expectedBundlePath,
+				LayerFolderPath:   bundlePath,
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
-				EndpointList:      []string{"endpoint-for-" + expectedContainerId},
+				EndpointList:      []string{"endpoint-for-" + containerId},
 			}))
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
@@ -162,8 +160,8 @@ var _ = Describe("Create", func() {
 				Expect(containerManager.Create(spec)).To(Succeed())
 
 				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
-				containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
-				Expect(containerId).To(Equal(expectedContainerId))
+				actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+				Expect(actualContainerId).To(Equal(containerId))
 				Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
 			})
 
@@ -202,8 +200,8 @@ var _ = Describe("Create", func() {
 					Expect(containerManager.Create(spec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
-					containerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
-					Expect(containerId).To(Equal(expectedContainerId))
+					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(actualContainerId).To(Equal(containerId))
 					Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
 				})
 			})
@@ -253,9 +251,9 @@ var _ = Describe("Create", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteEndpointsByIdCallCount()).To(Equal(1))
-				endpointIds, containerId := networkManager.DeleteEndpointsByIdArgsForCall(0)
-				Expect(endpointIds).To(Equal([]string{"endpoint-for-" + expectedContainerId}))
-				Expect(containerId).To(Equal(expectedContainerId))
+				endpointIds, actualContainerId := networkManager.DeleteEndpointsByIdArgsForCall(0)
+				Expect(endpointIds).To(Equal([]string{"endpoint-for-" + containerId}))
+				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 
@@ -269,9 +267,9 @@ var _ = Describe("Create", func() {
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
-				Expect(containerID).To(Equal(expectedContainerId))
+				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 
@@ -285,9 +283,9 @@ var _ = Describe("Create", func() {
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
-				Expect(containerID).To(Equal(expectedContainerId))
+				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 
@@ -301,9 +299,9 @@ var _ = Describe("Create", func() {
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, containerID := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
-				Expect(containerID).To(Equal(expectedContainerId))
+				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 	})

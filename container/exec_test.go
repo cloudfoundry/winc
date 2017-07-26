@@ -2,6 +2,9 @@ package container_test
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -15,11 +18,9 @@ import (
 )
 
 var _ = Describe("Exec", func() {
-	const (
-		expectedContainerId        = "containerid"
-		expectedContainerBundleDir = "C:\\bundle"
-	)
 	var (
+		containerId      string
+		bundlePath       string
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		containerManager container.ContainerManager
@@ -29,12 +30,22 @@ var _ = Describe("Exec", func() {
 	)
 
 	BeforeEach(func() {
+		var err error
+		bundlePath, err = ioutil.TempDir("", "bundlePath")
+		Expect(err).ToNot(HaveOccurred())
+
+		containerId = filepath.Base(bundlePath)
+
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
-		sandboxManager.BundlePathReturns(expectedContainerBundleDir)
-		containerManager = container.NewManager(hcsClient, sandboxManager, nil, expectedContainerId)
+		sandboxManager.BundlePathReturns(bundlePath)
+		containerManager = container.NewManager(hcsClient, sandboxManager, nil, containerId)
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		fakeProcess = &hcsclientfakes.FakeProcess{}
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	Context("when the specified container exists", func() {
@@ -70,7 +81,7 @@ var _ = Describe("Exec", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(p.Pid()).To(Equal(666))
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 			Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 			Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			Expect(fakeProcess.PidCallCount()).To(Equal(1))
@@ -157,12 +168,13 @@ var _ = Describe("Exec", func() {
 		})
 
 		Context("when creating a process in the container fails", func() {
-			var couldNotCreateProcessError = &hcsclient.CouldNotCreateProcessError{
-				Id:      expectedContainerId,
-				Command: "powershell.exe",
-			}
+			var couldNotCreateProcessError *hcsclient.CouldNotCreateProcessError
 
 			BeforeEach(func() {
+				couldNotCreateProcessError = &hcsclient.CouldNotCreateProcessError{
+					Id:      containerId,
+					Command: "powershell.exe",
+				}
 				fakeContainer.CreateProcessReturns(nil, couldNotCreateProcessError)
 			})
 

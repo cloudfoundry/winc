@@ -50,7 +50,7 @@ var _ = Describe("Exec", func() {
 		client = hcsclient.HCSClient{}
 		sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
 		nm := networkManager(&client)
-		cm = container.NewManager(&client, sm, nm, containerId)
+		cm = container.NewManager(&client, sm, nm, bundlePath)
 
 		stdOut = new(bytes.Buffer)
 		stdErr = new(bytes.Buffer)

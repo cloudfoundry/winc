@@ -2,6 +2,9 @@ package container_test
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"code.cloudfoundry.org/winc/container"
@@ -15,12 +18,9 @@ import (
 )
 
 var _ = Describe("State", func() {
-	const (
-		expectedContainerId        = "containerid"
-		expectedContainerBundleDir = "C:\\bundle"
-	)
-
 	var (
+		containerId      string
+		bundlePath       string
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		containerManager container.ContainerManager
@@ -28,10 +28,16 @@ var _ = Describe("State", func() {
 	)
 
 	BeforeEach(func() {
+		var err error
+		bundlePath, err = ioutil.TempDir("", "bundlePath")
+		Expect(err).ToNot(HaveOccurred())
+
+		containerId = filepath.Base(bundlePath)
+
 		hcsClient = &hcsclientfakes.FakeClient{}
 		sandboxManager = &sandboxfakes.FakeSandboxManager{}
-		sandboxManager.BundlePathReturns(expectedContainerBundleDir)
-		containerManager = container.NewManager(hcsClient, sandboxManager, nil, expectedContainerId)
+		sandboxManager.BundlePathReturns(bundlePath)
+		containerManager = container.NewManager(hcsClient, sandboxManager, nil, containerId)
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
 			{ProcessId: 666, ImageName: "wininit.exe"},
@@ -40,10 +46,15 @@ var _ = Describe("State", func() {
 
 	})
 
+	AfterEach(func() {
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+	})
+
 	It("calls the client with the correct container id", func() {
-		containerManager.State()
+		_, err := containerManager.State()
+		Expect(err).NotTo(HaveOccurred())
 		Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
-		Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
+		Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 	})
 
 	Context("when the specified container exists", func() {
@@ -56,14 +67,14 @@ var _ = Describe("State", func() {
 		BeforeEach(func() {
 			expectedState = &specs.State{
 				Version: specs.Version,
-				ID:      expectedContainerId,
-				Bundle:  expectedContainerBundleDir,
+				ID:      containerId,
+				Bundle:  bundlePath,
 				Pid:     666,
 			}
 
 			expectedContainerProperties = hcsshim.ContainerProperties{
-				ID:   expectedContainerId,
-				Name: expectedContainerBundleDir,
+				ID:   containerId,
+				Name: bundlePath,
 			}
 		})
 
@@ -82,9 +93,9 @@ var _ = Describe("State", func() {
 			It("returns the correct state", func() {
 				Expect(actualState).To(Equal(expectedState))
 				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
-				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 				Expect(fakeContainer.ProcessListCallCount()).To(Equal(1))
 			})
 		})
@@ -98,9 +109,9 @@ var _ = Describe("State", func() {
 			It("returns the correct state", func() {
 				Expect(actualState).To(Equal(expectedState))
 				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
-				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(expectedContainerId))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 				Expect(fakeContainer.ProcessListCallCount()).To(Equal(1))
 			})
 		})
