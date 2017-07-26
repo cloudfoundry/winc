@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"bytes"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,10 +36,11 @@ var _ = Describe("Delete", func() {
 		)
 
 		BeforeEach(func() {
-			containerId = filepath.Base(bundlePath)
+			containerId = strconv.Itoa(rand.Int())
+			bundlePath = filepath.Join(depotDir, containerId)
 
 			client := hcsclient.HCSClient{}
-			sm := sandbox.NewManager(&client, &mounter.Mounter{}, bundlePath)
+			sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
 			nm := networkManager(&client)
 			cm = container.NewManager(&client, sm, nm, containerId)
 
@@ -48,7 +50,7 @@ var _ = Describe("Delete", func() {
 
 		Context("when the container is running", func() {
 			It("deletes the container", func() {
-				err := exec.Command(wincBin, "delete", containerId).Run()
+				err := execute(wincBin, "delete", containerId)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(containerExists(containerId)).To(BeFalse())
@@ -57,7 +59,7 @@ var _ = Describe("Delete", func() {
 			It("deletes the container endpoints", func() {
 				containerEndpoints := allEndpoints(containerId)
 
-				err := exec.Command(wincBin, "delete", containerId).Run()
+				err := execute(wincBin, "delete", containerId)
 				Expect(err).ToNot(HaveOccurred())
 
 				existingEndpoints, err := hcsshim.HNSListEndpointRequest()
@@ -71,7 +73,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("does not delete the bundle directory", func() {
-				err := exec.Command(wincBin, "delete", containerId).Run()
+				err := execute(wincBin, "delete", containerId)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(bundlePath).To(BeADirectory())
@@ -84,7 +86,7 @@ var _ = Describe("Delete", func() {
 				_, err = os.Lstat(rootPath)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = exec.Command(wincBin, "delete", containerId).Run()
+				err = execute(wincBin, "delete", containerId)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(rootPath).NotTo(BeADirectory())

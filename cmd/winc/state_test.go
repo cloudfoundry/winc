@@ -3,8 +3,11 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"math/rand"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -37,10 +40,13 @@ var _ = Describe("State", func() {
 		)
 
 		BeforeEach(func() {
-			containerId = filepath.Base(bundlePath)
+			containerId = strconv.Itoa(rand.Int())
+			bundlePath = filepath.Join(depotDir, containerId)
+
+			Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 			client = &hcsclient.HCSClient{}
-			sm := sandbox.NewManager(client, &mounter.Mounter{}, bundlePath)
+			sm := sandbox.NewManager(client, &mounter.Mounter{}, depotDir, containerId)
 			nm := networkManager(client)
 			cm = container.NewManager(client, sm, nm, containerId)
 

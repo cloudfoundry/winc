@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"code.cloudfoundry.org/winc/container"
@@ -182,7 +183,12 @@ func wireContainerManager(bundlePath, containerId string) (container.ContainerMa
 		bundlePath = cp.Name
 	}
 
-	sm := sandbox.NewManager(&client, &mounter.Mounter{}, bundlePath)
+	if filepath.Base(bundlePath) != containerId {
+		return nil, &hcsclient.InvalidIdError{Id: containerId}
+	}
+
+	depotDir := filepath.Dir(bundlePath)
+	sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
 
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,

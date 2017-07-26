@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"golang.org/x/text/encoding/unicode"
 
@@ -17,10 +19,21 @@ import (
 )
 
 var _ = Describe("Validate", func() {
-	var logger *logrus.Entry
+	var (
+		logger      *logrus.Entry
+		containerId string
+	)
 
 	BeforeEach(func() {
+		containerId = strconv.Itoa(rand.Int())
+		bundlePath = filepath.Join(depotDir, containerId)
+
+		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 		logger = logrus.WithField("suite", "winc")
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	Context("Bundle", func() {
@@ -34,7 +47,9 @@ var _ = Describe("Validate", func() {
 		})
 
 		Context("given a valid bundle", func() {
-			var expectedSpec specs.Spec
+			var (
+				expectedSpec specs.Spec
+			)
 
 			BeforeEach(func() {
 				expectedSpec = runtimeSpecGenerator(rootfsPath)
@@ -53,7 +68,6 @@ var _ = Describe("Validate", func() {
 			BeforeEach(func() {
 				Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			})
-
 			It("errors", func() {
 				Expect(err).To(MatchError(&MissingBundleError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())

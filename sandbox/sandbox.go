@@ -30,7 +30,6 @@ type Mounter interface {
 }
 
 type sandboxManager struct {
-	bundlePath string
 	hcsClient  hcsclient.Client
 	id         string
 	driverInfo hcsshim.DriverInfo
@@ -38,26 +37,23 @@ type sandboxManager struct {
 	volumePath string
 }
 
-func NewManager(hcsClient hcsclient.Client, mounter Mounter, bundlePath string) SandboxManager {
+func NewManager(hcsClient hcsclient.Client, mounter Mounter, depotDir, containerId string) SandboxManager {
 	driverInfo := hcsshim.DriverInfo{
-		HomeDir: filepath.Dir(bundlePath),
+		HomeDir: depotDir,
 		Flavour: 1,
 	}
 
 	return &sandboxManager{
 		hcsClient:  hcsClient,
 		mounter:    mounter,
-		bundlePath: bundlePath,
-		id:         filepath.Base(bundlePath),
+		id:         containerId,
 		driverInfo: driverInfo,
 	}
 }
 
 func (s *sandboxManager) Create(rootfs string) (string, error) {
-	_, err := os.Stat(s.bundlePath)
-	if os.IsNotExist(err) {
-		return "", &MissingBundlePathError{Msg: s.bundlePath}
-	} else if err != nil {
+	err := os.MkdirAll(s.driverInfo.HomeDir, 0755)
+	if err != nil {
 		return "", err
 	}
 
@@ -96,7 +92,12 @@ func (s *sandboxManager) Create(rootfs string) (string, error) {
 		return "", err
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(s.bundlePath, "layerchain.json"), sandboxLayerChain, 0755); err != nil {
+	err = os.MkdirAll(filepath.Join(s.driverInfo.HomeDir, s.id), 0755)
+	if err != nil {
+		return "", err
+	}
+
+	if err := ioutil.WriteFile(filepath.Join(s.driverInfo.HomeDir, s.id, "layerchain.json"), sandboxLayerChain, 0755); err != nil {
 		return "", err
 	}
 
@@ -122,7 +123,7 @@ func (s *sandboxManager) Delete() error {
 	}
 
 	for _, f := range sandboxFiles {
-		layerFile := filepath.Join(s.bundlePath, f)
+		layerFile := filepath.Join(s.driverInfo.HomeDir, f)
 		if err := os.RemoveAll(layerFile); err != nil {
 			return &UnableToDestroyLayerError{Msg: layerFile}
 		}
@@ -132,7 +133,7 @@ func (s *sandboxManager) Delete() error {
 }
 
 func (s *sandboxManager) BundlePath() string {
-	return s.bundlePath
+	return filepath.Join(s.driverInfo.HomeDir, s.id)
 }
 
 func (s *sandboxManager) mountPath(pid int) string {

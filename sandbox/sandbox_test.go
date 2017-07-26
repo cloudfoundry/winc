@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
@@ -22,12 +24,12 @@ var _ = Describe("Sandbox", func() {
 	const containerVolume = "containerVolume"
 
 	var (
-		bundlePath         string
+		depotDir           string
 		rootfs             string
+		containerId        string
 		hcsClient          *hcsclientfakes.FakeClient
 		sandboxManager     sandbox.SandboxManager
 		expectedDriverInfo hcsshim.DriverInfo
-		expectedLayerId    string
 		rootfsParents      []byte
 		fakeMounter        *sandboxfakes.FakeMounter
 	)
@@ -37,18 +39,20 @@ var _ = Describe("Sandbox", func() {
 		rootfs, err = ioutil.TempDir("", "rootfs")
 		Expect(err).ToNot(HaveOccurred())
 
-		bundlePath, err = ioutil.TempDir("", "sandbox")
+		depotDir, err = ioutil.TempDir("", "sandbox-depot")
 		Expect(err).ToNot(HaveOccurred())
+
+		rand.Seed(time.Now().UnixNano())
+		containerId = strconv.Itoa(rand.Int())
 
 		hcsClient = &hcsclientfakes.FakeClient{}
 		fakeMounter = &sandboxfakes.FakeMounter{}
-		sandboxManager = sandbox.NewManager(hcsClient, fakeMounter, bundlePath)
+		sandboxManager = sandbox.NewManager(hcsClient, fakeMounter, depotDir, containerId)
 
 		expectedDriverInfo = hcsshim.DriverInfo{
-			HomeDir: filepath.Dir(bundlePath),
+			HomeDir: depotDir,
 			Flavour: 1,
 		}
-		expectedLayerId = filepath.Base(bundlePath)
 		rootfsParents = []byte(`["path1", "path2"]`)
 
 		hcsClient.GetLayerMountPathReturns(containerVolume, nil)
@@ -59,7 +63,7 @@ var _ = Describe("Sandbox", func() {
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(depotDir)).To(Succeed())
 		Expect(os.RemoveAll(rootfs)).To(Succeed())
 	})
 
@@ -73,21 +77,21 @@ var _ = Describe("Sandbox", func() {
 				expectedLayers := []string{rootfs, "path1", "path2"}
 
 				Expect(hcsClient.CreateSandboxLayerCallCount()).To(Equal(1))
-				driverInfo, layerId, parentLayer, parentLayers := hcsClient.CreateSandboxLayerArgsForCall(0)
+				driverInfo, actualContainerId, parentLayer, parentLayers := hcsClient.CreateSandboxLayerArgsForCall(0)
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
-				Expect(layerId).To(Equal(expectedLayerId))
+				Expect(actualContainerId).To(Equal(containerId))
 				Expect(parentLayer).To(Equal(rootfs))
 				Expect(parentLayers).To(Equal(expectedLayers))
 
 				Expect(hcsClient.ActivateLayerCallCount()).To(Equal(1))
-				driverInfo, layerId = hcsClient.ActivateLayerArgsForCall(0)
+				driverInfo, actualContainerId = hcsClient.ActivateLayerArgsForCall(0)
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
-				Expect(layerId).To(Equal(expectedLayerId))
+				Expect(actualContainerId).To(Equal(containerId))
 
 				Expect(hcsClient.PrepareLayerCallCount()).To(Equal(1))
-				driverInfo, layerId, parentLayers = hcsClient.PrepareLayerArgsForCall(0)
+				driverInfo, actualContainerId, parentLayers = hcsClient.PrepareLayerArgsForCall(0)
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
-				Expect(layerId).To(Equal(expectedLayerId))
+				Expect(actualContainerId).To(Equal(containerId))
 				Expect(parentLayers).To(Equal(expectedLayers))
 			})
 
@@ -160,17 +164,6 @@ var _ = Describe("Sandbox", func() {
 			})
 		})
 
-		Context("when the bundlePath directory does not exist", func() {
-			BeforeEach(func() {
-				Expect(os.RemoveAll(bundlePath)).To(Succeed())
-			})
-
-			It("errors", func() {
-				_, err := sandboxManager.Create(rootfs)
-				Expect(err).To(Equal(&sandbox.MissingBundlePathError{Msg: bundlePath}))
-			})
-		})
-
 		Context("when getting the volume mount path of the container fails", func() {
 			Context("when getting the volume returned an error", func() {
 				var layerMountPathError = errors.New("could not get volume")
@@ -192,7 +185,7 @@ var _ = Describe("Sandbox", func() {
 
 				It("errors", func() {
 					_, err := sandboxManager.Create(rootfs)
-					Expect(err).To(Equal(&hcsclient.MissingVolumePathError{Id: expectedLayerId}))
+					Expect(err).To(Equal(&hcsclient.MissingVolumePathError{Id: containerId}))
 				})
 			})
 		})
@@ -204,18 +197,18 @@ var _ = Describe("Sandbox", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(hcsClient.UnprepareLayerCallCount()).To(Equal(1))
-			driverInfo, layerId := hcsClient.UnprepareLayerArgsForCall(0)
+			driverInfo, actualContainerId := hcsClient.UnprepareLayerArgsForCall(0)
 			Expect(driverInfo).To(Equal(expectedDriverInfo))
-			Expect(layerId).To(Equal(expectedLayerId))
+			Expect(actualContainerId).To(Equal(containerId))
 
 			Expect(hcsClient.DeactivateLayerCallCount()).To(Equal(1))
-			driverInfo, layerId = hcsClient.DeactivateLayerArgsForCall(0)
+			driverInfo, actualContainerId = hcsClient.DeactivateLayerArgsForCall(0)
 			Expect(driverInfo).To(Equal(expectedDriverInfo))
-			Expect(layerId).To(Equal(expectedLayerId))
+			Expect(actualContainerId).To(Equal(containerId))
 		})
 
 		It("only deletes the files that the container created", func() {
-			sentinelPath := filepath.Join(bundlePath, "sentinel")
+			sentinelPath := filepath.Join(depotDir, "sentinel")
 			f, err := os.Create(sentinelPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f.Close()).To(Succeed())
@@ -223,9 +216,9 @@ var _ = Describe("Sandbox", func() {
 			err = sandboxManager.Delete()
 			Expect(err).ToNot(HaveOccurred())
 
-			files, err := filepath.Glob(filepath.Join(bundlePath, "*"))
+			files, err := filepath.Glob(filepath.Join(depotDir, "*"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(files).To(ConsistOf([]string{filepath.Join(bundlePath, "sentinel")}))
+			Expect(files).To(ConsistOf([]string{filepath.Join(depotDir, "sentinel")}))
 		})
 
 		Context("when unpreparing the bundlePath fails", func() {

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
@@ -26,11 +28,20 @@ var _ = Describe("Flags", func() {
 		err              error
 		session          *gexec.Session
 		expectedExitCode int
+		containerId      string
 	)
 
 	BeforeEach(func() {
+		containerId = strconv.Itoa(rand.Int())
+		bundlePath = filepath.Join(depotDir, containerId)
+
+		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 		args = []string{}
 		expectedExitCode = 0
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	JustBeforeEach(func() {
@@ -120,7 +131,7 @@ var _ = Describe("Flags", func() {
 
 			AfterEach(func() {
 				client := &hcsclient.HCSClient{}
-				sm := sandbox.NewManager(client, &mounter.Mounter{}, bundlePath)
+				sm := sandbox.NewManager(client, &mounter.Mounter{}, depotDir, containerId)
 				nm := networkManager(client)
 				cm := container.NewManager(client, sm, nm, containerId)
 				Expect(cm.Delete()).To(Succeed())

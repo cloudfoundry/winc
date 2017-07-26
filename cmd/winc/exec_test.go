@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,10 +42,13 @@ var _ = Describe("Exec", func() {
 	}
 
 	BeforeEach(func() {
-		containerId = filepath.Base(bundlePath)
+		containerId = strconv.Itoa(rand.Int())
+		bundlePath = filepath.Join(depotDir, containerId)
+
+		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 		client = hcsclient.HCSClient{}
-		sm := sandbox.NewManager(&client, &mounter.Mounter{}, bundlePath)
+		sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
 		nm := networkManager(&client)
 		cm = container.NewManager(&client, sm, nm, containerId)
 

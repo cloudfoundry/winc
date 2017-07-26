@@ -38,10 +38,13 @@ var _ = Describe("Create", func() {
 	)
 
 	BeforeEach(func() {
-		containerId = filepath.Base(bundlePath)
+		containerId = strconv.Itoa(rand.Int())
+		bundlePath = filepath.Join(depotDir, containerId)
+
+		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 		client = &hcsclient.HCSClient{}
-		sm := sandbox.NewManager(client, &mounter.Mounter{}, bundlePath)
+		sm := sandbox.NewManager(client, &mounter.Mounter{}, depotDir, containerId)
 		nm := networkManager(client)
 		cm = container.NewManager(client, sm, nm, containerId)
 
@@ -64,7 +67,7 @@ var _ = Describe("Create", func() {
 		})
 
 		It("creates and starts a container", func() {
-			err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
+			err := execute(wincBin, "create", "-b", bundlePath, containerId)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(containerExists(containerId)).To(BeTrue())
@@ -361,8 +364,7 @@ var _ = Describe("Create", func() {
 			})
 
 			JustBeforeEach(func() {
-				output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
-				fmt.Println(string(output))
+				_, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
 				Expect(err).ToNot(HaveOccurred())
 
 				state, err := cm.State()
@@ -430,7 +432,7 @@ var _ = Describe("Create", func() {
 
 	Context("when the bundle directory name and container id do not match", func() {
 		It("errors and does not create the container", func() {
-			containerId = "doesnotmatchbundle"
+			containerId = strconv.Itoa(rand.Int())
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).ToNot(HaveOccurred())

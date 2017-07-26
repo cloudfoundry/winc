@@ -3,7 +3,9 @@ package main_test
 import (
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"os/exec"
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -30,6 +32,7 @@ var (
 	readBin    string
 	consumeBin string
 	rootfsPath string
+	depotDir   string
 	bundlePath string
 )
 
@@ -52,6 +55,7 @@ func TestWinc(t *testing.T) {
 		Expect(err).ToNot(HaveOccurred())
 		readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
 		Expect(err).ToNot(HaveOccurred())
+		rand.Seed(time.Now().UnixNano())
 	})
 
 	AfterSuite(func() {
@@ -60,12 +64,12 @@ func TestWinc(t *testing.T) {
 
 	BeforeEach(func() {
 		var err error
-		bundlePath, err = ioutil.TempDir("", "winccontainer")
+		depotDir, err = ioutil.TempDir("", "winccontainer")
 		Expect(err).To(Succeed())
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(depotDir)).To(Succeed())
 	})
 
 	RunSpecs(t, "Winc Suite")
@@ -93,6 +97,13 @@ func processSpecGenerator() specs.Process {
 			Username: "vcap",
 		},
 	}
+}
+
+func execute(cmd string, args ...string) error {
+	c := exec.Command(cmd, args...)
+	c.Stdout = GinkgoWriter
+	c.Stderr = GinkgoWriter
+	return c.Run()
 }
 
 func networkManager(client hcsclient.Client) network.NetworkManager {

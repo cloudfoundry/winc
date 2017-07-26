@@ -52,16 +52,12 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	bundlePath := c.sandboxManager.BundlePath()
-	if filepath.Base(bundlePath) != c.id {
-		return &hcsclient.InvalidIdError{Id: c.id}
-	}
-
 	volumePath, err := c.sandboxManager.Create(spec.Root.Path)
 	if err != nil {
 		return err
 	}
 
+	bundlePath := c.sandboxManager.BundlePath()
 	layerChain, err := ioutil.ReadFile(filepath.Join(bundlePath, "layerchain.json"))
 	if err != nil {
 		return err

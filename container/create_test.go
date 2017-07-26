@@ -233,16 +233,6 @@ var _ = Describe("Create", func() {
 			})
 		})
 
-		Context("when the base of the bundlePath and container id do not match", func() {
-			BeforeEach(func() {
-				sandboxManager.BundlePathReturns("C:\\notthesamecontainerid")
-			})
-
-			It("errors", func() {
-				Expect(containerManager.Create(spec)).To(Equal(&hcsclient.InvalidIdError{Id: expectedContainerId}))
-			})
-		})
-
 		Context("when attaching endpoint fails", func() {
 			BeforeEach(func() {
 				networkManager.AttachEndpointToConfigReturns(hcsshim.ContainerConfig{}, errors.New("couldn't attach"))
