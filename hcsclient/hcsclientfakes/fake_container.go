@@ -108,6 +108,17 @@ type FakeContainer struct {
 		result1 []hcsshim.ProcessListItem
 		result2 error
 	}
+	MappedVirtualDisksStub        func() (map[int]hcsshim.MappedVirtualDiskController, error)
+	mappedVirtualDisksMutex       sync.RWMutex
+	mappedVirtualDisksArgsForCall []struct{}
+	mappedVirtualDisksReturns     struct {
+		result1 map[int]hcsshim.MappedVirtualDiskController
+		result2 error
+	}
+	mappedVirtualDisksReturnsOnCall map[int]struct {
+		result1 map[int]hcsshim.MappedVirtualDiskController
+		result2 error
+	}
 	CreateProcessStub        func(c *hcsshim.ProcessConfig) (hcsshim.Process, error)
 	createProcessMutex       sync.RWMutex
 	createProcessArgsForCall []struct {
@@ -575,6 +586,49 @@ func (fake *FakeContainer) ProcessListReturnsOnCall(i int, result1 []hcsshim.Pro
 	}{result1, result2}
 }
 
+func (fake *FakeContainer) MappedVirtualDisks() (map[int]hcsshim.MappedVirtualDiskController, error) {
+	fake.mappedVirtualDisksMutex.Lock()
+	ret, specificReturn := fake.mappedVirtualDisksReturnsOnCall[len(fake.mappedVirtualDisksArgsForCall)]
+	fake.mappedVirtualDisksArgsForCall = append(fake.mappedVirtualDisksArgsForCall, struct{}{})
+	fake.recordInvocation("MappedVirtualDisks", []interface{}{})
+	fake.mappedVirtualDisksMutex.Unlock()
+	if fake.MappedVirtualDisksStub != nil {
+		return fake.MappedVirtualDisksStub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.mappedVirtualDisksReturns.result1, fake.mappedVirtualDisksReturns.result2
+}
+
+func (fake *FakeContainer) MappedVirtualDisksCallCount() int {
+	fake.mappedVirtualDisksMutex.RLock()
+	defer fake.mappedVirtualDisksMutex.RUnlock()
+	return len(fake.mappedVirtualDisksArgsForCall)
+}
+
+func (fake *FakeContainer) MappedVirtualDisksReturns(result1 map[int]hcsshim.MappedVirtualDiskController, result2 error) {
+	fake.MappedVirtualDisksStub = nil
+	fake.mappedVirtualDisksReturns = struct {
+		result1 map[int]hcsshim.MappedVirtualDiskController
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeContainer) MappedVirtualDisksReturnsOnCall(i int, result1 map[int]hcsshim.MappedVirtualDiskController, result2 error) {
+	fake.MappedVirtualDisksStub = nil
+	if fake.mappedVirtualDisksReturnsOnCall == nil {
+		fake.mappedVirtualDisksReturnsOnCall = make(map[int]struct {
+			result1 map[int]hcsshim.MappedVirtualDiskController
+			result2 error
+		})
+	}
+	fake.mappedVirtualDisksReturnsOnCall[i] = struct {
+		result1 map[int]hcsshim.MappedVirtualDiskController
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeContainer) CreateProcess(c *hcsshim.ProcessConfig) (hcsshim.Process, error) {
 	fake.createProcessMutex.Lock()
 	ret, specificReturn := fake.createProcessReturnsOnCall[len(fake.createProcessArgsForCall)]
@@ -788,6 +842,8 @@ func (fake *FakeContainer) Invocations() map[string][][]interface{} {
 	defer fake.statisticsMutex.RUnlock()
 	fake.processListMutex.RLock()
 	defer fake.processListMutex.RUnlock()
+	fake.mappedVirtualDisksMutex.RLock()
+	defer fake.mappedVirtualDisksMutex.RUnlock()
 	fake.createProcessMutex.RLock()
 	defer fake.createProcessMutex.RUnlock()
 	fake.openProcessMutex.RLock()
