@@ -19,11 +19,6 @@ import (
 )
 
 var _ = Describe("Create", func() {
-	const (
-		rootfs          = "C:\\rootfs"
-		containerVolume = "containervolume"
-	)
-
 	var (
 		containerId      string
 		bundlePath       string
@@ -56,7 +51,6 @@ var _ = Describe("Create", func() {
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "layerchain.json"), parentLayers, 0755)).To(Succeed())
 
 		spec = &specs.Spec{Root: &specs.Root{}}
-		spec.Root.Path = rootfs
 	})
 
 	AfterEach(func() {
@@ -70,6 +64,7 @@ var _ = Describe("Create", func() {
 			expectedLayerPaths    []string
 			expectedHcsshimLayers []hcsshim.Layer
 			fakeContainer         hcsclientfakes.FakeContainer
+			containerVolume       = "containervolume"
 		)
 
 		BeforeEach(func() {
