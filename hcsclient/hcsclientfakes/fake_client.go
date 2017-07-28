@@ -162,6 +162,20 @@ type FakeClient struct {
 	destroyLayerReturnsOnCall map[int]struct {
 		result1 error
 	}
+	LayerExistsStub        func(info hcsshim.DriverInfo, id string) (bool, error)
+	layerExistsMutex       sync.RWMutex
+	layerExistsArgsForCall []struct {
+		info hcsshim.DriverInfo
+		id   string
+	}
+	layerExistsReturns struct {
+		result1 bool
+		result2 error
+	}
+	layerExistsReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	GetContainerPropertiesStub        func(id string) (hcsshim.ContainerProperties, error)
 	getContainerPropertiesMutex       sync.RWMutex
 	getContainerPropertiesArgsForCall []struct {
@@ -867,6 +881,58 @@ func (fake *FakeClient) DestroyLayerReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *FakeClient) LayerExists(info hcsshim.DriverInfo, id string) (bool, error) {
+	fake.layerExistsMutex.Lock()
+	ret, specificReturn := fake.layerExistsReturnsOnCall[len(fake.layerExistsArgsForCall)]
+	fake.layerExistsArgsForCall = append(fake.layerExistsArgsForCall, struct {
+		info hcsshim.DriverInfo
+		id   string
+	}{info, id})
+	fake.recordInvocation("LayerExists", []interface{}{info, id})
+	fake.layerExistsMutex.Unlock()
+	if fake.LayerExistsStub != nil {
+		return fake.LayerExistsStub(info, id)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.layerExistsReturns.result1, fake.layerExistsReturns.result2
+}
+
+func (fake *FakeClient) LayerExistsCallCount() int {
+	fake.layerExistsMutex.RLock()
+	defer fake.layerExistsMutex.RUnlock()
+	return len(fake.layerExistsArgsForCall)
+}
+
+func (fake *FakeClient) LayerExistsArgsForCall(i int) (hcsshim.DriverInfo, string) {
+	fake.layerExistsMutex.RLock()
+	defer fake.layerExistsMutex.RUnlock()
+	return fake.layerExistsArgsForCall[i].info, fake.layerExistsArgsForCall[i].id
+}
+
+func (fake *FakeClient) LayerExistsReturns(result1 bool, result2 error) {
+	fake.LayerExistsStub = nil
+	fake.layerExistsReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeClient) LayerExistsReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.LayerExistsStub = nil
+	if fake.layerExistsReturnsOnCall == nil {
+		fake.layerExistsReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.layerExistsReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeClient) GetContainerProperties(id string) (hcsshim.ContainerProperties, error) {
 	fake.getContainerPropertiesMutex.Lock()
 	ret, specificReturn := fake.getContainerPropertiesReturnsOnCall[len(fake.getContainerPropertiesArgsForCall)]
@@ -1243,6 +1309,8 @@ func (fake *FakeClient) Invocations() map[string][][]interface{} {
 	defer fake.deactivateLayerMutex.RUnlock()
 	fake.destroyLayerMutex.RLock()
 	defer fake.destroyLayerMutex.RUnlock()
+	fake.layerExistsMutex.RLock()
+	defer fake.layerExistsMutex.RUnlock()
 	fake.getContainerPropertiesMutex.RLock()
 	defer fake.getContainerPropertiesMutex.RUnlock()
 	fake.hNSListNetworkRequestMutex.RLock()

@@ -33,7 +33,7 @@ var _ = Describe("Flags", func() {
 
 	BeforeEach(func() {
 		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(depotDir, containerId)
+		bundlePath = filepath.Join(containerDepot, containerId)
 
 		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 		args = []string{}
@@ -111,14 +111,23 @@ var _ = Describe("Flags", func() {
 			var containerId string
 
 			BeforeEach(func() {
-				bundleSpec := runtimeSpecGenerator(rootfsPath)
+				containerId = filepath.Base(bundlePath)
+
+				bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
 				config, err := json.Marshal(&bundleSpec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
 
-				containerId = filepath.Base(bundlePath)
-
 				args = []string{"--log", logFile, "create", containerId, "-b", bundlePath}
+			})
+
+			AfterEach(func() {
+				client := &hcsclient.HCSClient{}
+				sm := sandbox.NewManager(client, &mounter.Mounter{}, containerDepot, containerId)
+				nm := networkManager(client)
+				cm := container.NewManager(client, sm, nm, containerId)
+				Expect(cm.Delete()).To(Succeed())
+				Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
 			})
 
 			It("does not log anything", func() {
@@ -127,14 +136,6 @@ var _ = Describe("Flags", func() {
 				Expect(log).To(BeEmpty())
 
 				Expect(session.Out.Contents()).To(BeEmpty())
-			})
-
-			AfterEach(func() {
-				client := &hcsclient.HCSClient{}
-				sm := sandbox.NewManager(client, &mounter.Mounter{}, depotDir, containerId)
-				nm := networkManager(client)
-				cm := container.NewManager(client, sm, nm, containerId)
-				Expect(cm.Delete()).To(Succeed())
 			})
 
 			Context("when the --debug flag is set", func() {

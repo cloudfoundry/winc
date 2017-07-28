@@ -21,6 +21,7 @@ type Client interface {
 	UnprepareLayer(info hcsshim.DriverInfo, layerId string) error
 	DeactivateLayer(info hcsshim.DriverInfo, id string) error
 	DestroyLayer(info hcsshim.DriverInfo, id string) error
+	LayerExists(info hcsshim.DriverInfo, id string) (bool, error)
 	GetContainerProperties(id string) (hcsshim.ContainerProperties, error)
 	HNSListNetworkRequest() ([]hcsshim.HNSNetwork, error)
 	GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error)
@@ -110,6 +111,10 @@ func (c *HCSClient) DeactivateLayer(info hcsshim.DriverInfo, id string) error {
 
 func (c *HCSClient) DestroyLayer(info hcsshim.DriverInfo, id string) error {
 	return hcsshim.DestroyLayer(info, id)
+}
+
+func (c *HCSClient) LayerExists(info hcsshim.DriverInfo, id string) (bool, error) {
+	return hcsshim.LayerExists(info, id)
 }
 
 func (c *HCSClient) GetContainerProperties(id string) (hcsshim.ContainerProperties, error) {

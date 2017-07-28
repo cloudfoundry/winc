@@ -1,8 +1,8 @@
 package container_test
 
 import (
-	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,11 +18,13 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
+const imageDepot = `C:\var\vcap\data\winc-image\depot`
+
 var _ = Describe("Create", func() {
 	var (
 		containerId      string
 		bundlePath       string
-		parentLayers     []byte
+		layerFolders     []string
 		hcsClient        *hcsclientfakes.FakeClient
 		sandboxManager   *sandboxfakes.FakeSandboxManager
 		networkManager   *networkfakes.FakeNetworkManager
@@ -42,15 +44,23 @@ var _ = Describe("Create", func() {
 		networkManager = &networkfakes.FakeNetworkManager{}
 		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, bundlePath)
 
-		parentLayers = []byte(`["path1", "path2"]`)
 		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerId string) (hcsshim.ContainerConfig, error) {
 			config.EndpointList = []string{"endpoint-for-" + containerId}
 			return config, nil
 		}
 
-		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "layerchain.json"), parentLayers, 0755)).To(Succeed())
+		layerFolders = []string{
+			"some-layer",
+			"some-other-layer",
+			"some-rootfs",
+		}
 
-		spec = &specs.Spec{Root: &specs.Root{}}
+		spec = &specs.Spec{
+			Root: &specs.Root{},
+			Windows: &specs.Windows{
+				LayerFolders: layerFolders,
+			},
+		}
 	})
 
 	AfterEach(func() {
@@ -61,7 +71,6 @@ var _ = Describe("Create", func() {
 
 	Context("when the specified container does not already exist", func() {
 		var (
-			expectedLayerPaths    []string
 			expectedHcsshimLayers []hcsshim.Layer
 			fakeContainer         hcsclientfakes.FakeContainer
 			containerVolume       = "containervolume"
@@ -70,17 +79,14 @@ var _ = Describe("Create", func() {
 		BeforeEach(func() {
 			fakeContainer = hcsclientfakes.FakeContainer{}
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
-			sandboxManager.CreateReturns(containerVolume, nil)
+			hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 
-			err := json.Unmarshal(parentLayers, &expectedLayerPaths)
-			Expect(err).ToNot(HaveOccurred())
-
-			layerGuid := hcsshim.NewGUID("layerguid")
-			hcsClient.NameToGuidReturns(*layerGuid, nil)
 			expectedHcsshimLayers = []hcsshim.Layer{}
-			for _, l := range expectedLayerPaths {
+			for i, l := range layerFolders {
+				guid := hcsshim.NewGUID(fmt.Sprintf("layer-%d", i))
+				hcsClient.NameToGuidReturnsOnCall(i, *guid, nil)
 				expectedHcsshimLayers = append(expectedHcsshimLayers, hcsshim.Layer{
-					ID:   layerGuid.ToString(),
+					ID:   guid.ToString(),
 					Path: l,
 				})
 			}
@@ -100,12 +106,14 @@ var _ = Describe("Create", func() {
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 
-			Expect(sandboxManager.CreateCallCount()).To(Equal(1))
-
-			Expect(hcsClient.NameToGuidCallCount()).To(Equal(len(expectedLayerPaths)))
-			for i, l := range expectedLayerPaths {
-				Expect(hcsClient.NameToGuidArgsForCall(i)).To(Equal(l))
+			Expect(hcsClient.NameToGuidCallCount()).To(Equal(len(layerFolders)))
+			for i, l := range layerFolders {
+				Expect(hcsClient.NameToGuidArgsForCall(i)).To(Equal(filepath.Base(l)))
 			}
+
+			actualDriverInfo, actualContainerId := hcsClient.GetLayerMountPathArgsForCall(0)
+			Expect(actualDriverInfo.HomeDir).To(Equal(imageDepot))
+			Expect(actualContainerId).To(Equal(containerId))
 
 			Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 			actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -115,7 +123,7 @@ var _ = Describe("Create", func() {
 				Name:              bundlePath,
 				VolumePath:        containerVolume,
 				Owner:             "winc",
-				LayerFolderPath:   bundlePath,
+				LayerFolderPath:   filepath.Join(imageDepot, containerId),
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
 				EndpointList:      []string{"endpoint-for-" + containerId},
@@ -124,7 +132,20 @@ var _ = Describe("Create", func() {
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
 
 			Expect(sandboxManager.MountCallCount()).To(Equal(1))
-			Expect(sandboxManager.MountArgsForCall(0)).To(Equal(pid))
+			actualPid, actualVolumePath := sandboxManager.MountArgsForCall(0)
+			Expect(actualPid).To(Equal(pid))
+			Expect(actualVolumePath).To(Equal(containerVolume))
+		})
+
+		Context("when the volume path is empty", func() {
+			BeforeEach(func() {
+				hcsClient.GetLayerMountPathReturns("", nil)
+			})
+
+			It("returns an error", func() {
+				err := containerManager.Create(spec)
+				Expect(err).To(Equal(&hcsclient.MissingVolumePathError{Id: containerId}))
+			})
 		})
 
 		Context("when mounts are specified in the spec", func() {
@@ -165,10 +186,9 @@ var _ = Describe("Create", func() {
 					Expect(os.RemoveAll(mount)).To(Succeed())
 				})
 
-				It("errors and removes the sandbox", func() {
+				It("errors", func() {
 					err := containerManager.Create(spec)
 					Expect(os.IsNotExist(err)).To(BeTrue())
-					Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				})
 			})
 
@@ -208,11 +228,9 @@ var _ = Describe("Create", func() {
 			BeforeEach(func() {
 				expectedMemoryMaxinMB = uint64(64)
 				expectedMemoryMaxinBytes := expectedMemoryMaxinMB * 1024 * 1024
-				spec.Windows = &specs.Windows{
-					Resources: &specs.WindowsResources{
-						Memory: &specs.WindowsMemoryResources{
-							Limit: &expectedMemoryMaxinBytes,
-						},
+				spec.Windows.Resources = &specs.WindowsResources{
+					Memory: &specs.WindowsMemoryResources{
+						Limit: &expectedMemoryMaxinBytes,
 					},
 				}
 			})
@@ -227,13 +245,15 @@ var _ = Describe("Create", func() {
 		})
 
 		Context("when attaching endpoint fails", func() {
+			var attachError error
+
 			BeforeEach(func() {
-				networkManager.AttachEndpointToConfigReturns(hcsshim.ContainerConfig{}, errors.New("couldn't attach"))
+				attachError = errors.New("couldn't attach")
+				networkManager.AttachEndpointToConfigReturns(hcsshim.ContainerConfig{}, attachError)
 			})
 
-			It("deletes the sandbox", func() {
-				Expect(containerManager.Create(spec)).NotTo(Succeed())
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
+			It("errors", func() {
+				Expect(containerManager.Create(spec)).To(Equal(attachError))
 			})
 		})
 
@@ -242,9 +262,8 @@ var _ = Describe("Create", func() {
 				hcsClient.CreateContainerReturns(nil, errors.New("couldn't create"))
 			})
 
-			It("deletes the sandbox + endpoint", func() {
+			It("deletes the network endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteEndpointsByIdCallCount()).To(Equal(1))
 				endpointIds, actualContainerId := networkManager.DeleteEndpointsByIdArgsForCall(0)
 				Expect(endpointIds).To(Equal([]string{"endpoint-for-" + containerId}))
@@ -257,10 +276,9 @@ var _ = Describe("Create", func() {
 				sandboxManager.MountReturns(errors.New("couldn't mount"))
 			})
 
-			It("deletes the container, sandbox, and endpoints", func() {
+			It("deletes the container and network endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
@@ -273,10 +291,9 @@ var _ = Describe("Create", func() {
 				fakeContainer.StartReturns(errors.New("couldn't start"))
 			})
 
-			It("deletes the container, sandbox, and endpoints", func() {
+			It("deletes the container and network endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
@@ -289,10 +306,9 @@ var _ = Describe("Create", func() {
 				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
 			})
 
-			It("deletes the container, sandbox, and endpoints", func() {
+			It("deletes the container and network endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))

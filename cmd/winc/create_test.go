@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
+	"time"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/winc/sandbox"
 
 	"github.com/Microsoft/hcsshim"
+	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -38,17 +39,18 @@ var _ = Describe("Create", func() {
 	)
 
 	BeforeEach(func() {
+		rand.Seed(time.Now().UnixNano())
 		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(depotDir, containerId)
+		bundlePath = filepath.Join(containerDepot, containerId)
 
 		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 		client = &hcsclient.HCSClient{}
-		sm := sandbox.NewManager(client, &mounter.Mounter{}, depotDir, containerId)
+		sm := sandbox.NewManager(client, &mounter.Mounter{}, containerDepot, containerId)
 		nm := networkManager(client)
 		cm = container.NewManager(client, sm, nm, bundlePath)
 
-		bundleSpec = runtimeSpecGenerator(rootfsPath)
+		bundleSpec = runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
 
 		stdOut = new(bytes.Buffer)
 		stdErr = new(bytes.Buffer)
@@ -59,6 +61,10 @@ var _ = Describe("Create", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
 	})
 
 	Context("when provided valid arguments", func() {
@@ -72,30 +78,10 @@ var _ = Describe("Create", func() {
 
 			Expect(containerExists(containerId)).To(BeTrue())
 
-			sandboxVHDX := filepath.Join(bundlePath, "sandbox.vhdx")
-			Expect(sandboxVHDX).To(BeAnExistingFile())
-
-			err = exec.Command("powershell", "-Command", "Test-VHD", sandboxVHDX).Run()
-			Expect(err).ToNot(HaveOccurred())
-
-			sandboxInitialized := filepath.Join(bundlePath, "initialized")
-			Expect(sandboxInitialized).To(BeAnExistingFile())
-
-			layerChainPath := filepath.Join(bundlePath, "layerchain.json")
-			Expect(layerChainPath).To(BeAnExistingFile())
-
-			layerChain, err := ioutil.ReadFile(layerChainPath)
-			Expect(err).ToNot(HaveOccurred())
-
-			layers := []string{}
-			err = json.Unmarshal(layerChain, &layers)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(layers[0]).To(Equal(rootfsPath))
-
 			state, err := cm.State()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(state.Pid).ToNot(Equal(-1))
+
+			Expect(ps.FindProcess(state.Pid)).ToNot(BeNil())
 		})
 
 		It("attaches a network endpoint with a port mapping", func() {
@@ -353,12 +339,9 @@ var _ = Describe("Create", func() {
 
 			BeforeEach(func() {
 				memLimitBytes := memLimitMB * 1024 * 1024
-				bundleSpec.Windows = &specs.Windows{
-					LayerFolders: []string{"hello"},
-					Resources: &specs.WindowsResources{
-						Memory: &specs.WindowsMemoryResources{
-							Limit: &memLimitBytes,
-						},
+				bundleSpec.Windows.Resources = &specs.WindowsResources{
+					Memory: &specs.WindowsMemoryResources{
+						Limit: &memLimitBytes,
 					},
 				}
 			})
@@ -432,50 +415,16 @@ var _ = Describe("Create", func() {
 
 	Context("when the bundle directory name and container id do not match", func() {
 		It("errors and does not create the container", func() {
-			containerId = strconv.Itoa(rand.Int())
-			cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
+			newContainerId := strconv.Itoa(rand.Int())
+			cmd := exec.Command(wincBin, "create", "-b", bundlePath, newContainerId)
 			session, err := gexec.Start(cmd, stdOut, stdErr)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcsclient.InvalidIdError{Id: containerId}
+			expectedError := &hcsclient.InvalidIdError{Id: newContainerId}
 			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 
-			Expect(containerExists(containerId)).To(BeFalse())
-		})
-	})
-
-	Context("when using a custom rootfs", func() {
-		var generatedTag string
-
-		BeforeEach(func() {
-			generatedTag = fmt.Sprintf("tag-%d", rand.Int())
-			err := exec.Command("docker", "build", "-t", generatedTag, "-f", "fixtures\\Dockerfile.custom", "fixtures").Run()
-			Expect(err).To(Succeed())
-
-			dockerCmd := fmt.Sprintf("(docker inspect %s | ConvertFrom-Json).GraphDriver.Data.Dir", generatedTag)
-			customRootfsPath, err := exec.Command("powershell.exe", dockerCmd).CombinedOutput()
-			Expect(err).To(Succeed())
-
-			bundleSpec = runtimeSpecGenerator(strings.TrimSpace(string(customRootfsPath)))
-		})
-
-		It("should find hello.txt in custom rootfs", func() {
-			err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(containerExists(containerId)).To(BeTrue())
-
-			cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type C:\\hello.txt")
-			cmd.Stdout = stdOut
-			Expect(cmd.Run()).To(Succeed())
-			Expect(stdOut.String()).To(ContainSubstring("hello from a text file"))
-		})
-
-		AfterEach(func() {
-			Expect(cm.Delete()).To(Succeed())
-			err := exec.Command("docker", "rmi", generatedTag).Run()
-			Expect(err).To(Succeed())
+			Expect(containerExists(newContainerId)).To(BeFalse())
 		})
 	})
 })

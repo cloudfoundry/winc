@@ -1,6 +1,8 @@
 package main_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -13,6 +15,7 @@ import (
 	"code.cloudfoundry.org/winc/lib/serial"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
+	"code.cloudfoundry.org/winc/sandbox"
 
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
@@ -28,12 +31,13 @@ const defaultTimeout = time.Second * 10
 const defaultInterval = time.Millisecond * 200
 
 var (
-	wincBin    string
-	readBin    string
-	consumeBin string
-	rootfsPath string
-	depotDir   string
-	bundlePath string
+	wincBin        string
+	wincImageBin   string
+	readBin        string
+	consumeBin     string
+	rootfsPath     string
+	containerDepot string
+	bundlePath     string
 )
 
 func TestWinc(t *testing.T) {
@@ -51,6 +55,8 @@ func TestWinc(t *testing.T) {
 		Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 		wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 		Expect(err).ToNot(HaveOccurred())
+		wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
+		Expect(err).ToNot(HaveOccurred())
 		consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/consume")
 		Expect(err).ToNot(HaveOccurred())
 		readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
@@ -64,18 +70,28 @@ func TestWinc(t *testing.T) {
 
 	BeforeEach(func() {
 		var err error
-		depotDir, err = ioutil.TempDir("", "winccontainer")
+		containerDepot, err = ioutil.TempDir("", "winccontainer")
 		Expect(err).To(Succeed())
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(depotDir)).To(Succeed())
+		Expect(os.RemoveAll(containerDepot)).To(Succeed())
 	})
 
 	RunSpecs(t, "Winc Suite")
 }
 
-func runtimeSpecGenerator(rootfsPath string) specs.Spec {
+func createSandbox(rootfsPath, containerId string) sandbox.ImageSpec {
+	stdOut := new(bytes.Buffer)
+	cmd := exec.Command(wincImageBin, "create", rootfsPath, containerId)
+	cmd.Stdout = stdOut
+	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
+	var imageSpec sandbox.ImageSpec
+	Expect(json.Unmarshal(stdOut.Bytes(), &imageSpec)).To(Succeed())
+	return imageSpec
+}
+
+func runtimeSpecGenerator(imageSpec sandbox.ImageSpec, containerId string) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{
@@ -83,7 +99,10 @@ func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 			Cwd:  "/",
 		},
 		Root: &specs.Root{
-			Path: rootfsPath,
+			Path: imageSpec.RootFs,
+		},
+		Windows: &specs.Windows{
+			LayerFolders: imageSpec.Image.Config.Layers,
 		},
 	}
 }

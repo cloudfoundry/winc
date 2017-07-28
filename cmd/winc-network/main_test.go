@@ -27,7 +27,7 @@ var _ = Describe("up", func() {
 
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
-		bundleSpec = runtimeSpecGenerator(rootfsPath)
+		bundleSpec = runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
 		config, err = json.Marshal(&bundleSpec)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
@@ -42,6 +42,7 @@ var _ = Describe("up", func() {
 	AfterEach(func() {
 		err := exec.Command(wincBin, "delete", containerId).Run()
 		Expect(err).ToNot(HaveOccurred())
+		Expect(exec.Command(wincImageBin, "delete", containerId).Run()).To(Succeed())
 	})
 
 	Context("stdin contains a port mapping request", func() {

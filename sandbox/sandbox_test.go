@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/winc/sandbox"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -69,12 +70,20 @@ var _ = Describe("Sandbox", func() {
 
 	Context("Create", func() {
 		Context("when provided a rootfs layer", func() {
-			It("creates and activates the bundlePath", func() {
-				cv, err := sandboxManager.Create(rootfs)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cv).To(Equal(containerVolume))
-
+			It("creates and activates the sandbox", func() {
 				expectedLayers := []string{rootfs, "path1", "path2"}
+
+				actualImageSpec, err := sandboxManager.Create(rootfs)
+				Expect(err).ToNot(HaveOccurred())
+				expectedImageSpec := &sandbox.ImageSpec{
+					RootFs: containerVolume,
+					Image: sandbox.Image{
+						Config: sandbox.ImageConfig{
+							Layers: expectedLayers,
+						},
+					},
+				}
+				Expect(actualImageSpec).To(Equal(expectedImageSpec))
 
 				Expect(hcsClient.CreateSandboxLayerCallCount()).To(Equal(1))
 				driverInfo, actualContainerId, parentLayer, parentLayers := hcsClient.CreateSandboxLayerArgsForCall(0)
@@ -95,7 +104,7 @@ var _ = Describe("Sandbox", func() {
 				Expect(parentLayers).To(Equal(expectedLayers))
 			})
 
-			Context("when creating the bundlePath fails", func() {
+			Context("when creating the sandbox fails", func() {
 				var createSandboxLayerError = errors.New("create sandbox failed")
 
 				BeforeEach(func() {
@@ -108,7 +117,7 @@ var _ = Describe("Sandbox", func() {
 				})
 			})
 
-			Context("when activating the bundlePath fails", func() {
+			Context("when activating the sandbox fails", func() {
 				var activateLayerError = errors.New("activate sandbox failed")
 
 				BeforeEach(func() {
@@ -121,7 +130,7 @@ var _ = Describe("Sandbox", func() {
 				})
 			})
 
-			Context("when preparing the bundlePath fails", func() {
+			Context("when preparing the sandbox fails", func() {
 				var prepareLayerError = errors.New("prepare sandbox failed")
 
 				BeforeEach(func() {
@@ -192,12 +201,22 @@ var _ = Describe("Sandbox", func() {
 	})
 
 	Context("Delete", func() {
-		It("unprepares and deactivates the bundlePath", func() {
+		BeforeEach(func() {
+			hcsClient.LayerExistsReturns(true, nil)
+			logrus.SetOutput(ioutil.Discard)
+		})
+
+		It("unprepares, deactivates, and destroys the sandbox", func() {
 			err := sandboxManager.Delete()
 			Expect(err).ToNot(HaveOccurred())
 
+			Expect(hcsClient.LayerExistsCallCount()).To(Equal(1))
+			driverInfo, actualContainerId := hcsClient.LayerExistsArgsForCall(0)
+			Expect(driverInfo).To(Equal(expectedDriverInfo))
+			Expect(actualContainerId).To(Equal(containerId))
+
 			Expect(hcsClient.UnprepareLayerCallCount()).To(Equal(1))
-			driverInfo, actualContainerId := hcsClient.UnprepareLayerArgsForCall(0)
+			driverInfo, actualContainerId = hcsClient.UnprepareLayerArgsForCall(0)
 			Expect(driverInfo).To(Equal(expectedDriverInfo))
 			Expect(actualContainerId).To(Equal(containerId))
 
@@ -205,23 +224,27 @@ var _ = Describe("Sandbox", func() {
 			driverInfo, actualContainerId = hcsClient.DeactivateLayerArgsForCall(0)
 			Expect(driverInfo).To(Equal(expectedDriverInfo))
 			Expect(actualContainerId).To(Equal(containerId))
+
+			Expect(hcsClient.DestroyLayerCallCount()).To(Equal(1))
+			driverInfo, actualContainerId = hcsClient.DestroyLayerArgsForCall(0)
+			Expect(driverInfo).To(Equal(expectedDriverInfo))
+			Expect(actualContainerId).To(Equal(containerId))
 		})
 
-		It("only deletes the files that the container created", func() {
-			sentinelPath := filepath.Join(depotDir, "sentinel")
-			f, err := os.Create(sentinelPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(f.Close()).To(Succeed())
+		Context("when checking if the layer exists fails", func() {
+			var layerExistsError = errors.New("layer exists failed")
 
-			err = sandboxManager.Delete()
-			Expect(err).ToNot(HaveOccurred())
+			BeforeEach(func() {
+				hcsClient.LayerExistsReturns(false, layerExistsError)
+			})
 
-			files, err := filepath.Glob(filepath.Join(depotDir, "*"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(files).To(ConsistOf([]string{filepath.Join(depotDir, "sentinel")}))
+			It("errors", func() {
+				err := sandboxManager.Delete()
+				Expect(err).To(Equal(layerExistsError))
+			})
 		})
 
-		Context("when unpreparing the bundlePath fails", func() {
+		Context("when unpreparing the sandbox fails", func() {
 			var unprepareLayerError = errors.New("unprepare sandbox failed")
 
 			BeforeEach(func() {
@@ -234,7 +257,7 @@ var _ = Describe("Sandbox", func() {
 			})
 		})
 
-		Context("when deactivating the bundlePath fails", func() {
+		Context("when deactivating the sandbox fails", func() {
 			var deactivateLayerError = errors.New("deactivate sandbox failed")
 
 			BeforeEach(func() {
@@ -246,6 +269,33 @@ var _ = Describe("Sandbox", func() {
 				Expect(err).To(Equal(deactivateLayerError))
 			})
 		})
+
+		Context("when destroying the sandbox fails", func() {
+			var destroyLayerError = errors.New("destroy sandbox failed")
+
+			BeforeEach(func() {
+				hcsClient.DestroyLayerReturns(destroyLayerError)
+			})
+
+			It("errors", func() {
+				err := sandboxManager.Delete()
+				Expect(err).To(Equal(destroyLayerError))
+			})
+		})
+
+		Context("when the sandbox layer does not exist", func() {
+			BeforeEach(func() {
+				hcsClient.LayerExistsReturns(false, nil)
+			})
+
+			It("returns nil and does not try to delete the layer", func() {
+				Expect(sandboxManager.Delete()).To(Succeed())
+				Expect(hcsClient.LayerExistsCallCount()).To(Equal(1))
+				Expect(hcsClient.UnprepareLayerCallCount()).To(Equal(0))
+				Expect(hcsClient.DeactivateLayerCallCount()).To(Equal(0))
+				Expect(hcsClient.DestroyLayerCallCount()).To(Equal(0))
+			})
+		})
 	})
 
 	Context("Mount", func() {
@@ -254,7 +304,7 @@ var _ = Describe("Sandbox", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			pid := rand.Int()
-			Expect(sandboxManager.Mount(pid)).To(Succeed())
+			Expect(sandboxManager.Mount(pid, containerVolume)).To(Succeed())
 
 			rootPath := filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid), "root")
 			Expect(rootPath).To(BeADirectory())

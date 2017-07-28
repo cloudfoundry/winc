@@ -10,16 +10,28 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 )
 
-var sandboxFiles = []string{"Hives", "initialized", "sandbox.vhdx", "layerchain.json"}
+type ImageSpec struct {
+	RootFs string `json:"rootfs,omitempty"`
+	Image  Image  `json:"image,omitempty"`
+}
+
+type Image struct {
+	Config ImageConfig `json:"config,omitempty"`
+}
+
+type ImageConfig struct {
+	Layers []string `json:"layers,omitempty"`
+}
 
 //go:generate counterfeiter . SandboxManager
 type SandboxManager interface {
-	Create(rootfs string) (string, error)
+	Create(rootfs string) (*ImageSpec, error)
 	Delete() error
 	BundlePath() string
-	Mount(pid int) error
+	Mount(pid int, volumePath string) error
 	Unmount(pid int) error
 }
 
@@ -34,7 +46,6 @@ type sandboxManager struct {
 	id         string
 	driverInfo hcsshim.DriverInfo
 	mounter    Mounter
-	volumePath string
 }
 
 func NewManager(hcsClient hcsclient.Client, mounter Mounter, depotDir, containerId string) SandboxManager {
@@ -51,69 +62,69 @@ func NewManager(hcsClient hcsclient.Client, mounter Mounter, depotDir, container
 	}
 }
 
-func (s *sandboxManager) Create(rootfs string) (string, error) {
+func (s *sandboxManager) Create(rootfs string) (*ImageSpec, error) {
 	err := os.MkdirAll(s.driverInfo.HomeDir, 0755)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	_, err = os.Stat(rootfs)
 	if os.IsNotExist(err) {
-		return "", &MissingRootfsError{Msg: rootfs}
+		return nil, &MissingRootfsError{Msg: rootfs}
 	} else if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	parentLayerChain, err := ioutil.ReadFile(filepath.Join(rootfs, "layerchain.json"))
 	if err != nil {
-		return "", &MissingRootfsLayerChainError{Msg: rootfs}
+		return nil, &MissingRootfsLayerChainError{Msg: rootfs}
 	}
 
 	parentLayers := []string{}
 	if err := json.Unmarshal(parentLayerChain, &parentLayers); err != nil {
-		return "", &InvalidRootfsLayerChainError{Msg: rootfs}
+		return nil, &InvalidRootfsLayerChainError{Msg: rootfs}
 	}
 	sandboxLayers := append([]string{rootfs}, parentLayers...)
 
 	if err := s.hcsClient.CreateSandboxLayer(s.driverInfo, s.id, rootfs, sandboxLayers); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := s.hcsClient.ActivateLayer(s.driverInfo, s.id); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := s.hcsClient.PrepareLayer(s.driverInfo, s.id, sandboxLayers); err != nil {
-		return "", err
-	}
-
-	sandboxLayerChain, err := json.Marshal(sandboxLayers)
-	if err != nil {
-		return "", err
-	}
-
-	err = os.MkdirAll(filepath.Join(s.driverInfo.HomeDir, s.id), 0755)
-	if err != nil {
-		return "", err
-	}
-
-	if err := ioutil.WriteFile(filepath.Join(s.driverInfo.HomeDir, s.id, "layerchain.json"), sandboxLayerChain, 0755); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	volumePath, err := s.hcsClient.GetLayerMountPath(s.driverInfo, s.id)
 	if err != nil {
-		return "", err
+		return nil, err
 	} else if volumePath == "" {
-		return "", &hcsclient.MissingVolumePathError{Id: s.id}
+		return nil, &hcsclient.MissingVolumePathError{Id: s.id}
 	}
 
-	s.volumePath = volumePath
-
-	return volumePath, nil
+	return &ImageSpec{
+		RootFs: volumePath,
+		Image: Image{
+			Config: ImageConfig{
+				Layers: sandboxLayers,
+			},
+		},
+	}, nil
 }
 
 func (s *sandboxManager) Delete() error {
+	exists, err := s.hcsClient.LayerExists(s.driverInfo, s.id)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		logrus.Warningf("Layer `%s` not found. Skipping delete.", s.id)
+		return nil
+	}
+
 	if err := s.hcsClient.UnprepareLayer(s.driverInfo, s.id); err != nil {
 		return err
 	}
@@ -122,11 +133,8 @@ func (s *sandboxManager) Delete() error {
 		return err
 	}
 
-	for _, f := range sandboxFiles {
-		layerFile := filepath.Join(s.driverInfo.HomeDir, f)
-		if err := os.RemoveAll(layerFile); err != nil {
-			return &UnableToDestroyLayerError{Msg: layerFile}
-		}
+	if err := s.hcsClient.DestroyLayer(s.driverInfo, s.id); err != nil {
+		return err
 	}
 
 	return nil
@@ -144,12 +152,12 @@ func (s *sandboxManager) rootPath(pid int) string {
 	return filepath.Join(s.mountPath(pid), "root")
 }
 
-func (s *sandboxManager) Mount(pid int) error {
+func (s *sandboxManager) Mount(pid int, volumePath string) error {
 	if err := os.MkdirAll(s.rootPath(pid), 0755); err != nil {
 		return err
 	}
 
-	return s.mounter.SetPoint(s.rootPath(pid), s.volumePath)
+	return s.mounter.SetPoint(s.rootPath(pid), volumePath)
 }
 
 func (s *sandboxManager) Unmount(pid int) error {

@@ -43,12 +43,12 @@ var _ = Describe("Exec", func() {
 
 	BeforeEach(func() {
 		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(depotDir, containerId)
+		bundlePath = filepath.Join(containerDepot, containerId)
 
 		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 		client = hcsclient.HCSClient{}
-		sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
+		sm := sandbox.NewManager(&client, &mounter.Mounter{}, containerDepot, containerId)
 		nm := networkManager(&client)
 		cm = container.NewManager(&client, sm, nm, bundlePath)
 
@@ -58,7 +58,7 @@ var _ = Describe("Exec", func() {
 
 	Context("when the container exists", func() {
 		BeforeEach(func() {
-			bundleSpec := runtimeSpecGenerator(rootfsPath)
+			bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
 			pl := containerProcesses(&client, containerId, "cmd.exe")
 			Expect(pl).To(BeEmpty())
@@ -66,6 +66,7 @@ var _ = Describe("Exec", func() {
 
 		AfterEach(func() {
 			Expect(cm.Delete()).To(Succeed())
+			Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
 		})
 
 		It("the process runs in the container", func() {

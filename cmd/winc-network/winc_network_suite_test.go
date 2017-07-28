@@ -1,9 +1,14 @@
 package main_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"time"
+
+	"code.cloudfoundry.org/winc/sandbox"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,6 +24,7 @@ const defaultInterval = time.Millisecond * 200
 var (
 	wincBin        string
 	wincNetworkBin string
+	wincImageBin   string
 	rootfsPath     string
 	bundlePath     string
 )
@@ -37,6 +43,8 @@ func TestWincNetwork(t *testing.T) {
 		rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
 		Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 		wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
+		Expect(err).ToNot(HaveOccurred())
+		wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
 		Expect(err).ToNot(HaveOccurred())
 		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
 		Expect(err).ToNot(HaveOccurred())
@@ -59,7 +67,17 @@ func TestWincNetwork(t *testing.T) {
 	RunSpecs(t, "Winc-Network Suite")
 }
 
-func runtimeSpecGenerator(rootfsPath string) specs.Spec {
+func createSandbox(rootfsPath, containerId string) sandbox.ImageSpec {
+	stdOut := new(bytes.Buffer)
+	cmd := exec.Command(wincImageBin, "create", rootfsPath, containerId)
+	cmd.Stdout = stdOut
+	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
+	var imageSpec sandbox.ImageSpec
+	Expect(json.Unmarshal(stdOut.Bytes(), &imageSpec)).To(Succeed())
+	return imageSpec
+}
+
+func runtimeSpecGenerator(imageSpec sandbox.ImageSpec, containerId string) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{
@@ -67,7 +85,10 @@ func runtimeSpecGenerator(rootfsPath string) specs.Spec {
 			Cwd:  "/",
 		},
 		Root: &specs.Root{
-			Path: rootfsPath,
+			Path: imageSpec.RootFs,
+		},
+		Windows: &specs.Windows{
+			LayerFolders: imageSpec.Image.Config.Layers,
 		},
 	}
 }

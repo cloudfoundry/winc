@@ -1,8 +1,6 @@
 package container
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -54,23 +52,20 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	volumePath, err := c.sandboxManager.Create(spec.Root.Path)
-	if err != nil {
-		return err
+	driverInfo := hcsshim.DriverInfo{
+		HomeDir: `C:\var\vcap\data\winc-image\depot`,
+		Flavour: 1,
 	}
 
-	layerChain, err := ioutil.ReadFile(filepath.Join(c.bundlePath, "layerchain.json"))
+	volumePath, err := c.hcsClient.GetLayerMountPath(driverInfo, c.id)
 	if err != nil {
 		return err
-	}
-
-	layers := []string{}
-	if err := json.Unmarshal(layerChain, &layers); err != nil {
-		return err
+	} else if volumePath == "" {
+		return &hcsclient.MissingVolumePathError{Id: c.id}
 	}
 
 	layerInfos := []hcsshim.Layer{}
-	for _, layerPath := range layers {
+	for _, layerPath := range spec.Windows.LayerFolders {
 		layerId := filepath.Base(layerPath)
 		layerGuid, err := c.hcsClient.NameToGuid(layerId)
 		if err != nil {
@@ -87,9 +82,6 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 	for _, d := range spec.Mounts {
 		fileInfo, err := os.Stat(d.Source)
 		if err != nil {
-			if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
-				logrus.Error(deleteErr.Error())
-			}
 			return err
 		}
 		if !fileInfo.IsDir() {
@@ -109,17 +101,13 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		Name:              c.bundlePath,
 		VolumePath:        volumePath,
 		Owner:             "winc",
-		LayerFolderPath:   c.bundlePath,
+		LayerFolderPath:   filepath.Join(driverInfo.HomeDir, c.id),
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
 	}
 
 	containerConfig, err = c.networkManager.AttachEndpointToConfig(containerConfig, c.id)
 	if err != nil {
-		if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
-			logrus.Error(deleteErr.Error())
-		}
-
 		return err
 	}
 
@@ -136,9 +124,6 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 
 	container, err := c.hcsClient.CreateContainer(c.id, &containerConfig)
 	if err != nil {
-		if deleteErr := c.sandboxManager.Delete(); deleteErr != nil {
-			logrus.Error(deleteErr.Error())
-		}
 		if deleteErr := c.networkManager.DeleteEndpointsById(containerConfig.EndpointList, c.id); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
@@ -161,7 +146,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	if err := c.sandboxManager.Mount(pid); err != nil {
+	if err := c.sandboxManager.Mount(pid, volumePath); err != nil {
 		if deleteErr := c.deleteContainer(container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
@@ -217,7 +202,7 @@ func (c *containerManager) State() (*specs.State, error) {
 		Version: specs.Version,
 		ID:      c.id,
 		Status:  status,
-		Bundle:  c.sandboxManager.BundlePath(),
+		Bundle:  c.bundlePath,
 		Pid:     pid,
 	}, nil
 }
@@ -289,7 +274,7 @@ func (c *containerManager) deleteContainer(container hcsshim.Container) error {
 		}
 	}
 
-	return c.sandboxManager.Delete()
+	return nil
 }
 
 func (c *containerManager) shutdownContainer(container hcsshim.Container) error {

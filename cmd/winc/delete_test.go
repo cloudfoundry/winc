@@ -37,15 +37,21 @@ var _ = Describe("Delete", func() {
 
 		BeforeEach(func() {
 			containerId = strconv.Itoa(rand.Int())
-			bundlePath = filepath.Join(depotDir, containerId)
+			bundlePath = filepath.Join(containerDepot, containerId)
+
+			Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 			client := hcsclient.HCSClient{}
-			sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
+			sm := sandbox.NewManager(&client, &mounter.Mounter{}, containerDepot, containerId)
 			nm := networkManager(&client)
 			cm = container.NewManager(&client, sm, nm, bundlePath)
 
-			bundleSpec := runtimeSpecGenerator(rootfsPath)
+			bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
 		})
 
 		Context("when the container is running", func() {

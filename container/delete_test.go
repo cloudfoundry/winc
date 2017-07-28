@@ -70,8 +70,6 @@ var _ = Describe("Delete", func() {
 			Expect(actualContainerId).To(Equal(containerId))
 
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-
-			Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 		})
 
 		Context("when unmounting the sandbox fails", func() {
@@ -91,8 +89,6 @@ var _ = Describe("Delete", func() {
 				Expect(actualContainerId).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 			})
 		})
 
@@ -108,7 +104,6 @@ var _ = Describe("Delete", func() {
 			It("calls terminate", func() {
 				Expect(containerManager.Delete()).To(Succeed())
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
-				Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 			})
 
 			Context("when shutdown is pending", func() {
@@ -119,7 +114,6 @@ var _ = Describe("Delete", func() {
 				It("waits for shutdown to finish", func() {
 					Expect(containerManager.Delete()).To(Succeed())
 					Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
-					Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 				})
 
 				Context("when shutdown does not finish before the timeout", func() {
@@ -132,7 +126,6 @@ var _ = Describe("Delete", func() {
 					It("it calls terminate", func() {
 						Expect(containerManager.Delete()).To(Succeed())
 						Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
-						Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 					})
 
 					Context("when terminate does not immediately succeed", func() {
@@ -153,7 +146,6 @@ var _ = Describe("Delete", func() {
 
 							It("waits for terminate to finish", func() {
 								Expect(containerManager.Delete()).To(Succeed())
-								Expect(sandboxManager.DeleteCallCount()).To(Equal(1))
 							})
 
 							Context("when terminate does not finish before the timeout", func() {
@@ -165,24 +157,11 @@ var _ = Describe("Delete", func() {
 
 								It("errors", func() {
 									Expect(containerManager.Delete()).To(Equal(terminateWaitError))
-									Expect(sandboxManager.DeleteCallCount()).To(Equal(0))
 								})
 							})
 						})
 					})
 				})
-			})
-		})
-
-		Context("when the sandbox delete fails", func() {
-			var deleteSandboxError = errors.New("delete sandbox failed")
-
-			BeforeEach(func() {
-				sandboxManager.DeleteReturns(deleteSandboxError)
-			})
-
-			It("errors", func() {
-				Expect(containerManager.Delete()).To(Equal(deleteSandboxError))
 			})
 		})
 	})

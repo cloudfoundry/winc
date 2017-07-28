@@ -12,6 +12,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
+	"code.cloudfoundry.org/winc/sandbox"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -26,7 +27,7 @@ var _ = Describe("Validate", func() {
 
 	BeforeEach(func() {
 		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(depotDir, containerId)
+		bundlePath = filepath.Join(containerDepot, containerId)
 
 		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 		logger = logrus.WithField("suite", "winc")
@@ -52,7 +53,14 @@ var _ = Describe("Validate", func() {
 			)
 
 			BeforeEach(func() {
-				expectedSpec = runtimeSpecGenerator(rootfsPath)
+				expectedSpec = runtimeSpecGenerator(sandbox.ImageSpec{
+					RootFs: rootfsPath,
+					Image: sandbox.Image{
+						Config: sandbox.ImageConfig{
+							Layers: []string{"a layer", "another layer"},
+						},
+					},
+				}, containerId)
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
