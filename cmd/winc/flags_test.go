@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
@@ -31,10 +29,8 @@ var _ = Describe("Flags", func() {
 	)
 
 	BeforeEach(func() {
-		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(containerDepot, containerId)
+		containerId = filepath.Base(bundlePath)
 
-		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 		args = []string{}
 		expectedExitCode = 0
 	})

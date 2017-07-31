@@ -31,13 +31,12 @@ const defaultTimeout = time.Second * 10
 const defaultInterval = time.Millisecond * 200
 
 var (
-	wincBin        string
-	wincImageBin   string
-	readBin        string
-	consumeBin     string
-	rootfsPath     string
-	containerDepot string
-	bundlePath     string
+	wincBin      string
+	wincImageBin string
+	readBin      string
+	consumeBin   string
+	rootfsPath   string
+	bundlePath   string
 )
 
 func TestWinc(t *testing.T) {
@@ -70,12 +69,12 @@ func TestWinc(t *testing.T) {
 
 	BeforeEach(func() {
 		var err error
-		containerDepot, err = ioutil.TempDir("", "winccontainer")
+		bundlePath, err = ioutil.TempDir("", "winccontainer")
 		Expect(err).To(Succeed())
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(containerDepot)).To(Succeed())
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	RunSpecs(t, "Winc Suite")

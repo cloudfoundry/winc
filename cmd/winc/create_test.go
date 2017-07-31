@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -38,11 +37,7 @@ var _ = Describe("Create", func() {
 	)
 
 	BeforeEach(func() {
-		rand.Seed(time.Now().UnixNano())
-		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(containerDepot, containerId)
-
-		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
+		containerId = filepath.Base(bundlePath)
 
 		client = &hcsclient.HCSClient{}
 		nm := networkManager(client)

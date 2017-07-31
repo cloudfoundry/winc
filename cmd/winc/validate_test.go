@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"golang.org/x/text/encoding/unicode"
 
@@ -26,10 +24,8 @@ var _ = Describe("Validate", func() {
 	)
 
 	BeforeEach(func() {
-		containerId = strconv.Itoa(rand.Int())
-		bundlePath = filepath.Join(containerDepot, containerId)
+		containerId = filepath.Base(bundlePath)
 
-		Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 		logger = logrus.WithField("suite", "winc")
 	})
 
