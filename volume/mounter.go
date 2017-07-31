@@ -1,7 +1,10 @@
-package mounter
+package volume
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -17,7 +20,23 @@ var (
 
 type Mounter struct{}
 
-func (m *Mounter) SetPoint(mountPoint, volume string) error {
+func (m *Mounter) Mount(pid int, volumePath string) error {
+	if err := os.MkdirAll(rootPath(pid), 0755); err != nil {
+		return err
+	}
+
+	return m.setPoint(rootPath(pid), volumePath)
+}
+
+func (m *Mounter) Unmount(pid int) error {
+	if err := m.deletePoint(rootPath(pid)); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(mountPath(pid))
+}
+
+func (m *Mounter) setPoint(mountPoint, volume string) error {
 	if err := setVolumeMountPointW.Find(); err != nil {
 		return err
 	}
@@ -43,7 +62,7 @@ func (m *Mounter) SetPoint(mountPoint, volume string) error {
 	return nil
 }
 
-func (m *Mounter) DeletePoint(mountPoint string) error {
+func (m *Mounter) deletePoint(mountPoint string) error {
 	if err := deleteVolumeMountPointW.Find(); err != nil {
 		return err
 	}
@@ -61,6 +80,14 @@ func (m *Mounter) DeletePoint(mountPoint string) error {
 	}
 
 	return nil
+}
+
+func mountPath(pid int) string {
+	return filepath.Join("c:\\", "proc", strconv.Itoa(pid))
+}
+
+func rootPath(pid int) string {
+	return filepath.Join(mountPath(pid), "root")
 }
 
 func ensureTrailingBackslash(in string) string {

@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 
@@ -31,24 +30,15 @@ type SandboxManager interface {
 	Create(rootfs string) (*ImageSpec, error)
 	Delete() error
 	BundlePath() string
-	Mount(pid int, volumePath string) error
-	Unmount(pid int) error
-}
-
-//go:generate counterfeiter . Mounter
-type Mounter interface {
-	SetPoint(string, string) error
-	DeletePoint(string) error
 }
 
 type sandboxManager struct {
 	hcsClient  hcsclient.Client
 	id         string
 	driverInfo hcsshim.DriverInfo
-	mounter    Mounter
 }
 
-func NewManager(hcsClient hcsclient.Client, mounter Mounter, depotDir, containerId string) SandboxManager {
+func NewManager(hcsClient hcsclient.Client, depotDir, containerId string) SandboxManager {
 	driverInfo := hcsshim.DriverInfo{
 		HomeDir: depotDir,
 		Flavour: 1,
@@ -56,7 +46,6 @@ func NewManager(hcsClient hcsclient.Client, mounter Mounter, depotDir, container
 
 	return &sandboxManager{
 		hcsClient:  hcsClient,
-		mounter:    mounter,
 		id:         containerId,
 		driverInfo: driverInfo,
 	}
@@ -142,28 +131,4 @@ func (s *sandboxManager) Delete() error {
 
 func (s *sandboxManager) BundlePath() string {
 	return filepath.Join(s.driverInfo.HomeDir, s.id)
-}
-
-func (s *sandboxManager) mountPath(pid int) string {
-	return filepath.Join("c:\\", "proc", strconv.Itoa(pid))
-}
-
-func (s *sandboxManager) rootPath(pid int) string {
-	return filepath.Join(s.mountPath(pid), "root")
-}
-
-func (s *sandboxManager) Mount(pid int, volumePath string) error {
-	if err := os.MkdirAll(s.rootPath(pid), 0755); err != nil {
-		return err
-	}
-
-	return s.mounter.SetPoint(s.rootPath(pid), volumePath)
-}
-
-func (s *sandboxManager) Unmount(pid int) error {
-	if err := s.mounter.DeletePoint(s.rootPath(pid)); err != nil {
-		return err
-	}
-
-	return os.RemoveAll(s.mountPath(pid))
 }

@@ -2,7 +2,6 @@ package sandbox_test
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox"
-	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 
@@ -32,7 +30,6 @@ var _ = Describe("Sandbox", func() {
 		sandboxManager     sandbox.SandboxManager
 		expectedDriverInfo hcsshim.DriverInfo
 		rootfsParents      []byte
-		fakeMounter        *sandboxfakes.FakeMounter
 	)
 
 	BeforeEach(func() {
@@ -47,8 +44,7 @@ var _ = Describe("Sandbox", func() {
 		containerId = strconv.Itoa(rand.Int())
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		fakeMounter = &sandboxfakes.FakeMounter{}
-		sandboxManager = sandbox.NewManager(hcsClient, fakeMounter, depotDir, containerId)
+		sandboxManager = sandbox.NewManager(hcsClient, depotDir, containerId)
 
 		expectedDriverInfo = hcsshim.DriverInfo{
 			HomeDir: depotDir,
@@ -295,47 +291,6 @@ var _ = Describe("Sandbox", func() {
 				Expect(hcsClient.DeactivateLayerCallCount()).To(Equal(0))
 				Expect(hcsClient.DestroyLayerCallCount()).To(Equal(0))
 			})
-		})
-	})
-
-	Context("Mount", func() {
-		It("mounts the sandbox.vhdx at C:\\proc\\{{pid}}\\root", func() {
-			_, err := sandboxManager.Create(rootfs)
-			Expect(err).ToNot(HaveOccurred())
-
-			pid := rand.Int()
-			Expect(sandboxManager.Mount(pid, containerVolume)).To(Succeed())
-
-			rootPath := filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid), "root")
-			Expect(rootPath).To(BeADirectory())
-
-			Expect(fakeMounter.SetPointCallCount()).To(Equal(1))
-			mp, vol := fakeMounter.SetPointArgsForCall(0)
-			Expect(mp).To(Equal(rootPath))
-			Expect(vol).To(Equal(containerVolume))
-		})
-	})
-
-	Context("Unmount", func() {
-		var pid int
-		var mountPath string
-		var rootPath string
-
-		BeforeEach(func() {
-			pid = rand.Int()
-			mountPath = filepath.Join("c:\\", "proc", fmt.Sprintf("%d", pid))
-			rootPath = filepath.Join(mountPath, "root")
-			Expect(os.MkdirAll(rootPath, 0755)).To(Succeed())
-		})
-
-		It("unmounts the sandbox.vhdx from c:\\proc\\<pid>\\mnt and removes the directory", func() {
-			Expect(sandboxManager.Unmount(pid)).To(Succeed())
-
-			Expect(fakeMounter.DeletePointCallCount()).To(Equal(1))
-			mp := fakeMounter.DeletePointArgsForCall(0)
-			Expect(mp).To(Equal(rootPath))
-
-			Expect(mountPath).NotTo(BeADirectory())
 		})
 	})
 })

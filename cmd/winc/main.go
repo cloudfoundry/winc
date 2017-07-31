@@ -12,10 +12,9 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
-	"code.cloudfoundry.org/winc/mounter"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/volume"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -160,7 +159,7 @@ func checkArgs(context *cli.Context, expected, checkType int) error {
 
 	if err != nil {
 		fmt.Printf("Incorrect Usage.\n\n")
-		cli.ShowCommandHelp(context, cmdName)
+		_ = cli.ShowCommandHelp(context, cmdName)
 		return err
 	}
 	return nil
@@ -187,9 +186,6 @@ func wireContainerManager(bundlePath, containerId string) (container.ContainerMa
 		return nil, &hcsclient.InvalidIdError{Id: containerId}
 	}
 
-	depotDir := filepath.Dir(bundlePath)
-	sm := sandbox.NewManager(&client, &mounter.Mounter{}, depotDir, containerId)
-
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,
 		Capacity:  5000,
@@ -205,5 +201,5 @@ func wireContainerManager(bundlePath, containerId string) (container.ContainerMa
 
 	nm := network.NewNetworkManager(&client, pa)
 
-	return container.NewManager(&client, sm, nm, bundlePath), nil
+	return container.NewManager(&client, &volume.Mounter{}, nm, bundlePath), nil
 }

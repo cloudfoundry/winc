@@ -14,8 +14,7 @@ import (
 	. "code.cloudfoundry.org/winc/cmd/winc"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/mounter"
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/volume"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -123,9 +122,8 @@ var _ = Describe("Flags", func() {
 
 			AfterEach(func() {
 				client := &hcsclient.HCSClient{}
-				sm := sandbox.NewManager(client, &mounter.Mounter{}, containerDepot, containerId)
 				nm := networkManager(client)
-				cm := container.NewManager(client, sm, nm, containerId)
+				cm := container.NewManager(client, &volume.Mounter{}, nm, containerId)
 				Expect(cm.Delete()).To(Succeed())
 				Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
 			})

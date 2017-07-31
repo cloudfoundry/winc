@@ -10,7 +10,6 @@ import (
 
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/sandbox"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -27,16 +26,22 @@ type ContainerManager interface {
 
 type containerManager struct {
 	hcsClient      hcsclient.Client
-	sandboxManager sandbox.SandboxManager
+	mounter        Mounter
 	networkManager network.NetworkManager
 	bundlePath     string
 	id             string
 }
 
-func NewManager(hcsClient hcsclient.Client, sandboxManager sandbox.SandboxManager, networkManager network.NetworkManager, bundlePath string) ContainerManager {
+//go:generate counterfeiter . Mounter
+type Mounter interface {
+	Mount(pid int, volumePath string) error
+	Unmount(pid int) error
+}
+
+func NewManager(hcsClient hcsclient.Client, mounter Mounter, networkManager network.NetworkManager, bundlePath string) ContainerManager {
 	return &containerManager{
 		hcsClient:      hcsClient,
-		sandboxManager: sandboxManager,
+		mounter:        mounter,
 		networkManager: networkManager,
 		bundlePath:     bundlePath,
 		id:             filepath.Base(bundlePath),
@@ -146,7 +151,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	if err := c.sandboxManager.Mount(pid, volumePath); err != nil {
+	if err := c.mounter.Mount(pid, volumePath); err != nil {
 		if deleteErr := c.deleteContainer(container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
@@ -162,7 +167,7 @@ func (c *containerManager) Delete() error {
 		return err
 	}
 
-	unmountErr := c.sandboxManager.Unmount(pid)
+	unmountErr := c.mounter.Unmount(pid)
 	if unmountErr != nil {
 		logrus.Error(unmountErr.Error())
 	}

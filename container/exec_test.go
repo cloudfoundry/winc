@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
-	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -22,7 +22,7 @@ var _ = Describe("Exec", func() {
 		containerId      string
 		bundlePath       string
 		hcsClient        *hcsclientfakes.FakeClient
-		sandboxManager   *sandboxfakes.FakeSandboxManager
+		mounter          *containerfakes.FakeMounter
 		containerManager container.ContainerManager
 		fakeContainer    *hcsclientfakes.FakeContainer
 		fakeProcess      *hcsclientfakes.FakeProcess
@@ -37,9 +37,8 @@ var _ = Describe("Exec", func() {
 		containerId = filepath.Base(bundlePath)
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		sandboxManager = &sandboxfakes.FakeSandboxManager{}
-		sandboxManager.BundlePathReturns(bundlePath)
-		containerManager = container.NewManager(hcsClient, sandboxManager, nil, containerId)
+		mounter = &containerfakes.FakeMounter{}
+		containerManager = container.NewManager(hcsClient, mounter, nil, containerId)
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		fakeProcess = &hcsclientfakes.FakeProcess{}
 	})

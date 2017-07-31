@@ -39,29 +39,6 @@ type FakeSandboxManager struct {
 	bundlePathReturnsOnCall map[int]struct {
 		result1 string
 	}
-	MountStub        func(pid int, volumePath string) error
-	mountMutex       sync.RWMutex
-	mountArgsForCall []struct {
-		pid        int
-		volumePath string
-	}
-	mountReturns struct {
-		result1 error
-	}
-	mountReturnsOnCall map[int]struct {
-		result1 error
-	}
-	UnmountStub        func(pid int) error
-	unmountMutex       sync.RWMutex
-	unmountArgsForCall []struct {
-		pid int
-	}
-	unmountReturns struct {
-		result1 error
-	}
-	unmountReturnsOnCall map[int]struct {
-		result1 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -197,103 +174,6 @@ func (fake *FakeSandboxManager) BundlePathReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeSandboxManager) Mount(pid int, volumePath string) error {
-	fake.mountMutex.Lock()
-	ret, specificReturn := fake.mountReturnsOnCall[len(fake.mountArgsForCall)]
-	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
-		pid        int
-		volumePath string
-	}{pid, volumePath})
-	fake.recordInvocation("Mount", []interface{}{pid, volumePath})
-	fake.mountMutex.Unlock()
-	if fake.MountStub != nil {
-		return fake.MountStub(pid, volumePath)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.mountReturns.result1
-}
-
-func (fake *FakeSandboxManager) MountCallCount() int {
-	fake.mountMutex.RLock()
-	defer fake.mountMutex.RUnlock()
-	return len(fake.mountArgsForCall)
-}
-
-func (fake *FakeSandboxManager) MountArgsForCall(i int) (int, string) {
-	fake.mountMutex.RLock()
-	defer fake.mountMutex.RUnlock()
-	return fake.mountArgsForCall[i].pid, fake.mountArgsForCall[i].volumePath
-}
-
-func (fake *FakeSandboxManager) MountReturns(result1 error) {
-	fake.MountStub = nil
-	fake.mountReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeSandboxManager) MountReturnsOnCall(i int, result1 error) {
-	fake.MountStub = nil
-	if fake.mountReturnsOnCall == nil {
-		fake.mountReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.mountReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeSandboxManager) Unmount(pid int) error {
-	fake.unmountMutex.Lock()
-	ret, specificReturn := fake.unmountReturnsOnCall[len(fake.unmountArgsForCall)]
-	fake.unmountArgsForCall = append(fake.unmountArgsForCall, struct {
-		pid int
-	}{pid})
-	fake.recordInvocation("Unmount", []interface{}{pid})
-	fake.unmountMutex.Unlock()
-	if fake.UnmountStub != nil {
-		return fake.UnmountStub(pid)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.unmountReturns.result1
-}
-
-func (fake *FakeSandboxManager) UnmountCallCount() int {
-	fake.unmountMutex.RLock()
-	defer fake.unmountMutex.RUnlock()
-	return len(fake.unmountArgsForCall)
-}
-
-func (fake *FakeSandboxManager) UnmountArgsForCall(i int) int {
-	fake.unmountMutex.RLock()
-	defer fake.unmountMutex.RUnlock()
-	return fake.unmountArgsForCall[i].pid
-}
-
-func (fake *FakeSandboxManager) UnmountReturns(result1 error) {
-	fake.UnmountStub = nil
-	fake.unmountReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeSandboxManager) UnmountReturnsOnCall(i int, result1 error) {
-	fake.UnmountStub = nil
-	if fake.unmountReturnsOnCall == nil {
-		fake.unmountReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.unmountReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
 func (fake *FakeSandboxManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -303,10 +183,6 @@ func (fake *FakeSandboxManager) Invocations() map[string][][]interface{} {
 	defer fake.deleteMutex.RUnlock()
 	fake.bundlePathMutex.RLock()
 	defer fake.bundlePathMutex.RUnlock()
-	fake.mountMutex.RLock()
-	defer fake.mountMutex.RUnlock()
-	fake.unmountMutex.RLock()
-	defer fake.unmountMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

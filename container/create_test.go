@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/network/networkfakes"
-	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -26,7 +26,7 @@ var _ = Describe("Create", func() {
 		bundlePath       string
 		layerFolders     []string
 		hcsClient        *hcsclientfakes.FakeClient
-		sandboxManager   *sandboxfakes.FakeSandboxManager
+		mounter          *containerfakes.FakeMounter
 		networkManager   *networkfakes.FakeNetworkManager
 		containerManager container.ContainerManager
 		spec             *specs.Spec
@@ -40,9 +40,9 @@ var _ = Describe("Create", func() {
 		containerId = filepath.Base(bundlePath)
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		sandboxManager = &sandboxfakes.FakeSandboxManager{}
+		mounter = &containerfakes.FakeMounter{}
 		networkManager = &networkfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, bundlePath)
+		containerManager = container.NewManager(hcsClient, mounter, networkManager, bundlePath)
 
 		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerId string) (hcsshim.ContainerConfig, error) {
 			config.EndpointList = []string{"endpoint-for-" + containerId}
@@ -131,8 +131,8 @@ var _ = Describe("Create", func() {
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
 
-			Expect(sandboxManager.MountCallCount()).To(Equal(1))
-			actualPid, actualVolumePath := sandboxManager.MountArgsForCall(0)
+			Expect(mounter.MountCallCount()).To(Equal(1))
+			actualPid, actualVolumePath := mounter.MountArgsForCall(0)
 			Expect(actualPid).To(Equal(pid))
 			Expect(actualVolumePath).To(Equal(containerVolume))
 		})
@@ -273,7 +273,7 @@ var _ = Describe("Create", func() {
 
 		Context("when mounting the sandbox.vhdx fails", func() {
 			BeforeEach(func() {
-				sandboxManager.MountReturns(errors.New("couldn't mount"))
+				mounter.MountReturns(errors.New("couldn't mount"))
 			})
 
 			It("deletes the container and network endpoints", func() {

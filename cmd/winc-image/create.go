@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/mounter"
 	"code.cloudfoundry.org/winc/sandbox"
 
 	"github.com/urfave/cli"
@@ -23,7 +22,7 @@ var createCommand = cli.Command{
 		rootfsPath := context.Args().First()
 		containerId := context.Args().Tail()[0]
 
-		sm := sandbox.NewManager(&hcsclient.HCSClient{}, &mounter.Mounter{}, depotDir, containerId)
+		sm := sandbox.NewManager(&hcsclient.HCSClient{}, depotDir, containerId)
 		imageSpec, err := sm.Create(rootfsPath)
 		if err != nil {
 			return err

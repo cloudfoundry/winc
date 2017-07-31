@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/containerfakes"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/network/networkfakes"
-	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 
 	. "github.com/onsi/ginkgo"
@@ -21,7 +21,7 @@ var _ = Describe("Delete", func() {
 		containerId      string
 		bundlePath       string
 		hcsClient        *hcsclientfakes.FakeClient
-		sandboxManager   *sandboxfakes.FakeSandboxManager
+		mounter          *containerfakes.FakeMounter
 		fakeContainer    *hcsclientfakes.FakeContainer
 		networkManager   *networkfakes.FakeNetworkManager
 		containerManager container.ContainerManager
@@ -35,10 +35,10 @@ var _ = Describe("Delete", func() {
 		containerId = filepath.Base(bundlePath)
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		sandboxManager = &sandboxfakes.FakeSandboxManager{}
+		mounter = &containerfakes.FakeMounter{}
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		networkManager = &networkfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, sandboxManager, networkManager, containerId)
+		containerManager = container.NewManager(hcsClient, mounter, networkManager, containerId)
 	})
 
 	AfterEach(func() {
@@ -58,8 +58,8 @@ var _ = Describe("Delete", func() {
 		It("deletes it", func() {
 			Expect(containerManager.Delete()).To(Succeed())
 
-			Expect(sandboxManager.UnmountCallCount()).To(Equal(1))
-			Expect(sandboxManager.UnmountArgsForCall(0)).To(Equal(pid))
+			Expect(mounter.UnmountCallCount()).To(Equal(1))
+			Expect(mounter.UnmountArgsForCall(0)).To(Equal(pid))
 
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
@@ -74,7 +74,7 @@ var _ = Describe("Delete", func() {
 
 		Context("when unmounting the sandbox fails", func() {
 			BeforeEach(func() {
-				sandboxManager.UnmountReturns(errors.New("unmounting failed"))
+				mounter.UnmountReturns(errors.New("unmounting failed"))
 			})
 
 			It("continues deleting the container and returns an error", func() {

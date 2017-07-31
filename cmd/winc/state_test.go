@@ -11,8 +11,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/mounter"
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/volume"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,9 +45,8 @@ var _ = Describe("State", func() {
 			Expect(os.MkdirAll(bundlePath, 0755)).To(Succeed())
 
 			client = &hcsclient.HCSClient{}
-			sm := sandbox.NewManager(client, &mounter.Mounter{}, containerDepot, containerId)
 			nm := networkManager(client)
-			cm = container.NewManager(client, sm, nm, bundlePath)
+			cm = container.NewManager(client, &volume.Mounter{}, nm, bundlePath)
 
 			bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
