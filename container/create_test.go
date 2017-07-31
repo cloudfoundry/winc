@@ -18,7 +18,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-const imageDepot = `C:\var\vcap\data\winc-image\depot`
+const rootPath = "some-winc-root-path"
 
 var _ = Describe("Create", func() {
 	var (
@@ -42,7 +42,7 @@ var _ = Describe("Create", func() {
 		hcsClient = &hcsclientfakes.FakeClient{}
 		mounter = &containerfakes.FakeMounter{}
 		networkManager = &networkfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, mounter, networkManager, bundlePath)
+		containerManager = container.NewManager(hcsClient, mounter, networkManager, rootPath, bundlePath)
 
 		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerId string) (hcsshim.ContainerConfig, error) {
 			config.EndpointList = []string{"endpoint-for-" + containerId}
@@ -66,8 +66,6 @@ var _ = Describe("Create", func() {
 	AfterEach(func() {
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
-
-	// TODO: fill in other happy path checks and error corner cases
 
 	Context("when the specified container does not already exist", func() {
 		var (
@@ -112,7 +110,7 @@ var _ = Describe("Create", func() {
 			}
 
 			actualDriverInfo, actualContainerId := hcsClient.GetLayerMountPathArgsForCall(0)
-			Expect(actualDriverInfo.HomeDir).To(Equal(imageDepot))
+			Expect(actualDriverInfo.HomeDir).To(Equal(rootPath))
 			Expect(actualContainerId).To(Equal(containerId))
 
 			Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
@@ -123,7 +121,7 @@ var _ = Describe("Create", func() {
 				Name:              bundlePath,
 				VolumePath:        containerVolume,
 				Owner:             "winc",
-				LayerFolderPath:   filepath.Join(imageDepot, containerId),
+				LayerFolderPath:   filepath.Join(rootPath, containerId),
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
 				EndpointList:      []string{"endpoint-for-" + containerId},

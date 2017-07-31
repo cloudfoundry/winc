@@ -38,14 +38,14 @@ var _ = Describe("Delete", func() {
 
 			client := hcsclient.HCSClient{}
 			nm := networkManager(&client)
-			cm = container.NewManager(&client, &volume.Mounter{}, nm, bundlePath)
+			cm = container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
-			bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
+			bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
+			Expect(execute(wincImageBin, "--store", rootPath, "delete", containerId)).To(Succeed())
 		})
 
 		Context("when the container is running", func() {

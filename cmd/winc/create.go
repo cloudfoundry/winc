@@ -47,6 +47,7 @@ your host.`,
 		}
 
 		containerId := context.Args().First()
+		rootPath := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
 
@@ -71,7 +72,7 @@ your host.`,
 			return err
 		}
 
-		cm, err := wireContainerManager(bundlePath, containerId)
+		cm, err := wireContainerManager(rootPath, bundlePath, containerId)
 		if err != nil {
 			return err
 		}

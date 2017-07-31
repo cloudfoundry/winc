@@ -28,6 +28,7 @@ type containerManager struct {
 	hcsClient      hcsclient.Client
 	mounter        Mounter
 	networkManager network.NetworkManager
+	rootPath       string
 	bundlePath     string
 	id             string
 }
@@ -38,12 +39,13 @@ type Mounter interface {
 	Unmount(pid int) error
 }
 
-func NewManager(hcsClient hcsclient.Client, mounter Mounter, networkManager network.NetworkManager, bundlePath string) ContainerManager {
+func NewManager(hcsClient hcsclient.Client, mounter Mounter, networkManager network.NetworkManager, rootPath, bundlePath string) ContainerManager {
 	return &containerManager{
 		hcsClient:      hcsClient,
 		mounter:        mounter,
 		networkManager: networkManager,
 		bundlePath:     bundlePath,
+		rootPath:       rootPath,
 		id:             filepath.Base(bundlePath),
 	}
 }
@@ -58,7 +60,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 	}
 
 	driverInfo := hcsshim.DriverInfo{
-		HomeDir: `C:\var\vcap\data\winc-image\depot`,
+		HomeDir: c.rootPath,
 		Flavour: 1,
 	}
 

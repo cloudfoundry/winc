@@ -38,7 +38,7 @@ var _ = Describe("Delete", func() {
 		mounter = &containerfakes.FakeMounter{}
 		fakeContainer = &hcsclientfakes.FakeContainer{}
 		networkManager = &networkfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, mounter, networkManager, containerId)
+		containerManager = container.NewManager(hcsClient, mounter, networkManager, "", containerId)
 	})
 
 	AfterEach(func() {

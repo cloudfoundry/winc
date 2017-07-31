@@ -100,7 +100,7 @@ following will output a list of processes running in the container:
 			"detach":        detach,
 		}).Debug("executing process in container")
 
-		cm, err := wireContainerManager("", containerId)
+		cm, err := wireContainerManager("", "", containerId)
 		if err != nil {
 			return err
 		}

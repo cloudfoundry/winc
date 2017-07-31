@@ -44,7 +44,7 @@ var _ = Describe("Exec", func() {
 
 		client = hcsclient.HCSClient{}
 		nm := networkManager(&client)
-		cm = container.NewManager(&client, &volume.Mounter{}, nm, bundlePath)
+		cm = container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
 		stdOut = new(bytes.Buffer)
 		stdErr = new(bytes.Buffer)
@@ -52,7 +52,7 @@ var _ = Describe("Exec", func() {
 
 	Context("when the container exists", func() {
 		BeforeEach(func() {
-			bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
+			bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
 			Expect(cm.Create(&bundleSpec)).To(Succeed())
 			pl := containerProcesses(&client, containerId, "cmd.exe")
 			Expect(pl).To(BeEmpty())
@@ -60,7 +60,7 @@ var _ = Describe("Exec", func() {
 
 		AfterEach(func() {
 			Expect(cm.Delete()).To(Succeed())
-			Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
+			Expect(execute(wincImageBin, "--store", rootPath, "delete", containerId)).To(Succeed())
 		})
 
 		It("the process runs in the container", func() {

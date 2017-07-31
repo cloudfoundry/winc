@@ -41,9 +41,9 @@ var _ = Describe("Create", func() {
 
 		client = &hcsclient.HCSClient{}
 		nm := networkManager(client)
-		cm = container.NewManager(client, &volume.Mounter{}, nm, bundlePath)
+		cm = container.NewManager(client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
-		bundleSpec = runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
+		bundleSpec = runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
 
 		stdOut = new(bytes.Buffer)
 		stdErr = new(bytes.Buffer)
@@ -57,7 +57,7 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
-		Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
+		Expect(execute(wincImageBin, "--store", rootPath, "delete", containerId)).To(Succeed())
 	})
 
 	Context("when provided valid arguments", func() {

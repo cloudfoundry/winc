@@ -67,9 +67,9 @@ func TestWincNetwork(t *testing.T) {
 	RunSpecs(t, "Winc-Network Suite")
 }
 
-func createSandbox(rootfsPath, containerId string) sandbox.ImageSpec {
+func createSandbox(storePath, rootfsPath, containerId string) sandbox.ImageSpec {
 	stdOut := new(bytes.Buffer)
-	cmd := exec.Command(wincImageBin, "create", rootfsPath, containerId)
+	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 	cmd.Stdout = stdOut
 	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
 	var imageSpec sandbox.ImageSpec

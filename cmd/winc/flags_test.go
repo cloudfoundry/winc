@@ -103,12 +103,8 @@ var _ = Describe("Flags", func() {
 		})
 
 		Context("when the winc command logs non error messages", func() {
-			var containerId string
-
 			BeforeEach(func() {
-				containerId = filepath.Base(bundlePath)
-
-				bundleSpec := runtimeSpecGenerator(createSandbox(rootfsPath, containerId), containerId)
+				bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
 				config, err := json.Marshal(&bundleSpec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
@@ -119,9 +115,9 @@ var _ = Describe("Flags", func() {
 			AfterEach(func() {
 				client := &hcsclient.HCSClient{}
 				nm := networkManager(client)
-				cm := container.NewManager(client, &volume.Mounter{}, nm, containerId)
+				cm := container.NewManager(client, &volume.Mounter{}, nm, rootPath, containerId)
 				Expect(cm.Delete()).To(Succeed())
-				Expect(execute(wincImageBin, "delete", containerId)).To(Succeed())
+				Expect(execute(wincImageBin, "--store", rootPath, "delete", containerId)).To(Succeed())
 			})
 
 			It("does not log anything", func() {
@@ -183,6 +179,41 @@ var _ = Describe("Flags", func() {
 				expectedError := &InvalidLogFormatError{Format: "invalid"}
 				Eventually(session.Err).Should(gbytes.Say(expectedError.Error()))
 			})
+		})
+	})
+
+	Context("when passed '--root'", func() {
+		var (
+			storePath string
+			cm        container.ContainerManager
+		)
+
+		BeforeEach(func() {
+			storePath, err = ioutil.TempDir("", "wincroot")
+			Expect(err).ToNot(HaveOccurred())
+
+			client := &hcsclient.HCSClient{}
+			nm := networkManager(client)
+			cm = container.NewManager(client, &volume.Mounter{}, nm, storePath, containerId)
+
+			bundleSpec := runtimeSpecGenerator(createSandbox(storePath, rootfsPath, containerId), containerId)
+			config, err := json.Marshal(&bundleSpec)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
+
+			args = []string{"--root", storePath, "create", containerId, "-b", bundlePath}
+		})
+
+		AfterEach(func() {
+			Expect(cm.Delete()).To(Succeed())
+			Expect(execute(wincImageBin, "--store", storePath, "delete", containerId)).To(Succeed())
+			Expect(os.RemoveAll(storePath)).To(Succeed())
+		})
+
+		It("is able to create a container with the specified root", func() {
+			state, err := cm.State()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(state.Pid).ToNot(Equal(-1))
 		})
 	})
 

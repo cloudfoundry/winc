@@ -27,8 +27,11 @@ import (
 	"testing"
 )
 
-const defaultTimeout = time.Second * 10
-const defaultInterval = time.Millisecond * 200
+const (
+	defaultTimeout  = time.Second * 10
+	defaultInterval = time.Millisecond * 200
+	rootPath        = "C:\\run\\winc"
+)
 
 var (
 	wincBin      string
@@ -80,9 +83,9 @@ func TestWinc(t *testing.T) {
 	RunSpecs(t, "Winc Suite")
 }
 
-func createSandbox(rootfsPath, containerId string) sandbox.ImageSpec {
+func createSandbox(storePath, rootfsPath, containerId string) sandbox.ImageSpec {
 	stdOut := new(bytes.Buffer)
-	cmd := exec.Command(wincImageBin, "create", rootfsPath, containerId)
+	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 	cmd.Stdout = stdOut
 	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
 	var imageSpec sandbox.ImageSpec

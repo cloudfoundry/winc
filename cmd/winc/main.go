@@ -72,6 +72,11 @@ func main() {
 			Usage: "set the format used by logs ('text' (default), or 'json')",
 		},
 		cli.StringFlag{
+			Name:  "root",
+			Value: "C:\\run\\winc",
+			Usage: "root directory for storage of container state",
+		},
+		cli.StringFlag{
 			Name:  "newuidmap",
 			Value: "newuidmap",
 			Usage: "ignored",
@@ -171,7 +176,7 @@ func fatal(err error) {
 	os.Exit(1)
 }
 
-func wireContainerManager(bundlePath, containerId string) (container.ContainerManager, error) {
+func wireContainerManager(rootPath, bundlePath, containerId string) (container.ContainerManager, error) {
 	client := hcsclient.HCSClient{}
 
 	if bundlePath == "" {
@@ -201,5 +206,5 @@ func wireContainerManager(bundlePath, containerId string) (container.ContainerMa
 
 	nm := network.NewNetworkManager(&client, pa)
 
-	return container.NewManager(&client, &volume.Mounter{}, nm, bundlePath), nil
+	return container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath), nil
 }
