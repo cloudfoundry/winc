@@ -3,7 +3,9 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"math/rand"
+	"os"
 	"os/exec"
 	"strconv"
 	"time"
@@ -13,16 +15,22 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const depotDir = `C:\var\vcap\data\winc-image\depot`
-
 var _ = Describe("WincImage", func() {
 	var (
+		storePath   string
 		containerId string
 	)
 
 	BeforeEach(func() {
+		var err error
 		rand.Seed(time.Now().UnixNano())
 		containerId = strconv.Itoa(rand.Int())
+		storePath, err = ioutil.TempDir("", "container-store")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(storePath)).To(Succeed())
 	})
 
 	type DesiredImageSpec struct {
@@ -35,22 +43,22 @@ var _ = Describe("WincImage", func() {
 	}
 
 	It("creates and deletes a sandbox", func() {
-		stdout, _, err := execute(wincImageBin, "create", rootfsPath, containerId)
+		stdout, _, err := execute(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 		Expect(err).NotTo(HaveOccurred())
 
 		var desiredImageSpec DesiredImageSpec
 		Expect(json.Unmarshal(stdout.Bytes(), &desiredImageSpec)).To(Succeed())
-		Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(depotDir, containerId)))
+		Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(storePath, containerId)))
 		Expect(desiredImageSpec.Image.Config.Layers).ToNot(BeEmpty())
 		Expect(desiredImageSpec.Image.Config.Layers[0]).To(Equal(rootfsPath))
 		for _, layer := range desiredImageSpec.Image.Config.Layers {
 			Expect(layer).To(BeADirectory())
 		}
 
-		driverInfo := hcsshim.DriverInfo{HomeDir: depotDir, Flavour: 1}
+		driverInfo := hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeTrue())
 
-		Expect(exec.Command(wincImageBin, "delete", containerId).Run()).To(Succeed())
+		Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
 
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
 	})
@@ -88,9 +96,9 @@ var _ = Describe("WincImage", func() {
 	})
 })
 
-func getVolumeGuid(depotDir, id string) string {
+func getVolumeGuid(storePath, id string) string {
 	driverInfo := hcsshim.DriverInfo{
-		HomeDir: depotDir,
+		HomeDir: storePath,
 		Flavour: 1,
 	}
 	volumePath, err := hcsshim.GetLayerMountPath(driverInfo, id)

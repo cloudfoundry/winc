@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	depotDir  = `C:\var\vcap\data\winc-image\depot`
 	exactArgs = iota
 	minArgs
 	maxArgs
@@ -19,6 +18,14 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "winc-image.exe"
 	app.Usage = "winc-image is a command line client for managing container volumes"
+
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "store",
+			Usage: "Path to the store directory",
+			Value: "C:\\var\\lib\\winc-image",
+		},
+	}
 
 	app.Commands = []cli.Command{
 		createCommand,

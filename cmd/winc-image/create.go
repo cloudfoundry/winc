@@ -21,8 +21,9 @@ var createCommand = cli.Command{
 
 		rootfsPath := context.Args().First()
 		containerId := context.Args().Tail()[0]
+		storePath := context.GlobalString("store")
 
-		sm := sandbox.NewManager(&hcsclient.HCSClient{}, depotDir, containerId)
+		sm := sandbox.NewManager(&hcsclient.HCSClient{}, storePath, containerId)
 		imageSpec, err := sm.Create(rootfsPath)
 		if err != nil {
 			return err

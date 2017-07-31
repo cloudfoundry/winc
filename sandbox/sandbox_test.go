@@ -23,7 +23,7 @@ var _ = Describe("Sandbox", func() {
 	const containerVolume = "containerVolume"
 
 	var (
-		depotDir           string
+		storePath          string
 		rootfs             string
 		containerId        string
 		hcsClient          *hcsclientfakes.FakeClient
@@ -37,17 +37,17 @@ var _ = Describe("Sandbox", func() {
 		rootfs, err = ioutil.TempDir("", "rootfs")
 		Expect(err).ToNot(HaveOccurred())
 
-		depotDir, err = ioutil.TempDir("", "sandbox-depot")
+		storePath, err = ioutil.TempDir("", "sandbox-store")
 		Expect(err).ToNot(HaveOccurred())
 
 		rand.Seed(time.Now().UnixNano())
 		containerId = strconv.Itoa(rand.Int())
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		sandboxManager = sandbox.NewManager(hcsClient, depotDir, containerId)
+		sandboxManager = sandbox.NewManager(hcsClient, storePath, containerId)
 
 		expectedDriverInfo = hcsshim.DriverInfo{
-			HomeDir: depotDir,
+			HomeDir: storePath,
 			Flavour: 1,
 		}
 		rootfsParents = []byte(`["path1", "path2"]`)
@@ -60,7 +60,7 @@ var _ = Describe("Sandbox", func() {
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(depotDir)).To(Succeed())
+		Expect(os.RemoveAll(storePath)).To(Succeed())
 		Expect(os.RemoveAll(rootfs)).To(Succeed())
 	})
 

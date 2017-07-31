@@ -38,9 +38,9 @@ type sandboxManager struct {
 	driverInfo hcsshim.DriverInfo
 }
 
-func NewManager(hcsClient hcsclient.Client, depotDir, containerId string) SandboxManager {
+func NewManager(hcsClient hcsclient.Client, storePath, containerId string) SandboxManager {
 	driverInfo := hcsshim.DriverInfo{
-		HomeDir: depotDir,
+		HomeDir: storePath,
 		Flavour: 1,
 	}
 
