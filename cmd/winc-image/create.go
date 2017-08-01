@@ -19,6 +19,10 @@ var createCommand = cli.Command{
 			Name:  "disk-limit-size-bytes",
 			Usage: "Disk limit in bytes",
 		},
+		cli.BoolFlag{
+			Name:  "exclude-image-from-quota",
+			Usage: "Ignored",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 2, exactArgs); err != nil {
