@@ -14,6 +14,12 @@ var createCommand = cli.Command{
 	Name:      "create",
 	Usage:     "create a container volume",
 	ArgsUsage: `<rootfs> <container-id>`,
+	Flags: []cli.Flag{
+		cli.Int64Flag{
+			Name:  "disk-limit-size-bytes",
+			Usage: "Disk limit in bytes",
+		},
+	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 2, exactArgs); err != nil {
 			return err
