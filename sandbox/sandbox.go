@@ -29,7 +29,6 @@ type ImageConfig struct {
 type SandboxManager interface {
 	Create(rootfs string) (*ImageSpec, error)
 	Delete() error
-	BundlePath() string
 }
 
 type sandboxManager struct {
@@ -127,8 +126,4 @@ func (s *sandboxManager) Delete() error {
 	}
 
 	return nil
-}
-
-func (s *sandboxManager) BundlePath() string {
-	return filepath.Join(s.driverInfo.HomeDir, s.id)
 }

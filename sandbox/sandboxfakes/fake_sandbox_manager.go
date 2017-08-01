@@ -30,15 +30,6 @@ type FakeSandboxManager struct {
 	deleteReturnsOnCall map[int]struct {
 		result1 error
 	}
-	BundlePathStub        func() string
-	bundlePathMutex       sync.RWMutex
-	bundlePathArgsForCall []struct{}
-	bundlePathReturns     struct {
-		result1 string
-	}
-	bundlePathReturnsOnCall map[int]struct {
-		result1 string
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -134,46 +125,6 @@ func (fake *FakeSandboxManager) DeleteReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSandboxManager) BundlePath() string {
-	fake.bundlePathMutex.Lock()
-	ret, specificReturn := fake.bundlePathReturnsOnCall[len(fake.bundlePathArgsForCall)]
-	fake.bundlePathArgsForCall = append(fake.bundlePathArgsForCall, struct{}{})
-	fake.recordInvocation("BundlePath", []interface{}{})
-	fake.bundlePathMutex.Unlock()
-	if fake.BundlePathStub != nil {
-		return fake.BundlePathStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.bundlePathReturns.result1
-}
-
-func (fake *FakeSandboxManager) BundlePathCallCount() int {
-	fake.bundlePathMutex.RLock()
-	defer fake.bundlePathMutex.RUnlock()
-	return len(fake.bundlePathArgsForCall)
-}
-
-func (fake *FakeSandboxManager) BundlePathReturns(result1 string) {
-	fake.BundlePathStub = nil
-	fake.bundlePathReturns = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *FakeSandboxManager) BundlePathReturnsOnCall(i int, result1 string) {
-	fake.BundlePathStub = nil
-	if fake.bundlePathReturnsOnCall == nil {
-		fake.bundlePathReturnsOnCall = make(map[int]struct {
-			result1 string
-		})
-	}
-	fake.bundlePathReturnsOnCall[i] = struct {
-		result1 string
-	}{result1}
-}
-
 func (fake *FakeSandboxManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -181,8 +132,6 @@ func (fake *FakeSandboxManager) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	fake.bundlePathMutex.RLock()
-	defer fake.bundlePathMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
