@@ -34,12 +34,8 @@ var _ = Describe("WincImage", func() {
 	})
 
 	type DesiredImageSpec struct {
-		RootFS string `json:"rootfs,omitempty"`
-		Image  struct {
-			Config struct {
-				Layers []string `json:"layers,omitempty"`
-			} `json:"config,omitempty"`
-		} `json:"image,omitempty"`
+		RootFS       string   `json:"rootfs,omitempty"`
+		LayerFolders []string `json:"layerFolders,omitempty"`
 	}
 
 	It("creates and deletes a sandbox", func() {
@@ -49,9 +45,9 @@ var _ = Describe("WincImage", func() {
 		var desiredImageSpec DesiredImageSpec
 		Expect(json.Unmarshal(stdout.Bytes(), &desiredImageSpec)).To(Succeed())
 		Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(storePath, containerId)))
-		Expect(desiredImageSpec.Image.Config.Layers).ToNot(BeEmpty())
-		Expect(desiredImageSpec.Image.Config.Layers[0]).To(Equal(rootfsPath))
-		for _, layer := range desiredImageSpec.Image.Config.Layers {
+		Expect(desiredImageSpec.LayerFolders).ToNot(BeEmpty())
+		Expect(desiredImageSpec.LayerFolders[0]).To(Equal(rootfsPath))
+		for _, layer := range desiredImageSpec.LayerFolders {
 			Expect(layer).To(BeADirectory())
 		}
 

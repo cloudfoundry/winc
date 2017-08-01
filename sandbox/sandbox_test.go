@@ -67,17 +67,13 @@ var _ = Describe("Sandbox", func() {
 	Context("Create", func() {
 		Context("when provided a rootfs layer", func() {
 			It("creates and activates the sandbox", func() {
-				expectedLayers := []string{rootfs, "path1", "path2"}
+				expectedLayerFolders := []string{rootfs, "path1", "path2"}
 
 				actualImageSpec, err := sandboxManager.Create(rootfs)
 				Expect(err).ToNot(HaveOccurred())
 				expectedImageSpec := &sandbox.ImageSpec{
-					RootFs: containerVolume,
-					Image: sandbox.Image{
-						Config: sandbox.ImageConfig{
-							Layers: expectedLayers,
-						},
-					},
+					RootFs:       containerVolume,
+					LayerFolders: expectedLayerFolders,
 				}
 				Expect(actualImageSpec).To(Equal(expectedImageSpec))
 
@@ -86,7 +82,7 @@ var _ = Describe("Sandbox", func() {
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
 				Expect(actualContainerId).To(Equal(containerId))
 				Expect(parentLayer).To(Equal(rootfs))
-				Expect(parentLayers).To(Equal(expectedLayers))
+				Expect(parentLayers).To(Equal(expectedLayerFolders))
 
 				Expect(hcsClient.ActivateLayerCallCount()).To(Equal(1))
 				driverInfo, actualContainerId = hcsClient.ActivateLayerArgsForCall(0)
@@ -97,7 +93,7 @@ var _ = Describe("Sandbox", func() {
 				driverInfo, actualContainerId, parentLayers = hcsClient.PrepareLayerArgsForCall(0)
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
 				Expect(actualContainerId).To(Equal(containerId))
-				Expect(parentLayers).To(Equal(expectedLayers))
+				Expect(parentLayers).To(Equal(expectedLayerFolders))
 			})
 
 			Context("when creating the sandbox fails", func() {

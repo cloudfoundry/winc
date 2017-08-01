@@ -88,7 +88,7 @@ func runtimeSpecGenerator(imageSpec sandbox.ImageSpec, containerId string) specs
 			Path: imageSpec.RootFs,
 		},
 		Windows: &specs.Windows{
-			LayerFolders: imageSpec.Image.Config.Layers,
+			LayerFolders: imageSpec.LayerFolders,
 		},
 	}
 }

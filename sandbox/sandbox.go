@@ -13,16 +13,8 @@ import (
 )
 
 type ImageSpec struct {
-	RootFs string `json:"rootfs,omitempty"`
-	Image  Image  `json:"image,omitempty"`
-}
-
-type Image struct {
-	Config ImageConfig `json:"config,omitempty"`
-}
-
-type ImageConfig struct {
-	Layers []string `json:"layers,omitempty"`
+	RootFs       string   `json:"rootfs,omitempty"`
+	LayerFolders []string `json:"layerFolders,omitempty"`
 }
 
 //go:generate counterfeiter . SandboxManager
@@ -94,12 +86,8 @@ func (s *sandboxManager) Create(rootfs string) (*ImageSpec, error) {
 	}
 
 	return &ImageSpec{
-		RootFs: volumePath,
-		Image: Image{
-			Config: ImageConfig{
-				Layers: sandboxLayers,
-			},
-		},
+		RootFs:       volumePath,
+		LayerFolders: sandboxLayers,
 	}, nil
 }
 
