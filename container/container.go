@@ -64,10 +64,8 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 		Flavour: 1,
 	}
 
-	volumePath, err := c.hcsClient.GetLayerMountPath(driverInfo, c.id)
-	if err != nil {
-		return err
-	} else if volumePath == "" {
+	volumePath := spec.Root.Path
+	if volumePath == "" {
 		return &hcsclient.MissingVolumePathError{Id: c.id}
 	}
 

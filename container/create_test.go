@@ -30,6 +30,7 @@ var _ = Describe("Create", func() {
 		networkManager   *networkfakes.FakeNetworkManager
 		containerManager container.ContainerManager
 		spec             *specs.Spec
+		containerVolume  = "containervolume"
 	)
 
 	BeforeEach(func() {
@@ -56,7 +57,9 @@ var _ = Describe("Create", func() {
 		}
 
 		spec = &specs.Spec{
-			Root: &specs.Root{},
+			Root: &specs.Root{
+				Path: containerVolume,
+			},
 			Windows: &specs.Windows{
 				LayerFolders: layerFolders,
 			},
@@ -71,13 +74,11 @@ var _ = Describe("Create", func() {
 		var (
 			expectedHcsshimLayers []hcsshim.Layer
 			fakeContainer         hcsclientfakes.FakeContainer
-			containerVolume       = "containervolume"
 		)
 
 		BeforeEach(func() {
 			fakeContainer = hcsclientfakes.FakeContainer{}
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
-			hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 
 			expectedHcsshimLayers = []hcsshim.Layer{}
 			for i, l := range layerFolders {
@@ -109,10 +110,6 @@ var _ = Describe("Create", func() {
 				Expect(hcsClient.NameToGuidArgsForCall(i)).To(Equal(filepath.Base(l)))
 			}
 
-			actualDriverInfo, actualContainerId := hcsClient.GetLayerMountPathArgsForCall(0)
-			Expect(actualDriverInfo.HomeDir).To(Equal(rootPath))
-			Expect(actualContainerId).To(Equal(containerId))
-
 			Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 			actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
 			Expect(actualContainerId).To(Equal(containerId))
@@ -136,8 +133,8 @@ var _ = Describe("Create", func() {
 		})
 
 		Context("when the volume path is empty", func() {
-			BeforeEach(func() {
-				hcsClient.GetLayerMountPathReturns("", nil)
+			JustBeforeEach(func() {
+				spec.Root.Path = ""
 			})
 
 			It("returns an error", func() {
