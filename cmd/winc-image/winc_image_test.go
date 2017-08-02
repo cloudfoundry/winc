@@ -3,10 +3,12 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -57,6 +59,51 @@ var _ = Describe("WincImage", func() {
 		Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
 
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
+	})
+
+	Context("when using unix style rootfsPath", func() {
+		var (
+			tempRootfs string
+			tempdir    string
+			err        error
+		)
+
+		BeforeEach(func() {
+			tempdir, err = ioutil.TempDir("", "rootfs")
+			Expect(err).ToNot(HaveOccurred())
+			err = exec.Command("cmd.exe", "/c", fmt.Sprintf("mklink /D %s %s", filepath.Join(tempdir, "rootfs"), rootfsPath)).Run()
+			Expect(err).ToNot(HaveOccurred())
+
+			tempRootfs = tempdir + "/rootfs"
+		})
+
+		AfterEach(func() {
+			// remove symlink so we don't clobber rootfs dir
+			err := exec.Command("cmd.exe", "/c", fmt.Sprintf("rmdir %s", filepath.Join(tempdir, "rootfs"))).Run()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.RemoveAll(tempdir)).To(Succeed())
+		})
+
+		It("creates and deletes a sandbox with unix rootfsPath", func() {
+			stdout, _, err := execute(wincImageBin, "--store", storePath, "create", tempRootfs, containerId)
+			Expect(err).NotTo(HaveOccurred())
+
+			var desiredImageSpec DesiredImageSpec
+			Expect(json.Unmarshal(stdout.Bytes(), &desiredImageSpec)).To(Succeed())
+			Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(storePath, containerId)))
+			Expect(desiredImageSpec.LayerFolders).ToNot(BeEmpty())
+			Expect(desiredImageSpec.LayerFolders[0]).To(Equal(filepath.Clean(tempRootfs)))
+			for _, layer := range desiredImageSpec.LayerFolders {
+				Expect(layer).To(BeADirectory())
+			}
+
+			driverInfo := hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
+			Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeTrue())
+
+			Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
+
+			Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
+		})
 	})
 
 	Context("when creating the sandbox layer fails", func() {

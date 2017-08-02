@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/sandbox"
@@ -33,6 +34,7 @@ var createCommand = cli.Command{
 		containerId := context.Args().Tail()[0]
 		storePath := context.GlobalString("store")
 
+		rootfsPath = filepath.Clean(rootfsPath)
 		sm := sandbox.NewManager(&hcsclient.HCSClient{}, storePath, containerId)
 		imageSpec, err := sm.Create(rootfsPath)
 		if err != nil {
