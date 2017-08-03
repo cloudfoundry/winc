@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Microsoft/hcsshim"
@@ -71,6 +72,7 @@ var _ = Describe("WincImage", func() {
 		BeforeEach(func() {
 			tempdir, err = ioutil.TempDir("", "rootfs")
 			Expect(err).ToNot(HaveOccurred())
+			tempdir = strings.Replace(tempdir, "C:", "", -1)
 			err = exec.Command("cmd.exe", "/c", fmt.Sprintf("mklink /D %s %s", filepath.Join(tempdir, "rootfs"), rootfsPath)).Run()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -84,6 +86,14 @@ var _ = Describe("WincImage", func() {
 			Expect(os.RemoveAll(tempdir)).To(Succeed())
 		})
 
+		destToWindowsPath := func(input string) string {
+			vol := filepath.VolumeName(input)
+			if vol == "" {
+				input = filepath.Join("C:", input)
+			}
+			return filepath.Clean(input)
+		}
+
 		It("creates and deletes a sandbox with unix rootfsPath", func() {
 			stdout, _, err := execute(wincImageBin, "--store", storePath, "create", tempRootfs, containerId)
 			Expect(err).NotTo(HaveOccurred())
@@ -92,7 +102,7 @@ var _ = Describe("WincImage", func() {
 			Expect(json.Unmarshal(stdout.Bytes(), &desiredImageSpec)).To(Succeed())
 			Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(storePath, containerId)))
 			Expect(desiredImageSpec.LayerFolders).ToNot(BeEmpty())
-			Expect(desiredImageSpec.LayerFolders[0]).To(Equal(filepath.Clean(tempRootfs)))
+			Expect(desiredImageSpec.LayerFolders[0]).To(Equal(destToWindowsPath(tempRootfs)))
 			for _, layer := range desiredImageSpec.LayerFolders {
 				Expect(layer).To(BeADirectory())
 			}

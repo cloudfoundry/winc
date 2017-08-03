@@ -36,7 +36,15 @@ var createCommand = cli.Command{
 		storePath := context.GlobalString("store")
 		diskLimit := context.Uint64("disk-limit-size-bytes")
 
-		rootfsPath = filepath.Clean(rootfsPath)
+		destToWindowsPath := func(input string) string {
+			vol := filepath.VolumeName(input)
+			if vol == "" {
+				input = filepath.Join("C:", input)
+			}
+			return filepath.Clean(input)
+		}
+
+		rootfsPath = destToWindowsPath(rootfsPath)
 		sm := sandbox.NewManager(&hcsclient.HCSClient{}, &volume.Limiter{}, storePath, containerId)
 		imageSpec, err := sm.Create(rootfsPath, diskLimit)
 		if err != nil {
