@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"code.cloudfoundry.org/winc/sandbox"
@@ -46,6 +47,19 @@ func TestWincNetwork(t *testing.T) {
 		Expect(err).ToNot(HaveOccurred())
 		wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
 		Expect(err).ToNot(HaveOccurred())
+
+		wincImageDir := filepath.Dir(wincImageBin)
+
+		err = exec.Command("gcc.exe", "-c", "..\\..\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
+		Expect(err).NotTo(HaveOccurred())
+
+		err = exec.Command("gcc.exe",
+			"-shared",
+			"-o", filepath.Join(wincImageDir, "quota.dll"),
+			filepath.Join(wincImageDir, "quota.o"),
+			"-lole32", "-loleaut32").Run()
+		Expect(err).NotTo(HaveOccurred())
+
 		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
 		Expect(err).ToNot(HaveOccurred())
 	})

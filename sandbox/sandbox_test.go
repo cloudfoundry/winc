@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/winc/hcsclient"
 	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
 	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 
@@ -27,6 +28,7 @@ var _ = Describe("Sandbox", func() {
 		rootfs             string
 		containerId        string
 		hcsClient          *hcsclientfakes.FakeClient
+		limiter            *sandboxfakes.FakeLimiter
 		sandboxManager     sandbox.SandboxManager
 		expectedDriverInfo hcsshim.DriverInfo
 		rootfsParents      []byte
@@ -44,7 +46,8 @@ var _ = Describe("Sandbox", func() {
 		containerId = strconv.Itoa(rand.Int())
 
 		hcsClient = &hcsclientfakes.FakeClient{}
-		sandboxManager = sandbox.NewManager(hcsClient, storePath, containerId)
+		limiter = &sandboxfakes.FakeLimiter{}
+		sandboxManager = sandbox.NewManager(hcsClient, limiter, storePath, containerId)
 
 		expectedDriverInfo = hcsshim.DriverInfo{
 			HomeDir: storePath,
@@ -69,7 +72,7 @@ var _ = Describe("Sandbox", func() {
 			It("creates and activates the sandbox", func() {
 				expectedLayerFolders := []string{rootfs, "path1", "path2"}
 
-				actualImageSpec, err := sandboxManager.Create(rootfs)
+				actualImageSpec, err := sandboxManager.Create(rootfs, 666)
 				Expect(err).ToNot(HaveOccurred())
 				expectedImageSpec := &sandbox.ImageSpec{
 					RootFs:       containerVolume,
@@ -94,6 +97,11 @@ var _ = Describe("Sandbox", func() {
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
 				Expect(actualContainerId).To(Equal(containerId))
 				Expect(parentLayers).To(Equal(expectedLayerFolders))
+
+				Expect(limiter.SetDiskLimitCallCount()).To(Equal(1))
+				actualContainerVolume, actualDiskLimit := limiter.SetDiskLimitArgsForCall(0)
+				Expect(actualContainerVolume).To(Equal(containerVolume))
+				Expect(actualDiskLimit).To(BeEquivalentTo(666))
 			})
 
 			Context("when creating the sandbox fails", func() {
@@ -104,7 +112,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(createSandboxLayerError))
 				})
 			})
@@ -117,7 +125,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(activateLayerError))
 				})
 			})
@@ -130,15 +138,49 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(prepareLayerError))
+				})
+			})
+
+			Context("when setting the disk limit fails", func() {
+				var diskLimitError = errors.New("setting disk limit failed")
+
+				BeforeEach(func() {
+					limiter.SetDiskLimitReturns(diskLimitError)
+					hcsClient.LayerExistsReturns(true, nil)
+				})
+
+				It("deletes the sandbox and errors", func() {
+					_, err := sandboxManager.Create(rootfs, 666)
+					Expect(err).To(Equal(diskLimitError))
+
+					Expect(hcsClient.LayerExistsCallCount()).To(Equal(1))
+					driverInfo, actualContainerId := hcsClient.LayerExistsArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
+
+					Expect(hcsClient.UnprepareLayerCallCount()).To(Equal(1))
+					driverInfo, actualContainerId = hcsClient.UnprepareLayerArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
+
+					Expect(hcsClient.DeactivateLayerCallCount()).To(Equal(1))
+					driverInfo, actualContainerId = hcsClient.DeactivateLayerArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
+
+					Expect(hcsClient.DestroyLayerCallCount()).To(Equal(1))
+					driverInfo, actualContainerId = hcsClient.DestroyLayerArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
 				})
 			})
 		})
 
 		Context("when provided a nonexistent rootfs layer", func() {
 			It("errors", func() {
-				_, err := sandboxManager.Create("nonexistentrootfs")
+				_, err := sandboxManager.Create("nonexistentrootfs", 666)
 				Expect(err).To(Equal(&sandbox.MissingRootfsError{Msg: "nonexistentrootfs"}))
 			})
 		})
@@ -149,7 +191,7 @@ var _ = Describe("Sandbox", func() {
 			})
 
 			It("errors", func() {
-				_, err := sandboxManager.Create(rootfs)
+				_, err := sandboxManager.Create(rootfs, 666)
 				Expect(err).To(Equal(&sandbox.MissingRootfsLayerChainError{Msg: rootfs}))
 			})
 		})
@@ -160,7 +202,7 @@ var _ = Describe("Sandbox", func() {
 			})
 
 			It("errors", func() {
-				_, err := sandboxManager.Create(rootfs)
+				_, err := sandboxManager.Create(rootfs, 666)
 				Expect(err).To(Equal(&sandbox.InvalidRootfsLayerChainError{Msg: rootfs}))
 			})
 		})
@@ -174,7 +216,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(layerMountPathError))
 				})
 			})
@@ -185,7 +227,7 @@ var _ = Describe("Sandbox", func() {
 				})
 
 				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs)
+					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(&hcsclient.MissingVolumePathError{Id: containerId}))
 				})
 			})

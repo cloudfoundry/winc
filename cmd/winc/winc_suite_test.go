@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
@@ -59,6 +60,19 @@ func TestWinc(t *testing.T) {
 		Expect(err).ToNot(HaveOccurred())
 		wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
 		Expect(err).ToNot(HaveOccurred())
+
+		wincImageDir := filepath.Dir(wincImageBin)
+
+		err = exec.Command("gcc.exe", "-c", "..\\..\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
+		Expect(err).NotTo(HaveOccurred())
+
+		err = exec.Command("gcc.exe",
+			"-shared",
+			"-o", filepath.Join(wincImageDir, "quota.dll"),
+			filepath.Join(wincImageDir, "quota.o"),
+			"-lole32", "-loleaut32").Run()
+		Expect(err).NotTo(HaveOccurred())
+
 		consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/consume")
 		Expect(err).ToNot(HaveOccurred())
 		readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")

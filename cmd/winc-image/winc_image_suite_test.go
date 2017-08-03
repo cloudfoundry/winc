@@ -2,6 +2,8 @@ package main_test
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,6 +30,18 @@ func TestWincImage(t *testing.T) {
 		Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 		wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
 		Expect(err).ToNot(HaveOccurred())
+
+		wincImageDir := filepath.Dir(wincImageBin)
+
+		err = exec.Command("gcc.exe", "-c", "..\\..\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
+		Expect(err).NotTo(HaveOccurred())
+
+		err = exec.Command("gcc.exe",
+			"-shared",
+			"-o", filepath.Join(wincImageDir, "quota.dll"),
+			filepath.Join(wincImageDir, "quota.o"),
+			"-lole32", "-loleaut32").Run()
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterSuite(func() {

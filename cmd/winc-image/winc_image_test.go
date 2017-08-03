@@ -106,6 +106,69 @@ var _ = Describe("WincImage", func() {
 		})
 	})
 
+	Context("when provided a disk limit", func() {
+		Context("when the disk limit is valid", func() {
+			var (
+				mountPath          string
+				diskLimitSizeBytes int
+				volumeGuid         string
+			)
+
+			BeforeEach(func() {
+				diskLimitSizeBytes = 50 * 1024 * 1024
+			})
+
+			JustBeforeEach(func() {
+				_, _, err := execute(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", strconv.Itoa(diskLimitSizeBytes), rootfsPath, containerId)
+				Expect(err).NotTo(HaveOccurred())
+
+				mountPath, err = ioutil.TempDir("", "")
+				Expect(err).NotTo(HaveOccurred())
+
+				volumeGuid = getVolumeGuid(storePath, containerId)
+				Expect(exec.Command("mountvol", mountPath, volumeGuid).Run()).To(Succeed())
+			})
+
+			AfterEach(func() {
+				Expect(exec.Command("mountvol", mountPath, "/D").Run()).To(Succeed())
+				Expect(os.RemoveAll(mountPath)).To(Succeed())
+				Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
+			})
+
+			It("applies the limit to the volume", func() {
+				largeFilePath := filepath.Join(mountPath, "file.txt")
+				Expect(exec.Command("fsutil", "file", "createnew", largeFilePath, strconv.Itoa(diskLimitSizeBytes+1)).Run()).ToNot(Succeed())
+				Expect(largeFilePath).ToNot(BeAnExistingFile())
+			})
+
+			Context("when the provided disk limit is 0", func() {
+				BeforeEach(func() {
+					diskLimitSizeBytes = 0
+				})
+
+				It("does not set a limit", func() {
+					output, err := exec.Command("powershell.exe", "-Command", "Get-FSRMQuota", mountPath).CombinedOutput()
+					Expect(err).To(HaveOccurred())
+					Expect(string(output)).To(ContainSubstring("The requested object was not found"))
+				})
+			})
+		})
+
+		Context("when the provided disk limit is below 1500", func() {
+			It("errors", func() {
+				_, _, err := execute(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", "1400", rootfsPath, containerId)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("when the provided disk limit is below 0", func() {
+			It("errors", func() {
+				_, _, err := execute(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", "-5", rootfsPath, containerId)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
 	Context("when creating the sandbox layer fails", func() {
 		It("errors", func() {
 			_, stderr, err := execute(wincImageBin, "create", "some-bad-rootfs", "")

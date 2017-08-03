@@ -19,7 +19,7 @@ var deleteCommand = cli.Command{
 		containerId := context.Args().First()
 		storePath := context.GlobalString("store")
 
-		sm := sandbox.NewManager(&hcsclient.HCSClient{}, storePath, containerId)
+		sm := sandbox.NewManager(&hcsclient.HCSClient{}, nil, storePath, containerId)
 		return sm.Delete()
 	},
 }

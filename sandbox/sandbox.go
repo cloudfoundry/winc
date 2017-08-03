@@ -17,19 +17,24 @@ type ImageSpec struct {
 	LayerFolders []string `json:"layerFolders,omitempty"`
 }
 
-//go:generate counterfeiter . SandboxManager
 type SandboxManager interface {
-	Create(rootfs string) (*ImageSpec, error)
+	Create(rootfs string, diskLimit uint64) (*ImageSpec, error)
 	Delete() error
+}
+
+//go:generate counterfeiter . Limiter
+type Limiter interface {
+	SetDiskLimit(volumePath string, size uint64) error
 }
 
 type sandboxManager struct {
 	hcsClient  hcsclient.Client
+	limiter    Limiter
 	id         string
 	driverInfo hcsshim.DriverInfo
 }
 
-func NewManager(hcsClient hcsclient.Client, storePath, containerId string) SandboxManager {
+func NewManager(hcsClient hcsclient.Client, limiter Limiter, storePath, containerId string) SandboxManager {
 	driverInfo := hcsshim.DriverInfo{
 		HomeDir: storePath,
 		Flavour: 1,
@@ -37,12 +42,13 @@ func NewManager(hcsClient hcsclient.Client, storePath, containerId string) Sandb
 
 	return &sandboxManager{
 		hcsClient:  hcsClient,
+		limiter:    limiter,
 		id:         containerId,
 		driverInfo: driverInfo,
 	}
 }
 
-func (s *sandboxManager) Create(rootfs string) (*ImageSpec, error) {
+func (s *sandboxManager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 	err := os.MkdirAll(s.driverInfo.HomeDir, 0755)
 	if err != nil {
 		return nil, err
@@ -83,6 +89,11 @@ func (s *sandboxManager) Create(rootfs string) (*ImageSpec, error) {
 		return nil, err
 	} else if volumePath == "" {
 		return nil, &hcsclient.MissingVolumePathError{Id: s.id}
+	}
+
+	if err := s.limiter.SetDiskLimit(volumePath, diskLimit); err != nil {
+		_ = s.Delete()
+		return nil, err
 	}
 
 	return &ImageSpec{
