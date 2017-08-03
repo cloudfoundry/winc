@@ -1,2 +1,2 @@
-FROM cloudfoundry/cfwindowsfs
+FROM cloudfoundry/windows2016fs
 RUN cmd.exe /C echo 'hello from a text file' > C:\\hello.txt
