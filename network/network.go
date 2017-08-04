@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/winc/hcsclient"
 	"github.com/Microsoft/hcsshim"
@@ -39,40 +40,10 @@ func NewNetworkManager(client hcsclient.Client, portAllocator PortAllocator) Net
 }
 
 func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
-	hnsNetworks, err := n.hcsClient.HNSListNetworkRequest()
+	wincNATNetwork, err := n.getWincNATNetwork()
 	if err != nil {
 		logrus.Error(err.Error())
 		return hcsshim.ContainerConfig{}, err
-	}
-
-	var wincNATNetwork *hcsshim.HNSNetwork
-	for _, net := range hnsNetworks {
-		if strings.ToUpper(net.Type) == "NAT" && net.Name != WINC_NETWORK {
-			_, err := n.hcsClient.DeleteNetwork(&net)
-			if err != nil {
-				logrus.Error(err.Error())
-				return hcsshim.ContainerConfig{}, err
-			}
-		}
-
-		if net.Name == WINC_NETWORK {
-			wincNATNetwork = &net
-		}
-	}
-
-	if wincNATNetwork == nil {
-		network := &hcsshim.HNSNetwork{
-			Name: WINC_NETWORK,
-			Type: "nat",
-			Subnets: []hcsshim.Subnet{
-				{AddressPrefix: SUBNET_RANGE, GatewayAddress: GATEWAY_ADDRESS},
-			},
-		}
-		wincNATNetwork, err = n.hcsClient.CreateNetwork(network)
-		if err != nil {
-			logrus.Error(err.Error())
-			return hcsshim.ContainerConfig{}, err
-		}
 	}
 
 	appPortMapping, err := n.portMapping(8080, containerID)
@@ -95,28 +66,50 @@ func (n *networkManager) AttachEndpointToConfig(config hcsshim.ContainerConfig, 
 		Policies:       []json.RawMessage{appPortMapping, sshPortMapping},
 	}
 
-	retries := 3
-	success := false
-	var createErr error
-	var createdEndpoint *hcsshim.HNSEndpoint
-	for i := 0; i < retries && success == false; i++ {
-		createdEndpoint, createErr = n.hcsClient.CreateEndpoint(endpoint)
-		if createErr != nil {
-			logrus.Error(createErr.Error())
-			if createErr.Error() != "HNS failed with error : Unspecified error" {
-				break
-			}
-		} else {
-			success = true
-		}
-	}
-	if !success {
+	endpointID, err := n.createEndpoint(endpoint)
+	if err != nil {
+		logrus.Error(err.Error())
 		n.cleanupPorts(containerID)
-		return hcsshim.ContainerConfig{}, createErr
+		return hcsshim.ContainerConfig{}, err
 	}
 
-	config.EndpointList = []string{createdEndpoint.Id}
+	config.EndpointList = []string{endpointID}
 	return config, nil
+}
+
+func (n *networkManager) getWincNATNetwork() (*hcsshim.HNSNetwork, error) {
+	var wincNATNetwork *hcsshim.HNSNetwork
+	var err error
+
+	for i := 0; i < 10 && wincNATNetwork == nil; i++ {
+		time.Sleep(time.Duration(i) * 100 * time.Millisecond)
+		wincNATNetwork, err = n.hcsClient.GetHNSNetworkByName(WINC_NETWORK)
+		if err != nil && !strings.Contains(err.Error(), "Network "+WINC_NETWORK+" not found") {
+			logrus.Error(err.Error())
+			return nil, err
+		}
+
+		if wincNATNetwork == nil {
+			network := &hcsshim.HNSNetwork{
+				Name: WINC_NETWORK,
+				Type: "nat",
+				Subnets: []hcsshim.Subnet{
+					{AddressPrefix: SUBNET_RANGE, GatewayAddress: GATEWAY_ADDRESS},
+				},
+			}
+			wincNATNetwork, err = n.hcsClient.CreateNetwork(network)
+			if err != nil && !strings.Contains(err.Error(), "HNS failed with error : {Object Exists}") {
+				logrus.Error(err.Error())
+				return nil, err
+			}
+		}
+	}
+
+	if wincNATNetwork == nil {
+		return nil, &NoNATNetworkError{Name: WINC_NETWORK}
+	}
+
+	return wincNATNetwork, nil
 }
 
 func (n *networkManager) portMapping(containerPort int, containerID string) (json.RawMessage, error) {
@@ -137,6 +130,26 @@ func (n *networkManager) portMapping(containerPort int, containerID string) (jso
 	}
 
 	return portMappingJSON, nil
+}
+
+func (n *networkManager) createEndpoint(endpoint *hcsshim.HNSEndpoint) (string, error) {
+	var createErr error
+	var createdEndpoint *hcsshim.HNSEndpoint
+	for i := 0; i < 3 && createdEndpoint == nil; i++ {
+		createdEndpoint, createErr = n.hcsClient.CreateEndpoint(endpoint)
+		if createErr != nil {
+			if createErr.Error() != "HNS failed with error : Unspecified error" {
+				return "", createErr
+			}
+			logrus.Error(createErr.Error())
+		}
+	}
+
+	if createdEndpoint == nil {
+		return "", createErr
+	}
+
+	return createdEndpoint.Id, nil
 }
 
 func (n *networkManager) DeleteContainerEndpoints(container hcsclient.Container, containerID string) error {

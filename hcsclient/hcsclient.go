@@ -24,6 +24,7 @@ type Client interface {
 	LayerExists(info hcsshim.DriverInfo, id string) (bool, error)
 	GetContainerProperties(id string) (hcsshim.ContainerProperties, error)
 	HNSListNetworkRequest() ([]hcsshim.HNSNetwork, error)
+	GetHNSNetworkByName(string) (*hcsshim.HNSNetwork, error)
 	GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error)
 	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
@@ -160,4 +161,8 @@ func (c *HCSClient) HNSListNetworkRequest() ([]hcsshim.HNSNetwork, error) {
 
 func (c *HCSClient) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {
 	return hcsshim.GetHNSEndpointByID(id)
+}
+
+func (c *HCSClient) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
+	return hcsshim.GetHNSNetworkByName(name)
 }

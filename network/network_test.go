@@ -47,7 +47,7 @@ var _ = Describe("Network", func() {
 			portAllocator.AllocatePortReturnsOnCall(1, port2, nil)
 
 			networkId = "network-id"
-			hcsClient.HNSListNetworkRequestReturns([]hcsshim.HNSNetwork{{Id: networkId, Name: network.WINC_NETWORK}}, nil)
+			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId, Name: "winc-nat"}, nil)
 
 			containerId = "container-id"
 
@@ -84,7 +84,7 @@ var _ = Describe("Network", func() {
 			Expect(handle).To(Equal(containerId))
 			Expect(requestedPort).To(Equal(0))
 
-			Expect(hcsClient.HNSListNetworkRequestCallCount()).To(Equal(1))
+			Expect(hcsClient.GetHNSNetworkByNameCallCount()).To(Equal(1))
 
 			Expect(hcsClient.CreateEndpointCallCount()).To(Equal(1))
 			endpointToCreate := hcsClient.CreateEndpointArgsForCall(0)
@@ -104,25 +104,62 @@ var _ = Describe("Network", func() {
 		})
 
 		Context("winc-nat network does not already exist", func() {
-			var oldNAT hcsshim.HNSNetwork
-
 			BeforeEach(func() {
-				oldNAT = hcsshim.HNSNetwork{Id: networkId, Name: "some-other-nat-network", Type: "nat"}
-				hcsClient.HNSListNetworkRequestReturns([]hcsshim.HNSNetwork{oldNAT}, nil)
-				hcsClient.CreateNetworkReturns(&hcsshim.HNSNetwork{Id: networkId, Name: network.WINC_NETWORK}, nil)
+				hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("Network winc-nat not found"))
+				hcsClient.CreateNetworkReturns(&hcsshim.HNSNetwork{Id: networkId, Name: "winc-nat"}, nil)
 			})
 
-			It("deletes any existing nat networks and creates winc-nat", func() {
+			It("creates winc-nat", func() {
 				config := hcsshim.ContainerConfig{}
 				var err error
 				_, err = networkManager.AttachEndpointToConfig(config, containerId)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(hcsClient.DeleteNetworkArgsForCall(0)).To(Equal(&oldNAT))
 				newNAT := hcsClient.CreateNetworkArgsForCall(0)
 				Expect(newNAT.Name).To(Equal("winc-nat"))
 				Expect(newNAT.Type).To(Equal("nat"))
 				Expect(newNAT.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "172.35.0.0/22", GatewayAddress: "172.35.0.1"}))
+			})
+
+			Context("creating winc-nat fails", func() {
+				BeforeEach(func() {
+					hcsClient.CreateNetworkReturns(nil, errors.New("HNS failed with error : something happened"))
+				})
+
+				It("errors", func() {
+					config := hcsshim.ContainerConfig{}
+					var err error
+					config, err = networkManager.AttachEndpointToConfig(config, containerId)
+					Expect(err).To(HaveOccurred())
+				})
+
+				Context("because it already exists", func() {
+					BeforeEach(func() {
+						hcsClient.CreateNetworkReturns(nil, errors.New("HNS failed with error : {Object Exists}"))
+						hcsClient.GetHNSNetworkByNameReturnsOnCall(2, &hcsshim.HNSNetwork{Id: networkId, Name: "winc-nat"}, nil)
+					})
+
+					It("retries until the network can be found", func() {
+						config := hcsshim.ContainerConfig{}
+						var err error
+						config, err = networkManager.AttachEndpointToConfig(config, containerId)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
+					})
+
+					Context("when it hits the retry limit for finding the network", func() {
+						BeforeEach(func() {
+							// override the call 2 from the outer context
+							hcsClient.GetHNSNetworkByNameReturnsOnCall(2, nil, errors.New("Network winc-nat not found"))
+						})
+
+						It("errors", func() {
+							_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{}, containerId)
+							Expect(err).To(MatchError(&network.NoNATNetworkError{Name: "winc-nat"}))
+						})
+					})
+				})
 			})
 		})
 

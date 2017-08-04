@@ -200,6 +200,19 @@ type FakeClient struct {
 		result1 []hcsshim.HNSNetwork
 		result2 error
 	}
+	GetHNSNetworkByNameStub        func(string) (*hcsshim.HNSNetwork, error)
+	getHNSNetworkByNameMutex       sync.RWMutex
+	getHNSNetworkByNameArgsForCall []struct {
+		arg1 string
+	}
+	getHNSNetworkByNameReturns struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}
+	getHNSNetworkByNameReturnsOnCall map[int]struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}
 	GetHNSEndpointByIDStub        func(id string) (*hcsshim.HNSEndpoint, error)
 	getHNSEndpointByIDMutex       sync.RWMutex
 	getHNSEndpointByIDArgsForCall []struct {
@@ -1027,6 +1040,57 @@ func (fake *FakeClient) HNSListNetworkRequestReturnsOnCall(i int, result1 []hcss
 	}{result1, result2}
 }
 
+func (fake *FakeClient) GetHNSNetworkByName(arg1 string) (*hcsshim.HNSNetwork, error) {
+	fake.getHNSNetworkByNameMutex.Lock()
+	ret, specificReturn := fake.getHNSNetworkByNameReturnsOnCall[len(fake.getHNSNetworkByNameArgsForCall)]
+	fake.getHNSNetworkByNameArgsForCall = append(fake.getHNSNetworkByNameArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	fake.recordInvocation("GetHNSNetworkByName", []interface{}{arg1})
+	fake.getHNSNetworkByNameMutex.Unlock()
+	if fake.GetHNSNetworkByNameStub != nil {
+		return fake.GetHNSNetworkByNameStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getHNSNetworkByNameReturns.result1, fake.getHNSNetworkByNameReturns.result2
+}
+
+func (fake *FakeClient) GetHNSNetworkByNameCallCount() int {
+	fake.getHNSNetworkByNameMutex.RLock()
+	defer fake.getHNSNetworkByNameMutex.RUnlock()
+	return len(fake.getHNSNetworkByNameArgsForCall)
+}
+
+func (fake *FakeClient) GetHNSNetworkByNameArgsForCall(i int) string {
+	fake.getHNSNetworkByNameMutex.RLock()
+	defer fake.getHNSNetworkByNameMutex.RUnlock()
+	return fake.getHNSNetworkByNameArgsForCall[i].arg1
+}
+
+func (fake *FakeClient) GetHNSNetworkByNameReturns(result1 *hcsshim.HNSNetwork, result2 error) {
+	fake.GetHNSNetworkByNameStub = nil
+	fake.getHNSNetworkByNameReturns = struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeClient) GetHNSNetworkByNameReturnsOnCall(i int, result1 *hcsshim.HNSNetwork, result2 error) {
+	fake.GetHNSNetworkByNameStub = nil
+	if fake.getHNSNetworkByNameReturnsOnCall == nil {
+		fake.getHNSNetworkByNameReturnsOnCall = make(map[int]struct {
+			result1 *hcsshim.HNSNetwork
+			result2 error
+		})
+	}
+	fake.getHNSNetworkByNameReturnsOnCall[i] = struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeClient) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {
 	fake.getHNSEndpointByIDMutex.Lock()
 	ret, specificReturn := fake.getHNSEndpointByIDReturnsOnCall[len(fake.getHNSEndpointByIDArgsForCall)]
@@ -1315,6 +1379,8 @@ func (fake *FakeClient) Invocations() map[string][][]interface{} {
 	defer fake.getContainerPropertiesMutex.RUnlock()
 	fake.hNSListNetworkRequestMutex.RLock()
 	defer fake.hNSListNetworkRequestMutex.RUnlock()
+	fake.getHNSNetworkByNameMutex.RLock()
+	defer fake.getHNSNetworkByNameMutex.RUnlock()
 	fake.getHNSEndpointByIDMutex.RLock()
 	defer fake.getHNSEndpointByIDMutex.RUnlock()
 	fake.createEndpointMutex.RLock()
