@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/volume"
 
 	"github.com/Microsoft/hcsshim"
@@ -28,8 +28,8 @@ var _ = Describe("Create", func() {
 	var (
 		config      []byte
 		containerId string
-		client      hcsclient.Client
-		cm          container.ContainerManager
+		client      *hcs.Client
+		cm          *container.Manager
 		bundleSpec  specs.Spec
 		err         error
 		stdOut      *bytes.Buffer
@@ -39,7 +39,7 @@ var _ = Describe("Create", func() {
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
 
-		client = &hcsclient.HCSClient{}
+		client = &hcs.Client{}
 		nm := networkManager(client)
 		cm = container.NewManager(client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
@@ -401,7 +401,7 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcsclient.AlreadyExistsError{Id: containerId}
+			expectedError := &container.AlreadyExistsError{Id: containerId}
 			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})
@@ -414,7 +414,7 @@ var _ = Describe("Create", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcsclient.InvalidIdError{Id: newContainerId}
+			expectedError := &container.InvalidIdError{Id: newContainerId}
 			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 
 			Expect(containerExists(newContainerId)).To(BeFalse())

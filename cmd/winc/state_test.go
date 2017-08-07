@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/volume"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -30,15 +30,15 @@ var _ = Describe("State", func() {
 	Context("given an existing container id", func() {
 		var (
 			containerId string
-			cm          container.ContainerManager
+			cm          *container.Manager
 			actualState *specs.State
-			client      hcsclient.Client
+			client      *hcs.Client
 		)
 
 		BeforeEach(func() {
 			containerId = filepath.Base(bundlePath)
 
-			client = &hcsclient.HCSClient{}
+			client = &hcs.Client{}
 			nm := networkManager(client)
 			cm = container.NewManager(client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
@@ -79,7 +79,7 @@ var _ = Describe("State", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
+			expectedError := &hcs.NotFoundError{Id: "doesntexist"}
 			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})

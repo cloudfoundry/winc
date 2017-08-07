@@ -13,7 +13,7 @@ import (
 	"syscall"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/volume"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,8 +24,8 @@ import (
 var _ = Describe("Exec", func() {
 	var (
 		containerId string
-		cm          container.ContainerManager
-		client      hcsclient.HCSClient
+		cm          *container.Manager
+		client      hcs.Client
 		stdOut      *bytes.Buffer
 		stdErr      *bytes.Buffer
 	)
@@ -42,7 +42,7 @@ var _ = Describe("Exec", func() {
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
 
-		client = hcsclient.HCSClient{}
+		client = hcs.Client{}
 		nm := networkManager(&client)
 		cm = container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
@@ -172,7 +172,7 @@ var _ = Describe("Exec", func() {
 					session, err := gexec.Start(cmd, stdOut, stdErr)
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(session).Should(gexec.Exit(1))
-					expectedError := &hcsclient.CouldNotCreateProcessError{Id: containerId, Command: "cmd.exe"}
+					expectedError := &container.CouldNotCreateProcessError{Id: containerId, Command: "cmd.exe"}
 					Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 
 					log, err := ioutil.ReadFile(logFile)
@@ -301,7 +301,7 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(session).Should(gexec.Exit(1))
-				expectedError := &hcsclient.CouldNotCreateProcessError{Id: containerId, Command: "invalid.exe"}
+				expectedError := &container.CouldNotCreateProcessError{Id: containerId, Command: "invalid.exe"}
 				Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 			})
 		})
@@ -314,7 +314,7 @@ var _ = Describe("Exec", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcsclient.NotFoundError{Id: "doesntexist"}
+			expectedError := &hcs.NotFoundError{Id: "doesntexist"}
 			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})

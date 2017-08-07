@@ -1,7 +1,7 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/sandbox"
 
 	"github.com/urfave/cli"
@@ -19,7 +19,7 @@ var deleteCommand = cli.Command{
 		containerId := context.Args().First()
 		storePath := context.GlobalString("store")
 
-		sm := sandbox.NewManager(&hcsclient.HCSClient{}, nil, storePath, containerId)
+		sm := sandbox.NewManager(&hcs.Client{}, nil, storePath, containerId)
 		return sm.Delete()
 	},
 }

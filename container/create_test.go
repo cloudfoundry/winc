@@ -9,9 +9,8 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/containerfakes"
-	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
-	"code.cloudfoundry.org/winc/network/networkfakes"
+	"code.cloudfoundry.org/winc/hcs"
+	"code.cloudfoundry.org/winc/hcs/hcsfakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,10 +24,10 @@ var _ = Describe("Create", func() {
 		containerId      string
 		bundlePath       string
 		layerFolders     []string
-		hcsClient        *hcsclientfakes.FakeClient
+		hcsClient        *containerfakes.FakeHCSClient
 		mounter          *containerfakes.FakeMounter
-		networkManager   *networkfakes.FakeNetworkManager
-		containerManager container.ContainerManager
+		networkManager   *containerfakes.FakeNetworkManager
+		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
 	)
@@ -40,9 +39,9 @@ var _ = Describe("Create", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		hcsClient = &hcsclientfakes.FakeClient{}
+		hcsClient = &containerfakes.FakeHCSClient{}
 		mounter = &containerfakes.FakeMounter{}
-		networkManager = &networkfakes.FakeNetworkManager{}
+		networkManager = &containerfakes.FakeNetworkManager{}
 		containerManager = container.NewManager(hcsClient, mounter, networkManager, rootPath, bundlePath)
 
 		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerId string) (hcsshim.ContainerConfig, error) {
@@ -73,12 +72,12 @@ var _ = Describe("Create", func() {
 	Context("when the specified container does not already exist", func() {
 		var (
 			expectedHcsshimLayers []hcsshim.Layer
-			fakeContainer         hcsclientfakes.FakeContainer
+			fakeContainer         hcsfakes.FakeContainer
 		)
 
 		BeforeEach(func() {
-			fakeContainer = hcsclientfakes.FakeContainer{}
-			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcsclient.NotFoundError{})
+			fakeContainer = hcsfakes.FakeContainer{}
+			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcs.NotFoundError{})
 
 			expectedHcsshimLayers = []hcsshim.Layer{}
 			for i, l := range layerFolders {
@@ -139,7 +138,7 @@ var _ = Describe("Create", func() {
 
 			It("returns an error", func() {
 				err := containerManager.Create(spec)
-				Expect(err).To(Equal(&hcsclient.MissingVolumePathError{Id: containerId}))
+				Expect(err).To(Equal(&container.MissingVolumePathError{Id: containerId}))
 			})
 		})
 

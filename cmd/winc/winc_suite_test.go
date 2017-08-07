@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
 	"code.cloudfoundry.org/winc/network"
@@ -141,7 +141,7 @@ func execute(cmd string, args ...string) error {
 	return c.Run()
 }
 
-func networkManager(client hcsclient.Client) network.NetworkManager {
+func networkManager(client *hcs.Client) *network.Manager {
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,
 		Capacity:  5000,
@@ -155,7 +155,7 @@ func networkManager(client hcsclient.Client) network.NetworkManager {
 		Locker:     locker,
 	}
 
-	return network.NewNetworkManager(client, pa)
+	return network.NewManager(client, pa)
 }
 
 func allEndpoints(containerID string) []string {
@@ -183,7 +183,7 @@ func containerExists(containerId string) bool {
 	return len(containers) > 0
 }
 
-func containerProcesses(client hcsclient.Client, containerId, filter string) []hcsshim.ProcessListItem {
+func containerProcesses(client *hcs.Client, containerId, filter string) []hcsshim.ProcessListItem {
 	container, err := client.OpenContainer(containerId)
 	Expect(err).To(Succeed())
 

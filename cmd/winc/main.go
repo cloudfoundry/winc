@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
 	"code.cloudfoundry.org/winc/network"
@@ -176,8 +176,8 @@ func fatal(err error) {
 	os.Exit(1)
 }
 
-func wireContainerManager(rootPath, bundlePath, containerId string) (container.ContainerManager, error) {
-	client := hcsclient.HCSClient{}
+func wireContainerManager(rootPath, bundlePath, containerId string) (*container.Manager, error) {
+	client := hcs.Client{}
 
 	if bundlePath == "" {
 		cp, err := client.GetContainerProperties(containerId)
@@ -188,7 +188,7 @@ func wireContainerManager(rootPath, bundlePath, containerId string) (container.C
 	}
 
 	if filepath.Base(bundlePath) != containerId {
-		return nil, &hcsclient.InvalidIdError{Id: containerId}
+		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
 	tracker := &port_allocator.Tracker{
@@ -204,7 +204,7 @@ func wireContainerManager(rootPath, bundlePath, containerId string) (container.C
 		Locker:     locker,
 	}
 
-	nm := network.NewNetworkManager(&client, pa)
+	nm := network.NewManager(&client, pa)
 
 	return container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath), nil
 }

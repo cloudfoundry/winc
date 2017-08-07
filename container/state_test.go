@@ -9,7 +9,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/containerfakes"
-	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
+	"code.cloudfoundry.org/winc/hcs/hcsfakes"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 
@@ -21,10 +21,10 @@ var _ = Describe("State", func() {
 	var (
 		containerId      string
 		bundlePath       string
-		hcsClient        *hcsclientfakes.FakeClient
+		hcsClient        *containerfakes.FakeHCSClient
 		mounter          *containerfakes.FakeMounter
-		containerManager container.ContainerManager
-		fakeContainer    *hcsclientfakes.FakeContainer
+		containerManager *container.Manager
+		fakeContainer    *hcsfakes.FakeContainer
 	)
 
 	BeforeEach(func() {
@@ -34,10 +34,10 @@ var _ = Describe("State", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		hcsClient = &hcsclientfakes.FakeClient{}
+		hcsClient = &containerfakes.FakeHCSClient{}
 		mounter = &containerfakes.FakeMounter{}
 		containerManager = container.NewManager(hcsClient, mounter, nil, "", bundlePath)
-		fakeContainer = &hcsclientfakes.FakeContainer{}
+		fakeContainer = &hcsfakes.FakeContainer{}
 		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
 			{ProcessId: 666, ImageName: "wininit.exe"},
 		}, nil)

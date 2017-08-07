@@ -8,8 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -17,17 +16,10 @@ import (
 
 const destroyTimeout = time.Minute
 
-type ContainerManager interface {
-	Create(spec *specs.Spec) error
-	Delete() error
-	State() (*specs.State, error)
-	Exec(*specs.Process) (hcsshim.Process, error)
-}
-
-type containerManager struct {
-	hcsClient      hcsclient.Client
+type Manager struct {
+	hcsClient      HCSClient
 	mounter        Mounter
-	networkManager network.NetworkManager
+	networkManager NetworkManager
 	rootPath       string
 	bundlePath     string
 	id             string
@@ -39,8 +31,24 @@ type Mounter interface {
 	Unmount(pid int) error
 }
 
-func NewManager(hcsClient hcsclient.Client, mounter Mounter, networkManager network.NetworkManager, rootPath, bundlePath string) ContainerManager {
-	return &containerManager{
+//go:generate counterfeiter . HCSClient
+type HCSClient interface {
+	GetContainerProperties(string) (hcsshim.ContainerProperties, error)
+	NameToGuid(string) (hcsshim.GUID, error)
+	CreateContainer(string, *hcsshim.ContainerConfig) (hcs.Container, error)
+	OpenContainer(string) (hcs.Container, error)
+	IsPending(error) bool
+}
+
+//go:generate counterfeiter . NetworkManager
+type NetworkManager interface {
+	AttachEndpointToConfig(hcsshim.ContainerConfig, string) (hcsshim.ContainerConfig, error)
+	DeleteContainerEndpoints(hcs.Container, string) error
+	DeleteEndpointsById([]string, string) error
+}
+
+func NewManager(hcsClient HCSClient, mounter Mounter, networkManager NetworkManager, rootPath, bundlePath string) *Manager {
+	return &Manager{
 		hcsClient:      hcsClient,
 		mounter:        mounter,
 		networkManager: networkManager,
@@ -50,12 +58,12 @@ func NewManager(hcsClient hcsclient.Client, mounter Mounter, networkManager netw
 	}
 }
 
-func (c *containerManager) Create(spec *specs.Spec) error {
+func (c *Manager) Create(spec *specs.Spec) error {
 	_, err := c.hcsClient.GetContainerProperties(c.id)
 	if err == nil {
-		return &hcsclient.AlreadyExistsError{Id: c.id}
+		return &AlreadyExistsError{Id: c.id}
 	}
-	if _, ok := err.(*hcsclient.NotFoundError); !ok {
+	if _, ok := err.(*hcs.NotFoundError); !ok {
 		return err
 	}
 
@@ -66,7 +74,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 
 	volumePath := spec.Root.Path
 	if volumePath == "" {
-		return &hcsclient.MissingVolumePathError{Id: c.id}
+		return &MissingVolumePathError{Id: c.id}
 	}
 
 	layerInfos := []hcsshim.Layer{}
@@ -161,7 +169,7 @@ func (c *containerManager) Create(spec *specs.Spec) error {
 	return nil
 }
 
-func (c *containerManager) Delete() error {
+func (c *Manager) Delete() error {
 	pid, err := c.containerPid(c.id)
 	if err != nil {
 		return err
@@ -185,7 +193,7 @@ func (c *containerManager) Delete() error {
 	return unmountErr
 }
 
-func (c *containerManager) State() (*specs.State, error) {
+func (c *Manager) State() (*specs.State, error) {
 	cp, err := c.hcsClient.GetContainerProperties(c.id)
 	if err != nil {
 		return nil, err
@@ -212,7 +220,7 @@ func (c *containerManager) State() (*specs.State, error) {
 	}, nil
 }
 
-func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, error) {
+func (c *Manager) Exec(processSpec *specs.Process) (hcsshim.Process, error) {
 	container, err := c.hcsClient.OpenContainer(c.id)
 	if err != nil {
 		return nil, err
@@ -239,13 +247,13 @@ func (c *containerManager) Exec(processSpec *specs.Process) (hcsshim.Process, er
 		if len(processSpec.Args) != 0 {
 			command = processSpec.Args[0]
 		}
-		return nil, &hcsclient.CouldNotCreateProcessError{Id: c.id, Command: command}
+		return nil, &CouldNotCreateProcessError{Id: c.id, Command: command}
 	}
 
 	return p, nil
 }
 
-func (c *containerManager) containerPid(id string) (int, error) {
+func (c *Manager) containerPid(id string) (int, error) {
 	container, err := c.hcsClient.OpenContainer(id)
 	if err != nil {
 		return -1, err
@@ -268,7 +276,7 @@ func (c *containerManager) containerPid(id string) (int, error) {
 	return int(process.ProcessId), nil
 }
 
-func (c *containerManager) deleteContainer(container hcsshim.Container) error {
+func (c *Manager) deleteContainer(container hcs.Container) error {
 	if err := c.networkManager.DeleteContainerEndpoints(container, c.id); err != nil {
 		logrus.Error(err.Error())
 	}
@@ -282,7 +290,7 @@ func (c *containerManager) deleteContainer(container hcsshim.Container) error {
 	return nil
 }
 
-func (c *containerManager) shutdownContainer(container hcsshim.Container) error {
+func (c *Manager) shutdownContainer(container hcs.Container) error {
 	if err := container.Shutdown(); err != nil {
 		if c.hcsClient.IsPending(err) {
 			if err := container.WaitTimeout(destroyTimeout); err != nil {
@@ -298,7 +306,7 @@ func (c *containerManager) shutdownContainer(container hcsshim.Container) error 
 	return nil
 }
 
-func (c *containerManager) terminateContainer(container hcsshim.Container) error {
+func (c *Manager) terminateContainer(container hcs.Container) error {
 	if err := container.Terminate(); err != nil {
 		if c.hcsClient.IsPending(err) {
 			if err := container.WaitTimeout(destroyTimeout); err != nil {

@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/volume"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -30,13 +30,13 @@ var _ = Describe("Delete", func() {
 	Context("when provided an existing container id", func() {
 		var (
 			containerId string
-			cm          container.ContainerManager
+			cm          *container.Manager
 		)
 
 		BeforeEach(func() {
 			containerId = filepath.Base(bundlePath)
 
-			client := hcsclient.HCSClient{}
+			client := hcs.Client{}
 			nm := networkManager(&client)
 			cm = container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
@@ -105,7 +105,7 @@ var _ = Describe("Delete", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcsclient.NotFoundError{Id: "nonexistentcontainer"}
+			expectedError := &hcs.NotFoundError{Id: "nonexistentcontainer"}
 			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
 		})
 	})

@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/hcsclient"
-
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 )
@@ -17,30 +15,37 @@ type ImageSpec struct {
 	LayerFolders []string `json:"layerFolders,omitempty"`
 }
 
-type SandboxManager interface {
-	Create(rootfs string, diskLimit uint64) (*ImageSpec, error)
-	Delete() error
-}
-
 //go:generate counterfeiter . Limiter
 type Limiter interface {
 	SetDiskLimit(volumePath string, size uint64) error
 }
 
-type sandboxManager struct {
-	hcsClient  hcsclient.Client
+//go:generate counterfeiter . HCSClient
+type HCSClient interface {
+	CreateSandboxLayer(hcsshim.DriverInfo, string, string, []string) error
+	ActivateLayer(hcsshim.DriverInfo, string) error
+	PrepareLayer(hcsshim.DriverInfo, string, []string) error
+	GetLayerMountPath(hcsshim.DriverInfo, string) (string, error)
+	LayerExists(hcsshim.DriverInfo, string) (bool, error)
+	UnprepareLayer(hcsshim.DriverInfo, string) error
+	DeactivateLayer(hcsshim.DriverInfo, string) error
+	DestroyLayer(hcsshim.DriverInfo, string) error
+}
+
+type Manager struct {
+	hcsClient  HCSClient
 	limiter    Limiter
 	id         string
 	driverInfo hcsshim.DriverInfo
 }
 
-func NewManager(hcsClient hcsclient.Client, limiter Limiter, storePath, containerId string) SandboxManager {
+func NewManager(hcsClient HCSClient, limiter Limiter, storePath, containerId string) *Manager {
 	driverInfo := hcsshim.DriverInfo{
 		HomeDir: storePath,
 		Flavour: 1,
 	}
 
-	return &sandboxManager{
+	return &Manager{
 		hcsClient:  hcsClient,
 		limiter:    limiter,
 		id:         containerId,
@@ -48,7 +53,7 @@ func NewManager(hcsClient hcsclient.Client, limiter Limiter, storePath, containe
 	}
 }
 
-func (s *sandboxManager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
+func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 	err := os.MkdirAll(s.driverInfo.HomeDir, 0755)
 	if err != nil {
 		return nil, err
@@ -88,7 +93,7 @@ func (s *sandboxManager) Create(rootfs string, diskLimit uint64) (*ImageSpec, er
 	if err != nil {
 		return nil, err
 	} else if volumePath == "" {
-		return nil, &hcsclient.MissingVolumePathError{Id: s.id}
+		return nil, &MissingVolumePathError{Id: s.id}
 	}
 
 	if err := s.limiter.SetDiskLimit(volumePath, diskLimit); err != nil {
@@ -102,7 +107,7 @@ func (s *sandboxManager) Create(rootfs string, diskLimit uint64) (*ImageSpec, er
 	}, nil
 }
 
-func (s *sandboxManager) Delete() error {
+func (s *Manager) Delete() error {
 	exists, err := s.hcsClient.LayerExists(s.driverInfo, s.id)
 	if err != nil {
 		return err

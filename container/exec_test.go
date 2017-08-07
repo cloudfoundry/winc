@@ -8,8 +8,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/containerfakes"
-	"code.cloudfoundry.org/winc/hcsclient"
-	"code.cloudfoundry.org/winc/hcsclient/hcsclientfakes"
+	"code.cloudfoundry.org/winc/hcs/hcsfakes"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -21,11 +20,10 @@ var _ = Describe("Exec", func() {
 	var (
 		containerId      string
 		bundlePath       string
-		hcsClient        *hcsclientfakes.FakeClient
+		hcsClient        *containerfakes.FakeHCSClient
 		mounter          *containerfakes.FakeMounter
-		containerManager container.ContainerManager
-		fakeContainer    *hcsclientfakes.FakeContainer
-		fakeProcess      *hcsclientfakes.FakeProcess
+		containerManager *container.Manager
+		fakeContainer    *hcsfakes.FakeContainer
 		processSpec      specs.Process
 	)
 
@@ -36,11 +34,10 @@ var _ = Describe("Exec", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		hcsClient = &hcsclientfakes.FakeClient{}
+		hcsClient = &containerfakes.FakeHCSClient{}
 		mounter = &containerfakes.FakeMounter{}
 		containerManager = container.NewManager(hcsClient, mounter, nil, "", containerId)
-		fakeContainer = &hcsclientfakes.FakeContainer{}
-		fakeProcess = &hcsclientfakes.FakeProcess{}
+		fakeContainer = &hcsfakes.FakeContainer{}
 	})
 
 	AfterEach(func() {
@@ -70,20 +67,15 @@ var _ = Describe("Exec", func() {
 				User:             processSpec.User.Username,
 				Environment:      map[string]string{"a": "b", "c": "d"},
 			}
-
-			fakeProcess.PidReturns(666)
-			fakeContainer.CreateProcessReturns(fakeProcess, nil)
 		})
 
 		It("starts a process in the container", func() {
-			p, err := containerManager.Exec(&processSpec)
+			_, err := containerManager.Exec(&processSpec)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(p.Pid()).To(Equal(666))
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 			Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 			Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
-			Expect(fakeProcess.PidCallCount()).To(Equal(1))
 		})
 
 		Context("when a command and arguments contain spaces", func() {
@@ -167,10 +159,10 @@ var _ = Describe("Exec", func() {
 		})
 
 		Context("when creating a process in the container fails", func() {
-			var couldNotCreateProcessError *hcsclient.CouldNotCreateProcessError
+			var couldNotCreateProcessError *container.CouldNotCreateProcessError
 
 			BeforeEach(func() {
-				couldNotCreateProcessError = &hcsclient.CouldNotCreateProcessError{
+				couldNotCreateProcessError = &container.CouldNotCreateProcessError{
 					Id:      containerId,
 					Command: "powershell.exe",
 				}
@@ -189,7 +181,7 @@ var _ = Describe("Exec", func() {
 		var missingContainerError = errors.New("container does not exist")
 
 		BeforeEach(func() {
-			hcsClient.OpenContainerReturns(&hcsclientfakes.FakeContainer{}, missingContainerError)
+			hcsClient.OpenContainerReturns(&hcsfakes.FakeContainer{}, missingContainerError)
 		})
 
 		It("errors", func() {

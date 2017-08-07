@@ -11,7 +11,7 @@ import (
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/volume"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -113,7 +113,7 @@ var _ = Describe("Flags", func() {
 			})
 
 			AfterEach(func() {
-				client := &hcsclient.HCSClient{}
+				client := &hcs.Client{}
 				nm := networkManager(client)
 				cm := container.NewManager(client, &volume.Mounter{}, nm, rootPath, containerId)
 				Expect(cm.Delete()).To(Succeed())
@@ -185,14 +185,14 @@ var _ = Describe("Flags", func() {
 	Context("when passed '--root'", func() {
 		var (
 			storePath string
-			cm        container.ContainerManager
+			cm        *container.Manager
 		)
 
 		BeforeEach(func() {
 			storePath, err = ioutil.TempDir("", "wincroot")
 			Expect(err).ToNot(HaveOccurred())
 
-			client := &hcsclient.HCSClient{}
+			client := &hcs.Client{}
 			nm := networkManager(client)
 			cm = container.NewManager(client, &volume.Mounter{}, nm, storePath, containerId)
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/hcsclient"
+	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/sandbox"
 	"code.cloudfoundry.org/winc/volume"
 
@@ -45,7 +45,7 @@ var createCommand = cli.Command{
 		}
 
 		rootfsPath = destToWindowsPath(rootfsPath)
-		sm := sandbox.NewManager(&hcsclient.HCSClient{}, &volume.Limiter{}, storePath, containerId)
+		sm := sandbox.NewManager(&hcs.Client{}, &volume.Limiter{}, storePath, containerId)
 		imageSpec, err := sm.Create(rootfsPath, diskLimit)
 		if err != nil {
 			return err
