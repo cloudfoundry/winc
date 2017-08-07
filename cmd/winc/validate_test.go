@@ -50,8 +50,12 @@ var _ = Describe("Validate", func() {
 
 			BeforeEach(func() {
 				expectedSpec = runtimeSpecGenerator(sandbox.ImageSpec{
-					RootFs:       rootfsPath,
-					LayerFolders: []string{"a layer", "another layer"},
+					RootFs: rootfsPath,
+					Spec: specs.Spec{
+						Windows: &specs.Windows{
+							LayerFolders: []string{"a layer", "another layer"},
+						},
+					},
 				}, containerId)
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())

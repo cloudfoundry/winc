@@ -16,6 +16,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("WincImage", func() {
@@ -37,8 +38,8 @@ var _ = Describe("WincImage", func() {
 	})
 
 	type DesiredImageSpec struct {
-		RootFS       string   `json:"rootfs,omitempty"`
-		LayerFolders []string `json:"layerFolders,omitempty"`
+		RootFS string `json:"rootfs,omitempty"`
+		specs.Spec
 	}
 
 	It("creates and deletes a sandbox", func() {
@@ -47,10 +48,12 @@ var _ = Describe("WincImage", func() {
 
 		var desiredImageSpec DesiredImageSpec
 		Expect(json.Unmarshal(stdout.Bytes(), &desiredImageSpec)).To(Succeed())
-		Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(storePath, containerId)))
-		Expect(desiredImageSpec.LayerFolders).ToNot(BeEmpty())
-		Expect(desiredImageSpec.LayerFolders[0]).To(Equal(rootfsPath))
-		for _, layer := range desiredImageSpec.LayerFolders {
+		volumeGuid := getVolumeGuid(storePath, containerId)
+		Expect(desiredImageSpec.RootFS).To(Equal(volumeGuid))
+		Expect(desiredImageSpec.Root.Path).To(Equal(volumeGuid))
+		Expect(desiredImageSpec.Windows.LayerFolders).ToNot(BeEmpty())
+		Expect(desiredImageSpec.Windows.LayerFolders[0]).To(Equal(rootfsPath))
+		for _, layer := range desiredImageSpec.Windows.LayerFolders {
 			Expect(layer).To(BeADirectory())
 		}
 
@@ -100,10 +103,12 @@ var _ = Describe("WincImage", func() {
 
 			var desiredImageSpec DesiredImageSpec
 			Expect(json.Unmarshal(stdout.Bytes(), &desiredImageSpec)).To(Succeed())
-			Expect(desiredImageSpec.RootFS).To(Equal(getVolumeGuid(storePath, containerId)))
-			Expect(desiredImageSpec.LayerFolders).ToNot(BeEmpty())
-			Expect(desiredImageSpec.LayerFolders[0]).To(Equal(destToWindowsPath(tempRootfs)))
-			for _, layer := range desiredImageSpec.LayerFolders {
+			volumeGuid := getVolumeGuid(storePath, containerId)
+			Expect(desiredImageSpec.RootFS).To(Equal(volumeGuid))
+			Expect(desiredImageSpec.Root.Path).To(Equal(volumeGuid))
+			Expect(desiredImageSpec.Windows.LayerFolders).ToNot(BeEmpty())
+			Expect(desiredImageSpec.Windows.LayerFolders[0]).To(Equal(destToWindowsPath(tempRootfs)))
+			for _, layer := range desiredImageSpec.Windows.LayerFolders {
 				Expect(layer).To(BeADirectory())
 			}
 

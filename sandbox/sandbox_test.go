@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/winc/sandbox"
 	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
 	"github.com/Microsoft/hcsshim"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo"
@@ -73,8 +74,15 @@ var _ = Describe("Sandbox", func() {
 				actualImageSpec, err := sandboxManager.Create(rootfs, 666)
 				Expect(err).ToNot(HaveOccurred())
 				expectedImageSpec := &sandbox.ImageSpec{
-					RootFs:       containerVolume,
-					LayerFolders: expectedLayerFolders,
+					RootFs: containerVolume,
+					Spec: specs.Spec{
+						Root: &specs.Root{
+							Path: containerVolume,
+						},
+						Windows: &specs.Windows{
+							LayerFolders: expectedLayerFolders,
+						},
+					},
 				}
 				Expect(actualImageSpec).To(Equal(expectedImageSpec))
 

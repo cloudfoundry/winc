@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 
 	"github.com/Microsoft/hcsshim"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 )
 
 type ImageSpec struct {
-	RootFs       string   `json:"rootfs,omitempty"`
-	LayerFolders []string `json:"layerFolders,omitempty"`
+	RootFs string `json:"rootfs,omitempty"`
+	specs.Spec
 }
 
 //go:generate counterfeiter . Limiter
@@ -102,8 +103,15 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 	}
 
 	return &ImageSpec{
-		RootFs:       volumePath,
-		LayerFolders: sandboxLayers,
+		RootFs: volumePath,
+		Spec: specs.Spec{
+			Root: &specs.Root{
+				Path: volumePath,
+			},
+			Windows: &specs.Windows{
+				LayerFolders: sandboxLayers,
+			},
+		},
 	}, nil
 }
 
