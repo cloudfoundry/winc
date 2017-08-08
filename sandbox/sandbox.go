@@ -11,6 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const DESTROY_ATTEMPTS = 3
+
 type ImageSpec struct {
 	RootFs string `json:"rootfs,omitempty"`
 	specs.Spec
@@ -28,9 +30,8 @@ type HCSClient interface {
 	PrepareLayer(hcsshim.DriverInfo, string, []string) error
 	GetLayerMountPath(hcsshim.DriverInfo, string) (string, error)
 	LayerExists(hcsshim.DriverInfo, string) (bool, error)
-	UnprepareLayer(hcsshim.DriverInfo, string) error
-	DeactivateLayer(hcsshim.DriverInfo, string) error
 	DestroyLayer(hcsshim.DriverInfo, string) error
+	Retryable(error) bool
 }
 
 type Manager struct {
@@ -125,17 +126,13 @@ func (s *Manager) Delete() error {
 		return nil
 	}
 
-	if err := s.hcsClient.UnprepareLayer(s.driverInfo, s.id); err != nil {
-		return err
+	var destroyErr error
+	for i := 0; i < DESTROY_ATTEMPTS; i++ {
+		destroyErr = s.hcsClient.DestroyLayer(s.driverInfo, s.id)
+		if destroyErr == nil || !s.hcsClient.Retryable(destroyErr) {
+			break
+		}
 	}
 
-	if err := s.hcsClient.DeactivateLayer(s.driverInfo, s.id); err != nil {
-		return err
-	}
-
-	if err := s.hcsClient.DestroyLayer(s.driverInfo, s.id); err != nil {
-		return err
-	}
-
-	return nil
+	return destroyErr
 }

@@ -1,6 +1,8 @@
 package hcs
 
 import (
+	"strings"
+
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -42,15 +44,15 @@ func (c *Client) PrepareLayer(info hcsshim.DriverInfo, layerId string, parentLay
 	return hcsshim.PrepareLayer(info, layerId, parentLayerPaths)
 }
 
-func (c *Client) UnprepareLayer(info hcsshim.DriverInfo, layerId string) error {
-	return hcsshim.UnprepareLayer(info, layerId)
-}
-
-func (c *Client) DeactivateLayer(info hcsshim.DriverInfo, id string) error {
-	return hcsshim.DeactivateLayer(info, id)
-}
-
 func (c *Client) DestroyLayer(info hcsshim.DriverInfo, id string) error {
+	if err := hcsshim.UnprepareLayer(info, id); !shouldContinueDestroyingLayer(err) {
+		return err
+	}
+
+	if err := hcsshim.DeactivateLayer(info, id); err != nil {
+		return err
+	}
+
 	return hcsshim.DestroyLayer(info, id)
 }
 
@@ -105,4 +107,15 @@ func (c *Client) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {
 
 func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 	return hcsshim.GetHNSNetworkByName(name)
+}
+
+func (c *Client) Retryable(err error) bool {
+	return err != nil &&
+		(strings.Contains(err.Error(), "This operation returned because the timeout period expired"))
+}
+
+func shouldContinueDestroyingLayer(err error) bool {
+	return err == nil ||
+		strings.Contains(err.Error(), "hcsshim::UnprepareLayer failed in Win32: The system could not find the instance specified") ||
+		strings.Contains(err.Error(), "hcsshim::UnprepareLayer failed in Win32: The specified network resource or device is no longer available")
 }
