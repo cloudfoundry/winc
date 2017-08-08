@@ -134,6 +134,8 @@ var _ = Describe("Create", func() {
 			It("uses the current directory as the bundle path", func() {
 				cmd := exec.Command(wincBin, "create", containerId)
 				cmd.Dir = bundlePath
+				cmd.Stdout = GinkgoWriter
+				cmd.Stderr = GinkgoWriter
 				Expect(cmd.Run()).To(Succeed())
 
 				state, err := cm.State()
