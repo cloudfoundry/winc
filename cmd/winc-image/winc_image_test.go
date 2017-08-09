@@ -192,7 +192,7 @@ var _ = Describe("WincImage", func() {
 		})
 	})
 
-	Context("when provided a nonexistent containerId", func() {
+	Context("deleting when provided a nonexistent containerId", func() {
 		It("logs a warning", func() {
 			stdOut, _, err := execute(wincImageBin, "delete", "some-bad-container-id")
 			Expect(err).ToNot(HaveOccurred())

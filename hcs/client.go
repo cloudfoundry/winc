@@ -32,16 +32,27 @@ func (c *Client) IsPending(err error) bool {
 	return hcsshim.IsPending(err)
 }
 
-func (c *Client) CreateSandboxLayer(info hcsshim.DriverInfo, layerId, parentId string, parentLayerPaths []string) error {
-	return hcsshim.CreateSandboxLayer(info, layerId, parentId, parentLayerPaths)
-}
+func (c *Client) CreateLayer(info hcsshim.DriverInfo, id, parentId string, parentLayerPaths []string) (string, error) {
+	if err := hcsshim.CreateSandboxLayer(info, id, parentId, parentLayerPaths); !shouldContinueCreatingLayer(err) {
+		return "", err
+	}
 
-func (c *Client) ActivateLayer(info hcsshim.DriverInfo, id string) error {
-	return hcsshim.ActivateLayer(info, id)
-}
+	if err := hcsshim.ActivateLayer(info, id); !shouldContinueCreatingLayer(err) {
+		return "", err
+	}
 
-func (c *Client) PrepareLayer(info hcsshim.DriverInfo, layerId string, parentLayerPaths []string) error {
-	return hcsshim.PrepareLayer(info, layerId, parentLayerPaths)
+	if err := hcsshim.PrepareLayer(info, id, parentLayerPaths); !shouldContinueCreatingLayer(err) {
+		return "", err
+	}
+
+	volumePath, err := hcsshim.GetLayerMountPath(info, id)
+	if err != nil {
+		return "", err
+	} else if volumePath == "" {
+		return "", &MissingVolumePathError{Id: id}
+	}
+
+	return volumePath, nil
 }
 
 func (c *Client) DestroyLayer(info hcsshim.DriverInfo, id string) error {
@@ -112,6 +123,13 @@ func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 func (c *Client) Retryable(err error) bool {
 	return err != nil &&
 		(strings.Contains(err.Error(), "This operation returned because the timeout period expired"))
+}
+
+func shouldContinueCreatingLayer(err error) bool {
+	return err == nil ||
+		strings.Contains(err.Error(), "hcsshim::CreateSandboxLayer failed in Win32: The process cannot access the file because it is being used by another process") ||
+		strings.Contains(err.Error(), "hcsshim::ActivateLayer failed in Win32: The process cannot access the file because it is being used by another process") ||
+		strings.Contains(err.Error(), "hcsshim::PrepareLayer failed in Win32: winapi error #3489661115")
 }
 
 func shouldContinueDestroyingLayer(err error) bool {

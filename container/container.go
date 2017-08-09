@@ -281,9 +281,20 @@ func (c *Manager) deleteContainer(container hcs.Container) error {
 		logrus.Error(err.Error())
 	}
 
-	if err := c.shutdownContainer(container); err != nil {
-		if err := c.terminateContainer(container); err != nil {
+	props, err := c.hcsClient.GetContainerProperties(c.id)
+	if err != nil {
+		return err
+	}
+
+	if props.Stopped {
+		if err := container.Close(); err != nil {
 			return err
+		}
+	} else {
+		if err := c.shutdownContainer(container); err != nil {
+			if err := c.terminateContainer(container); err != nil {
+				return err
+			}
 		}
 	}
 

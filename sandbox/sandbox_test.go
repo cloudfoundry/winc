@@ -53,8 +53,6 @@ var _ = Describe("Sandbox", func() {
 			Flavour: 1,
 		}
 		rootfsParents = []byte(`["path1", "path2"]`)
-
-		hcsClient.GetLayerMountPathReturns(containerVolume, nil)
 	})
 
 	JustBeforeEach(func() {
@@ -68,6 +66,10 @@ var _ = Describe("Sandbox", func() {
 
 	Context("Create", func() {
 		Context("when provided a rootfs layer", func() {
+			BeforeEach(func() {
+				hcsClient.CreateLayerReturns(containerVolume, nil)
+			})
+
 			It("creates and activates the sandbox", func() {
 				expectedLayerFolders := []string{rootfs, "path1", "path2"}
 
@@ -86,22 +88,16 @@ var _ = Describe("Sandbox", func() {
 				}
 				Expect(actualImageSpec).To(Equal(expectedImageSpec))
 
-				Expect(hcsClient.CreateSandboxLayerCallCount()).To(Equal(1))
-				driverInfo, actualContainerId, parentLayer, parentLayers := hcsClient.CreateSandboxLayerArgsForCall(0)
+				Expect(hcsClient.LayerExistsCallCount()).To(Equal(1))
+				driverInfo, actualContainerId := hcsClient.LayerExistsArgsForCall(0)
+				Expect(driverInfo).To(Equal(expectedDriverInfo))
+				Expect(actualContainerId).To(Equal(containerId))
+
+				Expect(hcsClient.CreateLayerCallCount()).To(Equal(1))
+				driverInfo, actualContainerId, parentLayer, parentLayers := hcsClient.CreateLayerArgsForCall(0)
 				Expect(driverInfo).To(Equal(expectedDriverInfo))
 				Expect(actualContainerId).To(Equal(containerId))
 				Expect(parentLayer).To(Equal(rootfs))
-				Expect(parentLayers).To(Equal(expectedLayerFolders))
-
-				Expect(hcsClient.ActivateLayerCallCount()).To(Equal(1))
-				driverInfo, actualContainerId = hcsClient.ActivateLayerArgsForCall(0)
-				Expect(driverInfo).To(Equal(expectedDriverInfo))
-				Expect(actualContainerId).To(Equal(containerId))
-
-				Expect(hcsClient.PrepareLayerCallCount()).To(Equal(1))
-				driverInfo, actualContainerId, parentLayers = hcsClient.PrepareLayerArgsForCall(0)
-				Expect(driverInfo).To(Equal(expectedDriverInfo))
-				Expect(actualContainerId).To(Equal(containerId))
 				Expect(parentLayers).To(Equal(expectedLayerFolders))
 
 				Expect(limiter.SetDiskLimitCallCount()).To(Equal(1))
@@ -110,42 +106,108 @@ var _ = Describe("Sandbox", func() {
 				Expect(actualDiskLimit).To(BeEquivalentTo(666))
 			})
 
-			Context("when creating the sandbox fails", func() {
-				var createSandboxLayerError = errors.New("create sandbox failed")
-
+			Context("when the layer already exists", func() {
 				BeforeEach(func() {
-					hcsClient.CreateSandboxLayerReturns(createSandboxLayerError)
+					hcsClient.LayerExistsReturns(true, nil)
 				})
 
 				It("errors", func() {
+					_, err := sandboxManager.Create(rootfs, 666)
+					Expect(err).To(Equal(&sandbox.LayerExistsError{Id: containerId}))
+				})
+			})
+
+			Context("when creating the sandbox fails with a non-retryable error", func() {
+				var createSandboxLayerError = errors.New("create sandbox failed (non-retryable)")
+
+				BeforeEach(func() {
+					hcsClient.LayerExistsReturnsOnCall(0, false, nil)
+					hcsClient.LayerExistsReturnsOnCall(1, true, nil)
+					hcsClient.CreateLayerReturns("", createSandboxLayerError)
+					hcsClient.RetryableReturns(false)
+				})
+
+				It("immediately deletes the sandbox and errors", func() {
 					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(createSandboxLayerError))
+
+					Expect(hcsClient.CreateLayerCallCount()).To(Equal(1))
+
+					Expect(hcsClient.LayerExistsCallCount()).To(BeNumerically(">", 0))
+					driverInfo, actualContainerId := hcsClient.LayerExistsArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
+
+					Expect(hcsClient.DestroyLayerCallCount()).To(Equal(1))
+					driverInfo, actualContainerId = hcsClient.DestroyLayerArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
 				})
 			})
 
-			Context("when activating the sandbox fails", func() {
-				var activateLayerError = errors.New("activate sandbox failed")
+			Context("when creating the sandbox fails with a retryable error", func() {
+				var createLayerError = errors.New("create sandbox failed (retryable)")
 
 				BeforeEach(func() {
-					hcsClient.ActivateLayerReturns(activateLayerError)
+					hcsClient.LayerExistsReturnsOnCall(0, false, nil)
+					hcsClient.LayerExistsReturnsOnCall(1, true, nil)
+					hcsClient.CreateLayerReturns("", createLayerError)
+					hcsClient.RetryableReturns(true)
 				})
 
-				It("errors", func() {
+				It("tries to create the sandbox CREATE_ATTEMPTS times before returning an error", func() {
 					_, err := sandboxManager.Create(rootfs, 666)
-					Expect(err).To(Equal(activateLayerError))
+					Expect(err).To(Equal(createLayerError))
+
+					Expect(hcsClient.CreateLayerCallCount()).To(Equal(sandbox.CREATE_ATTEMPTS))
+					Expect(hcsClient.RetryableCallCount()).To(Equal(sandbox.CREATE_ATTEMPTS))
+					for i := 0; i < sandbox.CREATE_ATTEMPTS; i++ {
+						Expect(hcsClient.RetryableArgsForCall(i)).To(Equal(createLayerError))
+					}
+
+					Expect(hcsClient.LayerExistsCallCount()).To(BeNumerically(">", 0))
+					driverInfo, actualContainerId := hcsClient.LayerExistsArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
+
+					Expect(hcsClient.DestroyLayerCallCount()).To(Equal(1))
+					driverInfo, actualContainerId = hcsClient.DestroyLayerArgsForCall(0)
+					Expect(driverInfo).To(Equal(expectedDriverInfo))
+					Expect(actualContainerId).To(Equal(containerId))
 				})
 			})
 
-			Context("when preparing the sandbox fails", func() {
-				var prepareLayerError = errors.New("prepare sandbox failed")
+			Context("when creating the sandbox fails with a retryable error and eventually succeeds", func() {
+				var createLayerError = errors.New("create sandbox failed (retryable)")
 
 				BeforeEach(func() {
-					hcsClient.PrepareLayerReturns(prepareLayerError)
+					hcsClient.LayerExistsReturnsOnCall(0, false, nil)
+					hcsClient.CreateLayerReturnsOnCall(0, "", createLayerError)
+					hcsClient.CreateLayerReturnsOnCall(1, "", createLayerError)
+					hcsClient.CreateLayerReturnsOnCall(2, containerVolume, nil)
+					hcsClient.RetryableReturns(true)
 				})
 
-				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs, 666)
-					Expect(err).To(Equal(prepareLayerError))
+				It("tries to create the sandbox three times", func() {
+					actualImageSpec, err := sandboxManager.Create(rootfs, 666)
+					Expect(err).ToNot(HaveOccurred())
+					expectedImageSpec := &sandbox.ImageSpec{
+						RootFs: containerVolume,
+						Spec: specs.Spec{
+							Root: &specs.Root{
+								Path: containerVolume,
+							},
+							Windows: &specs.Windows{
+								LayerFolders: []string{rootfs, "path1", "path2"},
+							},
+						},
+					}
+					Expect(actualImageSpec).To(Equal(expectedImageSpec))
+
+					Expect(hcsClient.CreateLayerCallCount()).To(Equal(3))
+					Expect(hcsClient.RetryableCallCount()).To(Equal(2))
+					Expect(hcsClient.RetryableArgsForCall(0)).To(Equal(createLayerError))
+					Expect(hcsClient.RetryableArgsForCall(1)).To(Equal(createLayerError))
 				})
 			})
 
@@ -153,15 +215,16 @@ var _ = Describe("Sandbox", func() {
 				var diskLimitError = errors.New("setting disk limit failed")
 
 				BeforeEach(func() {
+					hcsClient.LayerExistsReturnsOnCall(0, false, nil)
+					hcsClient.LayerExistsReturnsOnCall(1, true, nil)
 					limiter.SetDiskLimitReturns(diskLimitError)
-					hcsClient.LayerExistsReturns(true, nil)
 				})
 
 				It("deletes the sandbox and errors", func() {
 					_, err := sandboxManager.Create(rootfs, 666)
 					Expect(err).To(Equal(diskLimitError))
 
-					Expect(hcsClient.LayerExistsCallCount()).To(Equal(1))
+					Expect(hcsClient.LayerExistsCallCount()).To(BeNumerically(">", 0))
 					driverInfo, actualContainerId := hcsClient.LayerExistsArgsForCall(0)
 					Expect(driverInfo).To(Equal(expectedDriverInfo))
 					Expect(actualContainerId).To(Equal(containerId))
@@ -200,32 +263,6 @@ var _ = Describe("Sandbox", func() {
 			It("errors", func() {
 				_, err := sandboxManager.Create(rootfs, 666)
 				Expect(err).To(Equal(&sandbox.InvalidRootfsLayerChainError{Msg: rootfs}))
-			})
-		})
-
-		Context("when getting the volume mount path of the container fails", func() {
-			Context("when getting the volume returned an error", func() {
-				var layerMountPathError = errors.New("could not get volume")
-
-				BeforeEach(func() {
-					hcsClient.GetLayerMountPathReturns("", layerMountPathError)
-				})
-
-				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs, 666)
-					Expect(err).To(Equal(layerMountPathError))
-				})
-			})
-
-			Context("when the volume returned is empty", func() {
-				BeforeEach(func() {
-					hcsClient.GetLayerMountPathReturns("", nil)
-				})
-
-				It("errors", func() {
-					_, err := sandboxManager.Create(rootfs, 666)
-					Expect(err).To(Equal(&sandbox.MissingVolumePathError{Id: containerId}))
-				})
 			})
 		})
 	})
@@ -302,15 +339,15 @@ var _ = Describe("Sandbox", func() {
 				hcsClient.RetryableReturns(true)
 			})
 
-			It("tries to destroy the sandbox three times before returning an error", func() {
+			It("tries to destroy the sandbox DESTROY_ATTEMPTS times before returning an error", func() {
 				err := sandboxManager.Delete()
 				Expect(err).To(Equal(destroyLayerError))
 
-				Expect(hcsClient.DestroyLayerCallCount()).To(Equal(3))
-				Expect(hcsClient.RetryableCallCount()).To(Equal(3))
-				Expect(hcsClient.RetryableArgsForCall(0)).To(Equal(destroyLayerError))
-				Expect(hcsClient.RetryableArgsForCall(1)).To(Equal(destroyLayerError))
-				Expect(hcsClient.RetryableArgsForCall(2)).To(Equal(destroyLayerError))
+				Expect(hcsClient.DestroyLayerCallCount()).To(Equal(sandbox.DESTROY_ATTEMPTS))
+				Expect(hcsClient.RetryableCallCount()).To(Equal(sandbox.DESTROY_ATTEMPTS))
+				for i := 0; i < sandbox.DESTROY_ATTEMPTS; i++ {
+					Expect(hcsClient.RetryableArgsForCall(i)).To(Equal(destroyLayerError))
+				}
 			})
 		})
 
@@ -324,7 +361,7 @@ var _ = Describe("Sandbox", func() {
 				hcsClient.RetryableReturns(true)
 			})
 
-			It("tries to destroy the sandbox three times before returning an error", func() {
+			It("tries to destroy the sandbox three times", func() {
 				Expect(sandboxManager.Delete()).To(Succeed())
 
 				Expect(hcsClient.DestroyLayerCallCount()).To(Equal(3))

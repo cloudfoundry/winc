@@ -268,6 +268,7 @@ var _ = Describe("Create", func() {
 		Context("when mounting the sandbox.vhdx fails", func() {
 			BeforeEach(func() {
 				mounter.MountReturns(errors.New("couldn't mount"))
+				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
 			})
 
 			It("deletes the container and network endpoints", func() {
@@ -283,11 +284,14 @@ var _ = Describe("Create", func() {
 		Context("when container Start fails", func() {
 			BeforeEach(func() {
 				fakeContainer.StartReturns(errors.New("couldn't start"))
+				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: true}, nil)
 			})
 
-			It("deletes the container and network endpoints", func() {
+			It("deletes network endpoints but skips the container shutdown", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
-				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
+				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
 				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
@@ -298,6 +302,7 @@ var _ = Describe("Create", func() {
 		Context("when getting container pid fails", func() {
 			BeforeEach(func() {
 				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
+				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
 			})
 
 			It("deletes the container and network endpoints", func() {

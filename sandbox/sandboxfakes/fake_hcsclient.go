@@ -9,56 +9,19 @@ import (
 )
 
 type FakeHCSClient struct {
-	CreateSandboxLayerStub        func(hcsshim.DriverInfo, string, string, []string) error
-	createSandboxLayerMutex       sync.RWMutex
-	createSandboxLayerArgsForCall []struct {
+	CreateLayerStub        func(hcsshim.DriverInfo, string, string, []string) (string, error)
+	createLayerMutex       sync.RWMutex
+	createLayerArgsForCall []struct {
 		arg1 hcsshim.DriverInfo
 		arg2 string
 		arg3 string
 		arg4 []string
 	}
-	createSandboxLayerReturns struct {
-		result1 error
-	}
-	createSandboxLayerReturnsOnCall map[int]struct {
-		result1 error
-	}
-	ActivateLayerStub        func(hcsshim.DriverInfo, string) error
-	activateLayerMutex       sync.RWMutex
-	activateLayerArgsForCall []struct {
-		arg1 hcsshim.DriverInfo
-		arg2 string
-	}
-	activateLayerReturns struct {
-		result1 error
-	}
-	activateLayerReturnsOnCall map[int]struct {
-		result1 error
-	}
-	PrepareLayerStub        func(hcsshim.DriverInfo, string, []string) error
-	prepareLayerMutex       sync.RWMutex
-	prepareLayerArgsForCall []struct {
-		arg1 hcsshim.DriverInfo
-		arg2 string
-		arg3 []string
-	}
-	prepareLayerReturns struct {
-		result1 error
-	}
-	prepareLayerReturnsOnCall map[int]struct {
-		result1 error
-	}
-	GetLayerMountPathStub        func(hcsshim.DriverInfo, string) (string, error)
-	getLayerMountPathMutex       sync.RWMutex
-	getLayerMountPathArgsForCall []struct {
-		arg1 hcsshim.DriverInfo
-		arg2 string
-	}
-	getLayerMountPathReturns struct {
+	createLayerReturns struct {
 		result1 string
 		result2 error
 	}
-	getLayerMountPathReturnsOnCall map[int]struct {
+	createLayerReturnsOnCall map[int]struct {
 		result1 string
 		result2 error
 	}
@@ -103,213 +66,60 @@ type FakeHCSClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeHCSClient) CreateSandboxLayer(arg1 hcsshim.DriverInfo, arg2 string, arg3 string, arg4 []string) error {
+func (fake *FakeHCSClient) CreateLayer(arg1 hcsshim.DriverInfo, arg2 string, arg3 string, arg4 []string) (string, error) {
 	var arg4Copy []string
 	if arg4 != nil {
 		arg4Copy = make([]string, len(arg4))
 		copy(arg4Copy, arg4)
 	}
-	fake.createSandboxLayerMutex.Lock()
-	ret, specificReturn := fake.createSandboxLayerReturnsOnCall[len(fake.createSandboxLayerArgsForCall)]
-	fake.createSandboxLayerArgsForCall = append(fake.createSandboxLayerArgsForCall, struct {
+	fake.createLayerMutex.Lock()
+	ret, specificReturn := fake.createLayerReturnsOnCall[len(fake.createLayerArgsForCall)]
+	fake.createLayerArgsForCall = append(fake.createLayerArgsForCall, struct {
 		arg1 hcsshim.DriverInfo
 		arg2 string
 		arg3 string
 		arg4 []string
 	}{arg1, arg2, arg3, arg4Copy})
-	fake.recordInvocation("CreateSandboxLayer", []interface{}{arg1, arg2, arg3, arg4Copy})
-	fake.createSandboxLayerMutex.Unlock()
-	if fake.CreateSandboxLayerStub != nil {
-		return fake.CreateSandboxLayerStub(arg1, arg2, arg3, arg4)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.createSandboxLayerReturns.result1
-}
-
-func (fake *FakeHCSClient) CreateSandboxLayerCallCount() int {
-	fake.createSandboxLayerMutex.RLock()
-	defer fake.createSandboxLayerMutex.RUnlock()
-	return len(fake.createSandboxLayerArgsForCall)
-}
-
-func (fake *FakeHCSClient) CreateSandboxLayerArgsForCall(i int) (hcsshim.DriverInfo, string, string, []string) {
-	fake.createSandboxLayerMutex.RLock()
-	defer fake.createSandboxLayerMutex.RUnlock()
-	return fake.createSandboxLayerArgsForCall[i].arg1, fake.createSandboxLayerArgsForCall[i].arg2, fake.createSandboxLayerArgsForCall[i].arg3, fake.createSandboxLayerArgsForCall[i].arg4
-}
-
-func (fake *FakeHCSClient) CreateSandboxLayerReturns(result1 error) {
-	fake.CreateSandboxLayerStub = nil
-	fake.createSandboxLayerReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeHCSClient) CreateSandboxLayerReturnsOnCall(i int, result1 error) {
-	fake.CreateSandboxLayerStub = nil
-	if fake.createSandboxLayerReturnsOnCall == nil {
-		fake.createSandboxLayerReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.createSandboxLayerReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeHCSClient) ActivateLayer(arg1 hcsshim.DriverInfo, arg2 string) error {
-	fake.activateLayerMutex.Lock()
-	ret, specificReturn := fake.activateLayerReturnsOnCall[len(fake.activateLayerArgsForCall)]
-	fake.activateLayerArgsForCall = append(fake.activateLayerArgsForCall, struct {
-		arg1 hcsshim.DriverInfo
-		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("ActivateLayer", []interface{}{arg1, arg2})
-	fake.activateLayerMutex.Unlock()
-	if fake.ActivateLayerStub != nil {
-		return fake.ActivateLayerStub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.activateLayerReturns.result1
-}
-
-func (fake *FakeHCSClient) ActivateLayerCallCount() int {
-	fake.activateLayerMutex.RLock()
-	defer fake.activateLayerMutex.RUnlock()
-	return len(fake.activateLayerArgsForCall)
-}
-
-func (fake *FakeHCSClient) ActivateLayerArgsForCall(i int) (hcsshim.DriverInfo, string) {
-	fake.activateLayerMutex.RLock()
-	defer fake.activateLayerMutex.RUnlock()
-	return fake.activateLayerArgsForCall[i].arg1, fake.activateLayerArgsForCall[i].arg2
-}
-
-func (fake *FakeHCSClient) ActivateLayerReturns(result1 error) {
-	fake.ActivateLayerStub = nil
-	fake.activateLayerReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeHCSClient) ActivateLayerReturnsOnCall(i int, result1 error) {
-	fake.ActivateLayerStub = nil
-	if fake.activateLayerReturnsOnCall == nil {
-		fake.activateLayerReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.activateLayerReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeHCSClient) PrepareLayer(arg1 hcsshim.DriverInfo, arg2 string, arg3 []string) error {
-	var arg3Copy []string
-	if arg3 != nil {
-		arg3Copy = make([]string, len(arg3))
-		copy(arg3Copy, arg3)
-	}
-	fake.prepareLayerMutex.Lock()
-	ret, specificReturn := fake.prepareLayerReturnsOnCall[len(fake.prepareLayerArgsForCall)]
-	fake.prepareLayerArgsForCall = append(fake.prepareLayerArgsForCall, struct {
-		arg1 hcsshim.DriverInfo
-		arg2 string
-		arg3 []string
-	}{arg1, arg2, arg3Copy})
-	fake.recordInvocation("PrepareLayer", []interface{}{arg1, arg2, arg3Copy})
-	fake.prepareLayerMutex.Unlock()
-	if fake.PrepareLayerStub != nil {
-		return fake.PrepareLayerStub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.prepareLayerReturns.result1
-}
-
-func (fake *FakeHCSClient) PrepareLayerCallCount() int {
-	fake.prepareLayerMutex.RLock()
-	defer fake.prepareLayerMutex.RUnlock()
-	return len(fake.prepareLayerArgsForCall)
-}
-
-func (fake *FakeHCSClient) PrepareLayerArgsForCall(i int) (hcsshim.DriverInfo, string, []string) {
-	fake.prepareLayerMutex.RLock()
-	defer fake.prepareLayerMutex.RUnlock()
-	return fake.prepareLayerArgsForCall[i].arg1, fake.prepareLayerArgsForCall[i].arg2, fake.prepareLayerArgsForCall[i].arg3
-}
-
-func (fake *FakeHCSClient) PrepareLayerReturns(result1 error) {
-	fake.PrepareLayerStub = nil
-	fake.prepareLayerReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeHCSClient) PrepareLayerReturnsOnCall(i int, result1 error) {
-	fake.PrepareLayerStub = nil
-	if fake.prepareLayerReturnsOnCall == nil {
-		fake.prepareLayerReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.prepareLayerReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeHCSClient) GetLayerMountPath(arg1 hcsshim.DriverInfo, arg2 string) (string, error) {
-	fake.getLayerMountPathMutex.Lock()
-	ret, specificReturn := fake.getLayerMountPathReturnsOnCall[len(fake.getLayerMountPathArgsForCall)]
-	fake.getLayerMountPathArgsForCall = append(fake.getLayerMountPathArgsForCall, struct {
-		arg1 hcsshim.DriverInfo
-		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("GetLayerMountPath", []interface{}{arg1, arg2})
-	fake.getLayerMountPathMutex.Unlock()
-	if fake.GetLayerMountPathStub != nil {
-		return fake.GetLayerMountPathStub(arg1, arg2)
+	fake.recordInvocation("CreateLayer", []interface{}{arg1, arg2, arg3, arg4Copy})
+	fake.createLayerMutex.Unlock()
+	if fake.CreateLayerStub != nil {
+		return fake.CreateLayerStub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getLayerMountPathReturns.result1, fake.getLayerMountPathReturns.result2
+	return fake.createLayerReturns.result1, fake.createLayerReturns.result2
 }
 
-func (fake *FakeHCSClient) GetLayerMountPathCallCount() int {
-	fake.getLayerMountPathMutex.RLock()
-	defer fake.getLayerMountPathMutex.RUnlock()
-	return len(fake.getLayerMountPathArgsForCall)
+func (fake *FakeHCSClient) CreateLayerCallCount() int {
+	fake.createLayerMutex.RLock()
+	defer fake.createLayerMutex.RUnlock()
+	return len(fake.createLayerArgsForCall)
 }
 
-func (fake *FakeHCSClient) GetLayerMountPathArgsForCall(i int) (hcsshim.DriverInfo, string) {
-	fake.getLayerMountPathMutex.RLock()
-	defer fake.getLayerMountPathMutex.RUnlock()
-	return fake.getLayerMountPathArgsForCall[i].arg1, fake.getLayerMountPathArgsForCall[i].arg2
+func (fake *FakeHCSClient) CreateLayerArgsForCall(i int) (hcsshim.DriverInfo, string, string, []string) {
+	fake.createLayerMutex.RLock()
+	defer fake.createLayerMutex.RUnlock()
+	return fake.createLayerArgsForCall[i].arg1, fake.createLayerArgsForCall[i].arg2, fake.createLayerArgsForCall[i].arg3, fake.createLayerArgsForCall[i].arg4
 }
 
-func (fake *FakeHCSClient) GetLayerMountPathReturns(result1 string, result2 error) {
-	fake.GetLayerMountPathStub = nil
-	fake.getLayerMountPathReturns = struct {
+func (fake *FakeHCSClient) CreateLayerReturns(result1 string, result2 error) {
+	fake.CreateLayerStub = nil
+	fake.createLayerReturns = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeHCSClient) GetLayerMountPathReturnsOnCall(i int, result1 string, result2 error) {
-	fake.GetLayerMountPathStub = nil
-	if fake.getLayerMountPathReturnsOnCall == nil {
-		fake.getLayerMountPathReturnsOnCall = make(map[int]struct {
+func (fake *FakeHCSClient) CreateLayerReturnsOnCall(i int, result1 string, result2 error) {
+	fake.CreateLayerStub = nil
+	if fake.createLayerReturnsOnCall == nil {
+		fake.createLayerReturnsOnCall = make(map[int]struct {
 			result1 string
 			result2 error
 		})
 	}
-	fake.getLayerMountPathReturnsOnCall[i] = struct {
+	fake.createLayerReturnsOnCall[i] = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
@@ -467,14 +277,8 @@ func (fake *FakeHCSClient) RetryableReturnsOnCall(i int, result1 bool) {
 func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createSandboxLayerMutex.RLock()
-	defer fake.createSandboxLayerMutex.RUnlock()
-	fake.activateLayerMutex.RLock()
-	defer fake.activateLayerMutex.RUnlock()
-	fake.prepareLayerMutex.RLock()
-	defer fake.prepareLayerMutex.RUnlock()
-	fake.getLayerMountPathMutex.RLock()
-	defer fake.getLayerMountPathMutex.RUnlock()
+	fake.createLayerMutex.RLock()
+	defer fake.createLayerMutex.RUnlock()
 	fake.layerExistsMutex.RLock()
 	defer fake.layerExistsMutex.RUnlock()
 	fake.destroyLayerMutex.RLock()

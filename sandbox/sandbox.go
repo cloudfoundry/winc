@@ -11,7 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const DESTROY_ATTEMPTS = 3
+const CREATE_ATTEMPTS = 5
+const DESTROY_ATTEMPTS = 10
 
 type ImageSpec struct {
 	RootFs string `json:"rootfs,omitempty"`
@@ -25,10 +26,7 @@ type Limiter interface {
 
 //go:generate counterfeiter . HCSClient
 type HCSClient interface {
-	CreateSandboxLayer(hcsshim.DriverInfo, string, string, []string) error
-	ActivateLayer(hcsshim.DriverInfo, string) error
-	PrepareLayer(hcsshim.DriverInfo, string, []string) error
-	GetLayerMountPath(hcsshim.DriverInfo, string) (string, error)
+	CreateLayer(hcsshim.DriverInfo, string, string, []string) (string, error)
 	LayerExists(hcsshim.DriverInfo, string) (bool, error)
 	DestroyLayer(hcsshim.DriverInfo, string) error
 	Retryable(error) bool
@@ -73,29 +71,31 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 		return nil, &MissingRootfsLayerChainError{Msg: rootfs}
 	}
 
+	exists, err := s.hcsClient.LayerExists(s.driverInfo, s.id)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, &LayerExistsError{Id: s.id}
+	}
+
 	parentLayers := []string{}
 	if err := json.Unmarshal(parentLayerChain, &parentLayers); err != nil {
 		return nil, &InvalidRootfsLayerChainError{Msg: rootfs}
 	}
 	sandboxLayers := append([]string{rootfs}, parentLayers...)
 
-	if err := s.hcsClient.CreateSandboxLayer(s.driverInfo, s.id, rootfs, sandboxLayers); err != nil {
-		return nil, err
+	var volumePath string
+	var createErr error
+	for i := 0; i < CREATE_ATTEMPTS; i++ {
+		volumePath, createErr = s.hcsClient.CreateLayer(s.driverInfo, s.id, rootfs, sandboxLayers)
+		if createErr == nil || !s.hcsClient.Retryable(createErr) {
+			break
+		}
 	}
-
-	if err := s.hcsClient.ActivateLayer(s.driverInfo, s.id); err != nil {
-		return nil, err
-	}
-
-	if err := s.hcsClient.PrepareLayer(s.driverInfo, s.id, sandboxLayers); err != nil {
-		return nil, err
-	}
-
-	volumePath, err := s.hcsClient.GetLayerMountPath(s.driverInfo, s.id)
-	if err != nil {
-		return nil, err
-	} else if volumePath == "" {
-		return nil, &MissingVolumePathError{Id: s.id}
+	if createErr != nil {
+		_ = s.Delete()
+		return nil, createErr
 	}
 
 	if err := s.limiter.SetDiskLimit(volumePath, diskLimit); err != nil {

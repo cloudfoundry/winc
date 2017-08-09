@@ -68,6 +68,9 @@ var _ = Describe("Delete", func() {
 			Expect(container).To(Equal(fakeContainer))
 			Expect(actualContainerId).To(Equal(containerId))
 
+			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 		})
 
@@ -88,6 +91,32 @@ var _ = Describe("Delete", func() {
 				Expect(actualContainerId).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when the container was never started", func() {
+			BeforeEach(func() {
+				hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{Stopped: true}, nil)
+			})
+
+			It("closes the container but skips shutting down and terminating it", func() {
+				Expect(containerManager.Delete()).To(Succeed())
+
+				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
+				Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
+			})
+
+			Context("when closing the container fails", func() {
+				var closeError = errors.New("closing failed")
+
+				BeforeEach(func() {
+					fakeContainer.CloseReturns(closeError)
+				})
+
+				It("errors", func() {
+					Expect(containerManager.Delete()).To(Equal(closeError))
+				})
 			})
 		})
 
