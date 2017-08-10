@@ -75,11 +75,10 @@ var _ = Describe("WincImage", func() {
 		BeforeEach(func() {
 			tempdir, err = ioutil.TempDir("", "rootfs")
 			Expect(err).ToNot(HaveOccurred())
-			tempdir = strings.Replace(tempdir, "C:", "", -1)
-			err = exec.Command("cmd.exe", "/c", fmt.Sprintf("mklink /D %s %s", filepath.Join(tempdir, "rootfs"), rootfsPath)).Run()
+			err := exec.Command("cmd.exe", "/c", fmt.Sprintf("mklink /D %s %s", filepath.Join(tempdir, "rootfs"), rootfsPath)).Run()
 			Expect(err).ToNot(HaveOccurred())
 
-			tempRootfs = tempdir + "/rootfs"
+			tempRootfs = strings.Replace(tempdir, "C:", "", -1) + "/rootfs"
 		})
 
 		AfterEach(func() {
