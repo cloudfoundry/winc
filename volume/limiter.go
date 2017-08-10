@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const MINIMUM_DISK_QUOTA = 1500
+const DISK_QUOTA_OVERHEAD = 6 * 1024
 
 type Limiter struct{}
 
@@ -19,9 +19,7 @@ func (l *Limiter) SetDiskLimit(volumePath string, size uint64) error {
 		return nil
 	}
 
-	if size < MINIMUM_DISK_QUOTA {
-		return fmt.Errorf("requested disk quota %d less than minumum (%d bytes)", size, MINIMUM_DISK_QUOTA)
-	}
+	size += DISK_QUOTA_OVERHEAD
 
 	exeFile, err := os.Executable()
 	if err != nil {

@@ -149,10 +149,16 @@ var _ = Describe("WincImage", func() {
 				Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
 			})
 
-			It("applies the limit to the volume", func() {
+			It("doesn't allow files large than the limit to be created", func() {
 				largeFilePath := filepath.Join(mountPath, "file.txt")
 				Expect(exec.Command("fsutil", "file", "createnew", largeFilePath, strconv.Itoa(diskLimitSizeBytes+1)).Run()).ToNot(Succeed())
 				Expect(largeFilePath).ToNot(BeAnExistingFile())
+			})
+
+			It("allows files at the limit to be created", func() {
+				largeFilePath := filepath.Join(mountPath, "file.txt")
+				Expect(exec.Command("fsutil", "file", "createnew", largeFilePath, strconv.Itoa(diskLimitSizeBytes)).Run()).To(Succeed())
+				Expect(largeFilePath).To(BeAnExistingFile())
 			})
 
 			Context("when the provided disk limit is 0", func() {
@@ -165,13 +171,6 @@ var _ = Describe("WincImage", func() {
 					Expect(err).To(HaveOccurred())
 					Expect(string(output)).To(ContainSubstring("The requested object was not found"))
 				})
-			})
-		})
-
-		Context("when the provided disk limit is below 1500", func() {
-			It("errors", func() {
-				_, _, err := execute(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", "1400", rootfsPath, containerId)
-				Expect(err).To(HaveOccurred())
 			})
 		})
 
