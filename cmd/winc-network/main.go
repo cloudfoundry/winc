@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -15,16 +18,11 @@ type PortMapping struct {
 	ContainerPort uint32
 }
 
-type NetIn struct {
-	HostPort      uint32 `json:"host_port"`
-	ContainerPort uint32 `json:"container_port"`
-}
-
 type UpInputs struct {
 	Pid        int
 	Properties map[string]interface{}
-	//NetOut     []garden.NetOutRule `json:"netout_rules"`
-	NetIn []NetIn `json:"netin"`
+	NetOut     []network.NetOutRule `json:"netout_rules"`
+	NetIn      []network.NetIn      `json:"netin"`
 }
 
 type UpOutputs struct {
@@ -50,7 +48,11 @@ func main() {
 			os.Exit(1)
 		}
 	} else if action == "down" {
-		os.Exit(0)
+		err := networkDown(handle)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "networkDown: %s", err.Error())
+			os.Exit(1)
+		}
 	} else {
 		fmt.Fprintf(os.Stderr, "invalid action: %s", action)
 		os.Exit(1)
@@ -125,7 +127,53 @@ func networkUp(containerId string) error {
 	}
 	upOutputs.Properties.MappedPorts = string(portBytes)
 
+	for _, netOut := range inputs.NetOut {
+		netShArgs := []string{
+			"advfirewall", "firewall", "add", "rule",
+			fmt.Sprintf(`name="%s"`, containerId),
+			"dir=out",
+			"action=allow",
+			fmt.Sprintf("localip=%s", endpoint.IPAddress.String()),
+			fmt.Sprintf("remoteip=%s", network.ParseIPRange(netOut.Networks)),
+		}
+
+		var protocol string
+		switch netOut.Protocol {
+		case network.ProtocolTCP:
+			protocol = "TCP"
+			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.ParsePortRange(netOut.Ports)))
+		case network.ProtocolUDP:
+			protocol = "UDP"
+			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.ParsePortRange(netOut.Ports)))
+		case network.ProtocolAll:
+			protocol = "ANY"
+		default:
+		}
+
+		if protocol == "" {
+			return errors.New("invalid protocol")
+		}
+
+		netShArgs = append(netShArgs, fmt.Sprintf("protocol=%s", protocol))
+
+		err := exec.Command("netsh", netShArgs...).Run()
+		if err != nil {
+			return err
+		}
+	}
+
 	return json.NewEncoder(os.Stdout).Encode(upOutputs)
+}
+
+func networkDown(containerId string) error {
+	netShArgs := []string{
+		"advfirewall", "firewall", "delete", "rule",
+		fmt.Sprintf(`name="%s"`, containerId),
+	}
+
+	_ = exec.Command("netsh", netShArgs...).Run()
+
+	return nil
 }
 
 func parseArgs(allArgs []string) (string, string, error) {
