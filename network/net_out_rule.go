@@ -37,7 +37,7 @@ type IPRange struct {
 	End   net.IP `json:"end,omitempty"`
 }
 
-func (ir IPRange) Parse() string {
+func (ir IPRange) String() string {
 	return fmt.Sprintf("%s-%s", ir.Start.String(), ir.End.String())
 }
 
@@ -46,7 +46,7 @@ type PortRange struct {
 	End   uint16 `json:"end,omitempty"`
 }
 
-func (pr PortRange) Parse() string {
+func (pr PortRange) String() string {
 	return fmt.Sprintf("%d-%d", pr.Start, pr.End)
 }
 
@@ -68,21 +68,22 @@ func IPRangeFromIPNet(ipNet *net.IPNet) IPRange {
 	return IPRange{Start: ipNet.IP, End: lastIP(ipNet)}
 }
 
-// ParseIPRange create a valid ip range for windows firewall
-func ParseIPRange(networks []IPRange) string {
-	var parsedRanges []string
+// FirewallRuleIPRange create a valid ip range for windows firewall
+func FirewallRuleIPRange(networks []IPRange) string {
+	var output []string
 	for _, v := range networks {
-		parsedRanges = append(parsedRanges, v.Parse())
+		output = append(output, v.String())
 	}
-	return strings.Join(parsedRanges, ",")
+	return strings.Join(output, ",")
 }
 
-func ParsePortRange(ports []PortRange) string {
-	var parsedRanges []string
+// FirewallRulePortRange create a valid port range for windows firewall
+func FirewallRulePortRange(ports []PortRange) string {
+	var output []string
 	for _, v := range ports {
-		parsedRanges = append(parsedRanges, v.Parse())
+		output = append(output, v.String())
 	}
-	return strings.Join(parsedRanges, ",")
+	return strings.Join(output, ",")
 }
 
 // PortRangeFromPort creates a PortRange containing a single port

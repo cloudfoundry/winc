@@ -134,17 +134,17 @@ func networkUp(containerId string) error {
 			"dir=out",
 			"action=allow",
 			fmt.Sprintf("localip=%s", endpoint.IPAddress.String()),
-			fmt.Sprintf("remoteip=%s", network.ParseIPRange(netOut.Networks)),
+			fmt.Sprintf("remoteip=%s", network.FirewallRuleIPRange(netOut.Networks)),
 		}
 
 		var protocol string
 		switch netOut.Protocol {
 		case network.ProtocolTCP:
 			protocol = "TCP"
-			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.ParsePortRange(netOut.Ports)))
+			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.FirewallRulePortRange(netOut.Ports)))
 		case network.ProtocolUDP:
 			protocol = "UDP"
-			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.ParsePortRange(netOut.Ports)))
+			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.FirewallRulePortRange(netOut.Ports)))
 		case network.ProtocolAll:
 			protocol = "ANY"
 		default:
