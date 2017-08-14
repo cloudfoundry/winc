@@ -30,6 +30,7 @@ func main() {
 	app.Commands = []cli.Command{
 		createCommand,
 		deleteCommand,
+		statsCommand,
 	}
 
 	logrus.SetOutput(os.Stdout)

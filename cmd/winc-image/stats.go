@@ -1,16 +1,18 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/sandbox"
 	"code.cloudfoundry.org/winc/volume"
-
 	"github.com/urfave/cli"
 )
 
-var deleteCommand = cli.Command{
-	Name:      "delete",
-	Usage:     "delete a container volume",
+var statsCommand = cli.Command{
+	Name:      "stats",
+	Usage:     "show stats for container volume",
 	ArgsUsage: `<container-id>`,
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, exactArgs); err != nil {
@@ -21,6 +23,18 @@ var deleteCommand = cli.Command{
 		storePath := context.GlobalString("store")
 
 		sm := sandbox.NewManager(&hcs.Client{}, &volume.Limiter{}, &volume.Statser{}, storePath, containerId)
-		return sm.Delete()
+		imageStats, err := sm.Stats()
+		if err != nil {
+			return err
+		}
+
+		output, err := json.Marshal(imageStats)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(string(output))
+
+		return nil
 	},
 }

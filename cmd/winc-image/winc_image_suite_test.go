@@ -1,10 +1,12 @@
 package main_test
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
 
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -49,4 +51,24 @@ func TestWincImage(t *testing.T) {
 	})
 
 	RunSpecs(t, "WincImage Suite")
+}
+
+func getVolumeGuid(storePath, id string) string {
+	driverInfo := hcsshim.DriverInfo{
+		HomeDir: storePath,
+		Flavour: 1,
+	}
+	volumePath, err := hcsshim.GetLayerMountPath(driverInfo, id)
+	Expect(err).NotTo(HaveOccurred())
+	return volumePath
+}
+
+func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+	command := exec.Command(cmd, args...)
+	command.Stdout = stdOut
+	command.Stderr = stdErr
+	err := command.Run()
+	return stdOut, stdErr, err
 }

@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -63,6 +62,7 @@ var _ = Describe("WincImage", func() {
 		Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
 
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
+		Expect(filepath.Join(driverInfo.HomeDir, containerId)).NotTo(BeADirectory())
 	})
 
 	Context("when using unix style rootfsPath", func() {
@@ -214,23 +214,3 @@ var _ = Describe("WincImage", func() {
 		})
 	})
 })
-
-func getVolumeGuid(storePath, id string) string {
-	driverInfo := hcsshim.DriverInfo{
-		HomeDir: storePath,
-		Flavour: 1,
-	}
-	volumePath, err := hcsshim.GetLayerMountPath(driverInfo, id)
-	Expect(err).NotTo(HaveOccurred())
-	return volumePath
-}
-
-func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
-	stdOut := new(bytes.Buffer)
-	stdErr := new(bytes.Buffer)
-	command := exec.Command(cmd, args...)
-	command.Stdout = stdOut
-	command.Stderr = stdErr
-	err := command.Run()
-	return stdOut, stdErr, err
-}

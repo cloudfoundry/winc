@@ -62,6 +62,20 @@ type FakeHCSClient struct {
 	retryableReturnsOnCall map[int]struct {
 		result1 bool
 	}
+	GetLayerMountPathStub        func(hcsshim.DriverInfo, string) (string, error)
+	getLayerMountPathMutex       sync.RWMutex
+	getLayerMountPathArgsForCall []struct {
+		arg1 hcsshim.DriverInfo
+		arg2 string
+	}
+	getLayerMountPathReturns struct {
+		result1 string
+		result2 error
+	}
+	getLayerMountPathReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -274,6 +288,58 @@ func (fake *FakeHCSClient) RetryableReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
+func (fake *FakeHCSClient) GetLayerMountPath(arg1 hcsshim.DriverInfo, arg2 string) (string, error) {
+	fake.getLayerMountPathMutex.Lock()
+	ret, specificReturn := fake.getLayerMountPathReturnsOnCall[len(fake.getLayerMountPathArgsForCall)]
+	fake.getLayerMountPathArgsForCall = append(fake.getLayerMountPathArgsForCall, struct {
+		arg1 hcsshim.DriverInfo
+		arg2 string
+	}{arg1, arg2})
+	fake.recordInvocation("GetLayerMountPath", []interface{}{arg1, arg2})
+	fake.getLayerMountPathMutex.Unlock()
+	if fake.GetLayerMountPathStub != nil {
+		return fake.GetLayerMountPathStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getLayerMountPathReturns.result1, fake.getLayerMountPathReturns.result2
+}
+
+func (fake *FakeHCSClient) GetLayerMountPathCallCount() int {
+	fake.getLayerMountPathMutex.RLock()
+	defer fake.getLayerMountPathMutex.RUnlock()
+	return len(fake.getLayerMountPathArgsForCall)
+}
+
+func (fake *FakeHCSClient) GetLayerMountPathArgsForCall(i int) (hcsshim.DriverInfo, string) {
+	fake.getLayerMountPathMutex.RLock()
+	defer fake.getLayerMountPathMutex.RUnlock()
+	return fake.getLayerMountPathArgsForCall[i].arg1, fake.getLayerMountPathArgsForCall[i].arg2
+}
+
+func (fake *FakeHCSClient) GetLayerMountPathReturns(result1 string, result2 error) {
+	fake.GetLayerMountPathStub = nil
+	fake.getLayerMountPathReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeHCSClient) GetLayerMountPathReturnsOnCall(i int, result1 string, result2 error) {
+	fake.GetLayerMountPathStub = nil
+	if fake.getLayerMountPathReturnsOnCall == nil {
+		fake.getLayerMountPathReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.getLayerMountPathReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -285,6 +351,8 @@ func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	defer fake.destroyLayerMutex.RUnlock()
 	fake.retryableMutex.RLock()
 	defer fake.retryableMutex.RUnlock()
+	fake.getLayerMountPathMutex.RLock()
+	defer fake.getLayerMountPathMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

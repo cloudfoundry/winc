@@ -45,7 +45,7 @@ var createCommand = cli.Command{
 		}
 
 		rootfsPath = destToWindowsPath(rootfsPath)
-		sm := sandbox.NewManager(&hcs.Client{}, &volume.Limiter{}, storePath, containerId)
+		sm := sandbox.NewManager(&hcs.Client{}, &volume.Limiter{}, &volume.Statser{}, storePath, containerId)
 		imageSpec, err := sm.Create(rootfsPath, diskLimit)
 		if err != nil {
 			return err
