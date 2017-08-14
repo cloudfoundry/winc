@@ -220,7 +220,7 @@ func (c *Manager) State() (*specs.State, error) {
 	}, nil
 }
 
-func (c *Manager) Exec(processSpec *specs.Process) (hcsshim.Process, error) {
+func (c *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {
 	container, err := c.hcsClient.OpenContainer(c.id)
 	if err != nil {
 		return nil, err
@@ -234,9 +234,9 @@ func (c *Manager) Exec(processSpec *specs.Process) (hcsshim.Process, error) {
 
 	pc := &hcsshim.ProcessConfig{
 		CommandLine:      makeCmdLine(processSpec.Args),
-		CreateStdInPipe:  true,
-		CreateStdOutPipe: true,
-		CreateStdErrPipe: true,
+		CreateStdInPipe:  createIOPipes,
+		CreateStdOutPipe: createIOPipes,
+		CreateStdErrPipe: createIOPipes,
 		WorkingDirectory: processSpec.Cwd,
 		User:             processSpec.User.Username,
 		Environment:      env,

@@ -128,9 +128,6 @@ func processSpecGenerator() specs.Process {
 		Cwd:  "C:\\Windows",
 		Args: []string{"cmd.exe"},
 		Env:  []string{"var1=foo", "var2=bar"},
-		User: specs.User{
-			Username: "vcap",
-		},
 	}
 }
 

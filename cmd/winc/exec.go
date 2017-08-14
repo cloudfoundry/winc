@@ -105,7 +105,7 @@ following will output a list of processes running in the container:
 			return err
 		}
 
-		process, err := cm.Exec(spec)
+		process, err := cm.Exec(spec, !detach)
 		if err != nil {
 			return err
 		}
@@ -125,19 +125,19 @@ following will output a list of processes running in the container:
 			var wg sync.WaitGroup
 
 			go func() {
-				io.Copy(stdin, os.Stdin)
-				stdin.Close()
+				_, _ = io.Copy(stdin, os.Stdin)
+				_ = stdin.Close()
 			}()
 			go func() {
 				wg.Add(1)
-				io.Copy(os.Stdout, stdout)
-				stdout.Close()
+				_, _ = io.Copy(os.Stdout, stdout)
+				_ = stdout.Close()
 				wg.Done()
 			}()
 			go func() {
 				wg.Add(1)
-				io.Copy(os.Stderr, stderr)
-				stderr.Close()
+				_, _ = io.Copy(os.Stderr, stderr)
+				_ = stderr.Close()
 				wg.Done()
 			}()
 
@@ -145,7 +145,7 @@ following will output a list of processes running in the container:
 			signal.Notify(c, os.Interrupt)
 			go func() {
 				<-c
-				process.Kill()
+				_ = process.Kill()
 			}()
 
 			err = process.Wait()

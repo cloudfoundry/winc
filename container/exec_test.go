@@ -70,12 +70,26 @@ var _ = Describe("Exec", func() {
 		})
 
 		It("starts a process in the container", func() {
-			_, err := containerManager.Exec(&processSpec)
+			_, err := containerManager.Exec(&processSpec, true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 			Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 			Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+		})
+
+		Context("when io pipes are not desired", func() {
+			BeforeEach(func() {
+				expectedProcessConfig.CreateStdErrPipe = false
+				expectedProcessConfig.CreateStdInPipe = false
+				expectedProcessConfig.CreateStdOutPipe = false
+			})
+
+			It("creates a process with no io pipes", func() {
+				_, err := containerManager.Exec(&processSpec, false)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+			})
 		})
 
 		Context("when a command and arguments contain spaces", func() {
@@ -92,7 +106,7 @@ var _ = Describe("Exec", func() {
 					Environment:      map[string]string{},
 				}
 
-				_, err := containerManager.Exec(&processSpec)
+				_, err := containerManager.Exec(&processSpec, true)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			})
@@ -112,7 +126,7 @@ var _ = Describe("Exec", func() {
 					Environment:      map[string]string{},
 				}
 
-				_, err := containerManager.Exec(&processSpec)
+				_, err := containerManager.Exec(&processSpec, true)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			})
@@ -132,7 +146,7 @@ var _ = Describe("Exec", func() {
 					Environment:      map[string]string{},
 				}
 
-				_, err := containerManager.Exec(&processSpec)
+				_, err := containerManager.Exec(&processSpec, true)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			})
@@ -152,7 +166,7 @@ var _ = Describe("Exec", func() {
 					Environment:      map[string]string{},
 				}
 
-				_, err := containerManager.Exec(&processSpec)
+				_, err := containerManager.Exec(&processSpec, true)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			})
@@ -170,7 +184,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("errors", func() {
-				p, err := containerManager.Exec(&processSpec)
+				p, err := containerManager.Exec(&processSpec, true)
 				Expect(err).To(Equal(couldNotCreateProcessError))
 				Expect(p).To(BeNil())
 			})
@@ -185,7 +199,7 @@ var _ = Describe("Exec", func() {
 		})
 
 		It("errors", func() {
-			p, err := containerManager.Exec(&processSpec)
+			p, err := containerManager.Exec(&processSpec, true)
 			Expect(err).To(Equal(missingContainerError))
 			Expect(p).To(BeNil())
 		})

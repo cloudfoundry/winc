@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/volume"
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -64,7 +65,7 @@ var _ = Describe("Exec", func() {
 		})
 
 		It("the process runs in the container", func() {
-			err := exec.Command(wincBin, "exec", "--detach", containerId, "cmd.exe").Run()
+			err := exec.Command(wincBin, "exec", "--detach", containerId, "cmd.exe", "/C", "waitfor ever /T 9999").Run()
 			Expect(err).ToNot(HaveOccurred())
 
 			pl := containerProcesses(&client, containerId, "cmd.exe")
@@ -77,7 +78,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when unix path is defined", func() {
 			It("the process runs in the container", func() {
-				err := exec.Command(wincBin, "exec", "--detach", containerId, "/Windows/System32/cmd").Run()
+				err := exec.Command(wincBin, "exec", "--detach", containerId, "/Windows/System32/cmd", "/C", "waitfor ever /T 9999").Run()
 				Expect(err).ToNot(HaveOccurred())
 
 				pl := containerProcesses(&client, containerId, "cmd.exe")
@@ -114,6 +115,7 @@ var _ = Describe("Exec", func() {
 				Expect(f.Close()).To(Succeed())
 				processConfig = f.Name()
 				expectedSpec := processSpecGenerator()
+				expectedSpec.Args = []string{"cmd.exe", "/C", "waitfor ever /T 9999"}
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
@@ -125,7 +127,7 @@ var _ = Describe("Exec", func() {
 
 			It("runs the process specified in the process.json", func() {
 				err := exec.Command(wincBin, "exec", "--process", processConfig, "--detach", containerId).Run()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
 
 				pl := containerProcesses(&client, containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(1))
@@ -194,7 +196,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the --detach flag is passed", func() {
 			It("the process runs in the container and returns immediately", func() {
-				err := exec.Command(wincBin, "exec", "--detach", containerId, "cmd.exe", "/C", "waitfor tensec /T 10 >NULL & exit /B 0").Run()
+				err := exec.Command(wincBin, "exec", "--detach", containerId, "cmd.exe", "/C", "waitfor fivesec /T 5 >NULL & exit /B 0").Run()
 				Expect(err).ToNot(HaveOccurred())
 
 				pl := containerProcesses(&client, containerId, "cmd.exe")
@@ -203,6 +205,10 @@ var _ = Describe("Exec", func() {
 				state, err := cm.State()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(isParentOf(state.Pid, int(pl[0].ProcessId))).To(BeTrue())
+
+				Eventually(func() []hcsshim.ProcessListItem {
+					return containerProcesses(&client, containerId, "cmd.exe")
+				}, "10s").Should(BeEmpty())
 			})
 		})
 
@@ -280,7 +286,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("places the started process id in the specified file", func() {
-				err := exec.Command(wincBin, "exec", "--detach", "--pid-file", pidFile, containerId, "cmd.exe").Run()
+				err := exec.Command(wincBin, "exec", "--detach", "--pid-file", pidFile, containerId, "cmd.exe", "/C", "waitfor ever /T 9999").Run()
 				Expect(err).ToNot(HaveOccurred())
 
 				pl := containerProcesses(&client, containerId, "cmd.exe")
