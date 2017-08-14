@@ -25,6 +25,16 @@ type Manager struct {
 	id             string
 }
 
+type Statistics struct {
+	Data struct {
+		Memory struct {
+			Raw struct {
+				TotalRss uint64 `json:"total_rss,omitempty"`
+			} `json:"raw,omitempty"`
+		} `json:"memory,omitempty"`
+	} `json:"data,omitempty"`
+}
+
 //go:generate counterfeiter . Mounter
 type Mounter interface {
 	Mount(pid int, volumePath string) error
@@ -251,6 +261,24 @@ func (c *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.
 	}
 
 	return p, nil
+}
+
+func (c *Manager) Stats() (Statistics, error) {
+	var stats Statistics
+
+	container, err := c.hcsClient.OpenContainer(c.id)
+	if err != nil {
+		return stats, err
+	}
+
+	containerStats, err := container.Statistics()
+	if err != nil {
+		return stats, err
+	}
+
+	stats.Data.Memory.Raw.TotalRss = containerStats.Memory.UsageCommitBytes
+
+	return stats, nil
 }
 
 func (c *Manager) containerPid(id string) (int, error) {

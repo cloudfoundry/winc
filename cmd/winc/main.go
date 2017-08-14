@@ -93,6 +93,7 @@ func main() {
 		deleteCommand,
 		stateCommand,
 		execCommand,
+		eventsCommand,
 	}
 
 	app.Before = func(context *cli.Context) error {

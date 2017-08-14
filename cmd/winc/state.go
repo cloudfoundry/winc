@@ -42,7 +42,7 @@ instance of a container.`,
 			return err
 		}
 
-		os.Stdout.Write(stateJson)
-		return nil
+		_, err = os.Stdout.Write(stateJson)
+		return err
 	},
 }
