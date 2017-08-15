@@ -116,6 +116,11 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 		return nil, createErr
 	}
 
+	if err := s.limiter.SetDiskLimit(volumePath, diskLimit); err != nil {
+		_ = s.Delete()
+		return nil, err
+	}
+
 	volumeSize, err := s.stats.GetCurrentDiskUsage(volumePath)
 	if err != nil {
 		_ = s.Delete()
@@ -124,11 +129,6 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 
 	err = ioutil.WriteFile(filepath.Join(s.driverInfo.HomeDir, s.id, "image_info"), []byte(strconv.FormatUint(volumeSize, 10)), 0644)
 	if err != nil {
-		_ = s.Delete()
-		return nil, err
-	}
-
-	if err := s.limiter.SetDiskLimit(volumePath, diskLimit); err != nil {
 		_ = s.Delete()
 		return nil, err
 	}

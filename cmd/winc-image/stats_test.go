@@ -18,6 +18,7 @@ var _ = Describe("Stats", func() {
 	var (
 		storePath   string
 		containerId string
+		args        []string
 	)
 
 	BeforeEach(func() {
@@ -27,7 +28,11 @@ var _ = Describe("Stats", func() {
 		storePath, err = ioutil.TempDir("", "container-store")
 		Expect(err).ToNot(HaveOccurred())
 
-		_, _, err = execute(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
+		args = []string{"--store", storePath, "create", "--disk-limit-size-bytes", strconv.Itoa(300 * 1024 * 1024), rootfsPath, containerId}
+	})
+
+	JustBeforeEach(func() {
+		_, _, err := execute(wincImageBin, args...)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -50,8 +55,23 @@ var _ = Describe("Stats", func() {
 		Expect(err).NotTo(HaveOccurred())
 		var imageStats ImageStats
 		Expect(json.Unmarshal(stdout.Bytes(), &imageStats)).To(Succeed())
-		Expect(imageStats.Disk.TotalBytesUsed).To(BeNumerically("~", 30*1024*1024, 10*1024*1024))
+		Expect(imageStats.Disk.TotalBytesUsed).To(BeNumerically("~", 5*1024, 1024))
 		Expect(imageStats.Disk.ExclusiveBytesUsed).To(Equal(uint64(0)))
+	})
+
+	Context("no disk limit is set", func() {
+		BeforeEach(func() {
+			args = []string{"--store", storePath, "create", rootfsPath, containerId}
+		})
+
+		It("returns usage as 0", func() {
+			stdout, _, err := execute(wincImageBin, "--store", storePath, "stats", containerId)
+			Expect(err).NotTo(HaveOccurred())
+			var imageStats ImageStats
+			Expect(json.Unmarshal(stdout.Bytes(), &imageStats)).To(Succeed())
+			Expect(imageStats.Disk.TotalBytesUsed).To(Equal(uint64(0)))
+			Expect(imageStats.Disk.ExclusiveBytesUsed).To(Equal(uint64(0)))
+		})
 	})
 
 	Context("a large file is written", func() {
@@ -62,8 +82,10 @@ var _ = Describe("Stats", func() {
 		)
 
 		BeforeEach(func() {
-			fileSize = 50 * 1024 * 1024
+			fileSize = 30 * 1024 * 1024
+		})
 
+		JustBeforeEach(func() {
 			mountPath, err = ioutil.TempDir("", "")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -84,8 +106,8 @@ var _ = Describe("Stats", func() {
 			Expect(err).NotTo(HaveOccurred())
 			var imageStats ImageStats
 			Expect(json.Unmarshal(stdout.Bytes(), &imageStats)).To(Succeed())
-			Expect(imageStats.Disk.TotalBytesUsed).To(BeNumerically("~", 80*1024*1024, 10*1024*1024))
-			Expect(imageStats.Disk.ExclusiveBytesUsed).To(Equal(fileSize))
+			Expect(imageStats.Disk.TotalBytesUsed).To(BeNumerically("~", fileSize+5*1024, 1024))
+			Expect(imageStats.Disk.ExclusiveBytesUsed).To(BeNumerically("~", fileSize, 1024))
 		})
 	})
 })
