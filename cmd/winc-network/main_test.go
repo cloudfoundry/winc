@@ -78,6 +78,16 @@ var _ = Describe("up", func() {
 			Expect(string(output)).NotTo(ContainSubstring("HNS Internal NIC"))
 			Expect(string(output)).To(MatchRegexp("AddressFamily.*IPv4"))
 		})
+
+		It("creates the correct urlacl in the container", func() {
+			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+			Expect(cmd.Run()).To(Succeed())
+
+			output, err := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User").CombinedOutput()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("BUILTIN\\Users"))
+		})
 	})
 
 	Context("stdin contains a port mapping request with two ports", func() {

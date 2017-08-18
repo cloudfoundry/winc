@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network"
@@ -103,9 +104,8 @@ func networkUp(containerId string) error {
 			return fmt.Errorf("invalid port mapping: %+v", mapping)
 		}
 
-		natPolicy := hcsshim.NatPolicy{}
-
 		for _, pol := range endpoint.Policies {
+			natPolicy := hcsshim.NatPolicy{}
 			if err := json.Unmarshal(pol, &natPolicy); err != nil {
 				return err
 			}
@@ -118,6 +118,10 @@ func networkUp(containerId string) error {
 				mappedPorts = append(mappedPorts, mappedPort)
 				break
 			}
+		}
+
+		if err := openPort(container, mapping.ContainerPort); err != nil {
+			return err
 		}
 	}
 
@@ -197,4 +201,27 @@ func parseArgs(allArgs []string) (string, string, error) {
 	}
 
 	return action, handle, nil
+}
+
+func openPort(container hcsshim.Container, port uint32) error {
+	p, err := container.CreateProcess(&hcsshim.ProcessConfig{
+		CommandLine: fmt.Sprintf("netsh http add urlacl url=http://*:%d/ user=Users", port),
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := p.WaitTimeout(time.Second); err != nil {
+		return err
+	}
+
+	exitCode, err := p.ExitCode()
+	if err != nil {
+		return err
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("failed to open port: %d", port)
+	}
+
+	return nil
 }
