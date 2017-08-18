@@ -1,4 +1,4 @@
-package sandbox
+package image
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 )
@@ -39,45 +38,34 @@ type Statser interface {
 	GetCurrentDiskUsage(string) (uint64, error)
 }
 
-//go:generate counterfeiter . HCSClient
-type HCSClient interface {
-	CreateLayer(hcsshim.DriverInfo, string, string, []string) (string, error)
-	LayerExists(hcsshim.DriverInfo, string) (bool, error)
-	DestroyLayer(hcsshim.DriverInfo, string) error
+//go:generate counterfeiter . LayerManager
+type LayerManager interface {
+	CreateLayer(string, string, []string) (string, error)
+	RemoveLayer(string) error
+	LayerExists(string) (bool, error)
+	GetLayerMountPath(string) (string, error)
 	Retryable(error) bool
-	GetLayerMountPath(hcsshim.DriverInfo, string) (string, error)
+	HomeDir() string
 }
 
 type Manager struct {
-	hcsClient  HCSClient
-	limiter    Limiter
-	stats      Statser
-	id         string
-	driverInfo hcsshim.DriverInfo
+	layerManager LayerManager
+	limiter      Limiter
+	stats        Statser
+	id           string
 }
 
-func NewManager(hcsClient HCSClient, limiter Limiter, statser Statser, storePath, containerId string) *Manager {
-	driverInfo := hcsshim.DriverInfo{
-		HomeDir: storePath,
-		Flavour: 1,
-	}
-
+func NewManager(layerManager LayerManager, limiter Limiter, statser Statser, containerId string) *Manager {
 	return &Manager{
-		hcsClient:  hcsClient,
-		limiter:    limiter,
-		stats:      statser,
-		id:         containerId,
-		driverInfo: driverInfo,
+		layerManager: layerManager,
+		limiter:      limiter,
+		stats:        statser,
+		id:           containerId,
 	}
 }
 
 func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
-	err := os.MkdirAll(s.driverInfo.HomeDir, 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = os.Stat(rootfs)
+	_, err := os.Stat(rootfs)
 	if os.IsNotExist(err) {
 		return nil, &MissingRootfsError{Msg: rootfs}
 	} else if err != nil {
@@ -89,7 +77,7 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 		return nil, &MissingRootfsLayerChainError{Msg: rootfs}
 	}
 
-	exists, err := s.hcsClient.LayerExists(s.driverInfo, s.id)
+	exists, err := s.layerManager.LayerExists(s.id)
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +94,8 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 	var volumePath string
 	var createErr error
 	for i := 0; i < CREATE_ATTEMPTS; i++ {
-		volumePath, createErr = s.hcsClient.CreateLayer(s.driverInfo, s.id, rootfs, sandboxLayers)
-		if createErr == nil || !s.hcsClient.Retryable(createErr) {
+		volumePath, createErr = s.layerManager.CreateLayer(s.id, rootfs, sandboxLayers)
+		if createErr == nil || !s.layerManager.Retryable(createErr) {
 			break
 		}
 	}
@@ -127,7 +115,7 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 		return nil, err
 	}
 
-	err = ioutil.WriteFile(filepath.Join(s.driverInfo.HomeDir, s.id, "image_info"), []byte(strconv.FormatUint(volumeSize, 10)), 0644)
+	err = ioutil.WriteFile(filepath.Join(s.layerManager.HomeDir(), s.id, "image_info"), []byte(strconv.FormatUint(volumeSize, 10)), 0644)
 	if err != nil {
 		_ = s.Delete()
 		return nil, err
@@ -147,7 +135,7 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 }
 
 func (s *Manager) Delete() error {
-	exists, err := s.hcsClient.LayerExists(s.driverInfo, s.id)
+	exists, err := s.layerManager.LayerExists(s.id)
 	if err != nil {
 		return err
 	}
@@ -158,8 +146,8 @@ func (s *Manager) Delete() error {
 
 	var destroyErr error
 	for i := 0; i < DESTROY_ATTEMPTS; i++ {
-		destroyErr = s.hcsClient.DestroyLayer(s.driverInfo, s.id)
-		if destroyErr == nil || !s.hcsClient.Retryable(destroyErr) {
+		destroyErr = s.layerManager.RemoveLayer(s.id)
+		if destroyErr == nil || !s.layerManager.Retryable(destroyErr) {
 			break
 		}
 	}
@@ -168,7 +156,7 @@ func (s *Manager) Delete() error {
 }
 
 func (s *Manager) Stats() (*ImageStats, error) {
-	volumePath, err := s.hcsClient.GetLayerMountPath(s.driverInfo, s.id)
+	volumePath, err := s.layerManager.GetLayerMountPath(s.id)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +166,7 @@ func (s *Manager) Stats() (*ImageStats, error) {
 		return nil, err
 	}
 
-	vs, err := ioutil.ReadFile(filepath.Join(s.driverInfo.HomeDir, s.id, "image_info"))
+	vs, err := ioutil.ReadFile(filepath.Join(s.layerManager.HomeDir(), s.id, "image_info"))
 	if err != nil {
 		return nil, err
 	}

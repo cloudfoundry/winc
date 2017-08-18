@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/image"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -81,17 +81,17 @@ func TestWincNetwork(t *testing.T) {
 	RunSpecs(t, "Winc-Network Suite")
 }
 
-func createSandbox(storePath, rootfsPath, containerId string) sandbox.ImageSpec {
+func createSandbox(storePath, rootfsPath, containerId string) image.ImageSpec {
 	stdOut := new(bytes.Buffer)
 	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 	cmd.Stdout = stdOut
 	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
-	var imageSpec sandbox.ImageSpec
+	var imageSpec image.ImageSpec
 	Expect(json.Unmarshal(stdOut.Bytes(), &imageSpec)).To(Succeed())
 	return imageSpec
 }
 
-func runtimeSpecGenerator(imageSpec sandbox.ImageSpec, containerId string) specs.Spec {
+func runtimeSpecGenerator(imageSpec image.ImageSpec, containerId string) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{

@@ -1,8 +1,6 @@
 package hcs
 
 import (
-	"strings"
-
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -32,41 +30,6 @@ func (c *Client) IsPending(err error) bool {
 	return hcsshim.IsPending(err)
 }
 
-func (c *Client) CreateLayer(info hcsshim.DriverInfo, id, parentId string, parentLayerPaths []string) (string, error) {
-	if err := hcsshim.CreateSandboxLayer(info, id, parentId, parentLayerPaths); !shouldContinueCreatingLayer(err) {
-		return "", err
-	}
-
-	if err := hcsshim.ActivateLayer(info, id); !shouldContinueCreatingLayer(err) {
-		return "", err
-	}
-
-	if err := hcsshim.PrepareLayer(info, id, parentLayerPaths); !shouldContinueCreatingLayer(err) {
-		return "", err
-	}
-
-	volumePath, err := hcsshim.GetLayerMountPath(info, id)
-	if err != nil {
-		return "", err
-	} else if volumePath == "" {
-		return "", &MissingVolumePathError{Id: id}
-	}
-
-	return volumePath, nil
-}
-
-func (c *Client) DestroyLayer(info hcsshim.DriverInfo, id string) error {
-	if err := hcsshim.UnprepareLayer(info, id); !shouldContinueDestroyingLayer(err) {
-		return err
-	}
-
-	if err := hcsshim.DeactivateLayer(info, id); err != nil {
-		return err
-	}
-
-	return hcsshim.DestroyLayer(info, id)
-}
-
 func (c *Client) LayerExists(info hcsshim.DriverInfo, id string) (bool, error) {
 	return hcsshim.LayerExists(info, id)
 }
@@ -90,6 +53,30 @@ func (c *Client) GetContainerProperties(id string) (hcsshim.ContainerProperties,
 	}
 
 	return cps[0], nil
+}
+
+func (c *Client) ActivateLayer(di hcsshim.DriverInfo, id string) error {
+	return hcsshim.ActivateLayer(di, id)
+}
+
+func (c *Client) CreateSandboxLayer(di hcsshim.DriverInfo, id string, parentId string, parentLayerPaths []string) error {
+	return hcsshim.CreateSandboxLayer(di, id, parentId, parentLayerPaths)
+}
+
+func (c *Client) DeactivateLayer(di hcsshim.DriverInfo, id string) error {
+	return hcsshim.DeactivateLayer(di, id)
+}
+
+func (c *Client) DestroyLayer(di hcsshim.DriverInfo, id string) error {
+	return hcsshim.DestroyLayer(di, id)
+}
+
+func (c *Client) PrepareLayer(di hcsshim.DriverInfo, id string, parentLayerPaths []string) error {
+	return hcsshim.PrepareLayer(di, id, parentLayerPaths)
+}
+
+func (c *Client) UnprepareLayer(di hcsshim.DriverInfo, id string) error {
+	return hcsshim.UnprepareLayer(di, id)
 }
 
 func (c *Client) CreateEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
@@ -118,22 +105,4 @@ func (c *Client) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {
 
 func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 	return hcsshim.GetHNSNetworkByName(name)
-}
-
-func (c *Client) Retryable(err error) bool {
-	return err != nil &&
-		(strings.Contains(err.Error(), "This operation returned because the timeout period expired"))
-}
-
-func shouldContinueCreatingLayer(err error) bool {
-	return err == nil ||
-		strings.Contains(err.Error(), "hcsshim::CreateSandboxLayer failed in Win32: The process cannot access the file because it is being used by another process") ||
-		strings.Contains(err.Error(), "hcsshim::ActivateLayer failed in Win32: The process cannot access the file because it is being used by another process") ||
-		strings.Contains(err.Error(), "hcsshim::PrepareLayer failed in Win32: winapi error #3489661115")
-}
-
-func shouldContinueDestroyingLayer(err error) bool {
-	return err == nil ||
-		strings.Contains(err.Error(), "hcsshim::UnprepareLayer failed in Win32: The system could not find the instance specified") ||
-		strings.Contains(err.Error(), "hcsshim::UnprepareLayer failed in Win32: The specified network resource or device is no longer available")
 }

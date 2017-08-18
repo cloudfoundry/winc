@@ -10,7 +10,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 
 	. "code.cloudfoundry.org/winc/cmd/winc"
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/image"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -49,7 +49,7 @@ var _ = Describe("Validate", func() {
 			)
 
 			BeforeEach(func() {
-				expectedSpec = runtimeSpecGenerator(sandbox.ImageSpec{
+				expectedSpec = runtimeSpecGenerator(image.ImageSpec{
 					RootFs: rootfsPath,
 					Spec: specs.Spec{
 						Windows: &specs.Windows{

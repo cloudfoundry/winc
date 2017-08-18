@@ -1,4 +1,4 @@
-package sandbox_test
+package image_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSandbox(t *testing.T) {
+func TestImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Sandbox Suite")
+	RunSpecs(t, "Image Suite")
 }

@@ -2,7 +2,8 @@ package main
 
 import (
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/image"
+	"code.cloudfoundry.org/winc/layer"
 	"code.cloudfoundry.org/winc/volume"
 
 	"github.com/urfave/cli"
@@ -20,7 +21,8 @@ var deleteCommand = cli.Command{
 		containerId := context.Args().First()
 		storePath := context.GlobalString("store")
 
-		sm := sandbox.NewManager(&hcs.Client{}, &volume.Limiter{}, &volume.Statser{}, storePath, containerId)
-		return sm.Delete()
+		lm := layer.NewManager(&hcs.Client{}, storePath)
+		im := image.NewManager(lm, &volume.Limiter{}, &volume.Statser{}, containerId)
+		return im.Delete()
 	},
 }

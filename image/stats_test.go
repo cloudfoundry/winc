@@ -1,4 +1,4 @@
-package sandbox_test
+package image_test
 
 import (
 	"io/ioutil"
@@ -8,9 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"code.cloudfoundry.org/winc/sandbox"
-	"code.cloudfoundry.org/winc/sandbox/sandboxfakes"
-	"github.com/Microsoft/hcsshim"
+	"code.cloudfoundry.org/winc/image"
+	"code.cloudfoundry.org/winc/image/imagefakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -19,14 +18,14 @@ var _ = Describe("Stats", func() {
 	const containerVolume = "containerVolume"
 
 	var (
-		storePath      string
-		rootfs         string
-		containerId    string
-		hcsClient      *sandboxfakes.FakeHCSClient
-		limiter        *sandboxfakes.FakeLimiter
-		statser        *sandboxfakes.FakeStatser
-		sandboxManager *sandbox.Manager
-		rootfsParents  []byte
+		storePath     string
+		rootfs        string
+		containerId   string
+		layerManager  *imagefakes.FakeLayerManager
+		limiter       *imagefakes.FakeLimiter
+		statser       *imagefakes.FakeStatser
+		imageManager  *image.Manager
+		rootfsParents []byte
 	)
 
 	BeforeEach(func() {
@@ -40,14 +39,15 @@ var _ = Describe("Stats", func() {
 		rand.Seed(time.Now().UnixNano())
 		containerId = strconv.Itoa(rand.Int())
 
-		hcsClient = &sandboxfakes.FakeHCSClient{}
-		limiter = &sandboxfakes.FakeLimiter{}
-		statser = &sandboxfakes.FakeStatser{}
-		sandboxManager = sandbox.NewManager(hcsClient, limiter, statser, storePath, containerId)
+		layerManager = &imagefakes.FakeLayerManager{}
+		layerManager.HomeDirReturns(storePath)
+		limiter = &imagefakes.FakeLimiter{}
+		statser = &imagefakes.FakeStatser{}
+		imageManager = image.NewManager(layerManager, limiter, statser, containerId)
 
 		rootfsParents = []byte(`["path1", "path2"]`)
-		hcsClient.CreateLayerStub = func(driverInfo hcsshim.DriverInfo, containerId string, _ string, _ []string) (string, error) {
-			Expect(os.MkdirAll(filepath.Join(driverInfo.HomeDir, containerId), 0755)).To(Succeed())
+		layerManager.CreateLayerStub = func(containerId string, _ string, _ []string) (string, error) {
+			Expect(os.MkdirAll(filepath.Join(layerManager.HomeDir(), containerId), 0755)).To(Succeed())
 			return containerVolume, nil
 		}
 
@@ -57,7 +57,7 @@ var _ = Describe("Stats", func() {
 
 	JustBeforeEach(func() {
 		Expect(ioutil.WriteFile(filepath.Join(rootfs, "layerchain.json"), rootfsParents, 0755)).To(Succeed())
-		_, err := sandboxManager.Create(rootfs, 666)
+		_, err := imageManager.Create(rootfs, 666)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -67,7 +67,7 @@ var _ = Describe("Stats", func() {
 	})
 
 	It("returns the stats", func() {
-		stats, err := sandboxManager.Stats()
+		stats, err := imageManager.Stats()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(stats.Disk.ExclusiveBytesUsed).To(Equal(uint64(1234)))
 		Expect(stats.Disk.TotalBytesUsed).To(Equal(uint64(30001234)))

@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/sandbox"
+	"code.cloudfoundry.org/winc/image"
+	"code.cloudfoundry.org/winc/layer"
 	"code.cloudfoundry.org/winc/volume"
 
 	"github.com/urfave/cli"
@@ -45,8 +46,9 @@ var createCommand = cli.Command{
 		}
 
 		rootfsPath = destToWindowsPath(rootfsPath)
-		sm := sandbox.NewManager(&hcs.Client{}, &volume.Limiter{}, &volume.Statser{}, storePath, containerId)
-		imageSpec, err := sm.Create(rootfsPath, diskLimit)
+		lm := layer.NewManager(&hcs.Client{}, storePath)
+		im := image.NewManager(lm, &volume.Limiter{}, &volume.Statser{}, containerId)
+		imageSpec, err := im.Create(rootfsPath, diskLimit)
 		if err != nil {
 			return err
 		}
