@@ -238,6 +238,27 @@ var _ = Describe("Create", func() {
 			})
 		})
 
+		Context("when cpu limits are specified in the spec", func() {
+			var expectedCPUShares uint16
+
+			BeforeEach(func() {
+				expectedCPUShares = 8080
+				spec.Windows.Resources = &specs.WindowsResources{
+					CPU: &specs.WindowsCPUResources{
+						Shares: &expectedCPUShares,
+					},
+				}
+			})
+
+			It("creates the container with the specified cpu limits", func() {
+				Expect(containerManager.Create(spec)).To(Succeed())
+
+				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+				Expect(containerConfig.ProcessorWeight).To(Equal(uint64(expectedCPUShares)))
+			})
+		})
+
 		Context("when attaching endpoint fails", func() {
 			var attachError error
 
