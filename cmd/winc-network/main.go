@@ -149,6 +149,8 @@ func networkUp(containerId string) error {
 		case network.ProtocolUDP:
 			protocol = "UDP"
 			netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", network.FirewallRulePortRange(netOut.Ports)))
+		case network.ProtocolICMP:
+			continue
 		case network.ProtocolAll:
 			protocol = "ANY"
 		default:

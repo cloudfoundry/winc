@@ -210,6 +210,16 @@ var _ = Describe("up", func() {
 				})
 			})
 
+			Context("with the ICMP protocol", func() {
+				BeforeEach(func() {
+					protocol = network.ProtocolICMP
+				})
+
+				It("does not create a firewall rule", func() {
+					noMatchingFirewallRule(containerIp)
+				})
+			})
+
 			Context("with the ANY protocol", func() {
 				type firewallRuleAll struct {
 					Protocol string               `json:"Protocol"`
@@ -244,6 +254,21 @@ func getContainerFirewallRule(containerIp string, ruleInfo interface{}) {
 	output, err = exec.Command("powershell.exe", "-Command", getRemoteAddressesCmd).CombinedOutput()
 	Expect(err).To(Succeed())
 	Expect(json.Unmarshal(output, ruleInfo)).To(Succeed())
+}
+
+func noMatchingFirewallRule(containerIp string) {
+	const getContainerFirewallRuleAddresses = `Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"} | ConvertTo-Json`
+	const getContainerFirewallRulePorts = `Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"} | Get-NetFirewallRule | Get-NetFirewallPortFilter | ConvertTo-Json`
+
+	getRemotePortsCmd := fmt.Sprintf(getContainerFirewallRulePorts, containerIp)
+	output, err := exec.Command("powershell.exe", "-Command", getRemotePortsCmd).CombinedOutput()
+	Expect(err).To(Succeed())
+	Expect(string(output)).To(Equal(""))
+
+	getRemoteAddressesCmd := fmt.Sprintf(getContainerFirewallRuleAddresses, containerIp)
+	output, err = exec.Command("powershell.exe", "-Command", getRemoteAddressesCmd).CombinedOutput()
+	Expect(err).To(Succeed())
+	Expect(string(output)).To(Equal(""))
 }
 
 func getContainerIp(containerId string) net.IP {
