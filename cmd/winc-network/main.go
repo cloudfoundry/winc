@@ -5,8 +5,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/localip"
@@ -36,14 +38,28 @@ type UpOutputs struct {
 }
 
 func main() {
-	action, handle, err := parseArgs(os.Args)
+	action, handle, configFile, err := parseArgs(os.Args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "invalid args: %s", err.Error())
 		os.Exit(1)
 	}
 
+	var config network.Config
+	if configFile != "" {
+		content, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "configFile: %s", err.Error())
+			os.Exit(1)
+		}
+		err = json.Unmarshal(content, &config)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "configFile: %s", err.Error())
+			os.Exit(1)
+		}
+	}
+
 	if action == "up" {
-		err := networkUp(handle)
+		err := networkUp(handle, config)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "networkUp: %s", err.Error())
 			os.Exit(1)
@@ -61,7 +77,7 @@ func main() {
 
 }
 
-func networkUp(containerId string) error {
+func networkUp(containerId string, config network.Config) error {
 	var inputs UpInputs
 	if err := json.NewDecoder(os.Stdin).Decode(&inputs); err != nil {
 		return err
@@ -168,6 +184,10 @@ func networkUp(containerId string) error {
 		}
 	}
 
+	if err := setMTU(container, endpointId, config.MTU); err != nil {
+		return err
+	}
+
 	return json.NewEncoder(os.Stdout).Encode(upOutputs)
 }
 
@@ -182,27 +202,28 @@ func networkDown(containerId string) error {
 	return nil
 }
 
-func parseArgs(allArgs []string) (string, string, error) {
-	var action, handle string
+func parseArgs(allArgs []string) (string, string, string, error) {
+	var action, handle, configFile string
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 
 	flagSet.StringVar(&action, "action", "", "")
 	flagSet.StringVar(&handle, "handle", "", "")
+	flagSet.StringVar(&configFile, "configFile", "", "")
 
 	err := flagSet.Parse(allArgs[1:])
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	if handle == "" {
-		return "", "", fmt.Errorf("missing required flag 'handle'")
+		return "", "", "", fmt.Errorf("missing required flag 'handle'")
 	}
 
 	if action == "" {
-		return "", "", fmt.Errorf("missing required flag 'action'")
+		return "", "", "", fmt.Errorf("missing required flag 'action'")
 	}
 
-	return action, handle, nil
+	return action, handle, configFile, nil
 }
 
 func openPort(container hcsshim.Container, port uint32) error {
@@ -223,6 +244,38 @@ func openPort(container hcsshim.Container, port uint32) error {
 	}
 	if exitCode != 0 {
 		return fmt.Errorf("failed to open port: %d", port)
+	}
+
+	return nil
+}
+
+func setMTU(container hcsshim.Container, endpointId string, mtu int) error {
+	if mtu == 0 {
+		return nil
+	}
+
+	if mtu > 1500 {
+		return fmt.Errorf("invalid mtu specified: %d", mtu)
+	}
+
+	interfaceName := fmt.Sprintf("vEthernet (Container NIC %s)", strings.Split(endpointId, "-")[0])
+	p, err := container.CreateProcess(&hcsshim.ProcessConfig{
+		CommandLine: fmt.Sprintf("netsh interface ipv4 set subinterface \"%s\" mtu=%d store=persistent", interfaceName, mtu),
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := p.WaitTimeout(time.Second); err != nil {
+		return err
+	}
+
+	exitCode, err := p.ExitCode()
+	if err != nil {
+		return err
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("failed to set mtu: %d", mtu)
 	}
 
 	return nil
