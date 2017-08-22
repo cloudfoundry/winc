@@ -59,6 +59,13 @@ var _ = Describe("Events", func() {
 			Context("when passed the --stats flag", func() {
 				type stats struct {
 					Data struct {
+						CPUStats struct {
+							CPUUsage struct {
+								Usage  uint64 `json:"total"`
+								System uint64 `json:"kernel"`
+								User   uint64 `json:"user"`
+							} `json:"usage"`
+						} `json:"cpu"`
 						Memory struct {
 							Stats struct {
 								TotalRss uint64 `json:"total_rss"`
@@ -99,6 +106,29 @@ var _ = Describe("Events", func() {
 					var statsAfter stats
 					Expect(json.Unmarshal(stdOut.Bytes(), &statsAfter)).To(Succeed())
 					Expect(statsAfter.Data.Memory.Stats.TotalRss).To(BeNumerically("~", expectedMemConsumedBytes, threshold))
+				})
+
+				It("prints the container CPU stats to stdout", func() {
+					cmd := exec.Command(wincBin, "events", "--stats", containerId)
+					cmd.Stdout = stdOut
+					Expect(cmd.Run()).To(Succeed())
+
+					var statsBefore stats
+					Expect(json.Unmarshal(stdOut.Bytes(), &statsBefore)).To(Succeed())
+					cpuUsageBefore := statsBefore.Data.CPUStats.CPUUsage.Usage
+					Expect(cpuUsageBefore).To(BeNumerically(">", 0))
+
+					err := exec.Command(wincBin, "exec", "-d", containerId, "powershell.exe", "-Command", "foreach ($loopnumber in 1..2147483647) {$result=1;foreach ($number in 1..2147483647) {$result = $result * $number};$result}").Run()
+					Expect(err).ToNot(HaveOccurred())
+
+					stdOut = new(bytes.Buffer)
+					cmd = exec.Command(wincBin, "events", "--stats", containerId)
+					cmd.Stdout = stdOut
+					Expect(cmd.Run()).To(Succeed())
+
+					var statsAfter stats
+					Expect(json.Unmarshal(stdOut.Bytes(), &statsAfter)).To(Succeed())
+					Expect(statsAfter.Data.CPUStats.CPUUsage.Usage - cpuUsageBefore).To(BeNumerically(">", 300000000))
 				})
 			})
 		})

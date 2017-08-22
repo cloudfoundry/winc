@@ -45,6 +45,11 @@ var _ = Describe("Stats", func() {
 				Memory: hcsshim.MemoryStats{
 					UsageCommitBytes: 666,
 				},
+				Processor: hcsshim.ProcessorStats{
+					TotalRuntime100ns:  123,
+					RuntimeKernel100ns: 101,
+					RuntimeUser100ns:   22,
+				},
 			}, nil)
 		})
 
@@ -54,6 +59,9 @@ var _ = Describe("Stats", func() {
 
 			expectedStats := container.Statistics{}
 			expectedStats.Data.Memory.Raw.TotalRss = 666
+			expectedStats.Data.CPUStats.CPUUsage.Usage = 12300
+			expectedStats.Data.CPUStats.CPUUsage.System = 10100
+			expectedStats.Data.CPUStats.CPUUsage.User = 2200
 			Expect(stats).To(Equal(expectedStats))
 		})
 	})
