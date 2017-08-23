@@ -84,11 +84,6 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		return err
 	}
 
-	driverInfo := hcsshim.DriverInfo{
-		HomeDir: c.rootPath,
-		Flavour: 1,
-	}
-
 	volumePath := spec.Root.Path
 	if volumePath == "" {
 		return &MissingVolumePathError{Id: c.id}
@@ -126,12 +121,14 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		})
 	}
 
+	sandboxDir := filepath.Join(c.rootPath, c.id)
+
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
 		Name:              c.bundlePath,
 		VolumePath:        volumePath,
 		Owner:             "winc",
-		LayerFolderPath:   filepath.Join(driverInfo.HomeDir, c.id),
+		LayerFolderPath:   sandboxDir,
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
 	}
