@@ -1,4 +1,4 @@
-$CommitSha = (git rev-parse HEAD)
+﻿$CommitSha = (git rev-parse HEAD)
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Command 'git rev-parse HEAD' failed with exit code: $LASTEXITCODE"
   Exit 1
@@ -9,7 +9,5 @@ if ($LASTEXITCODE -ne 0) {
   $Commit = "$CommitSha-dirty"
 }
 
-$Version = (Get-Content VERSION)
-
-go build -ldflags "-X main.gitCommit=$Commit -X main.version=$Version" ./cmd/winc
+go build -ldflags "-X main.gitCommit=$Commit" ./cmd/winc
 Exit $LASTEXITCODE
