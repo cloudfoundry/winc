@@ -114,7 +114,7 @@ func runtimeSpecGenerator(imageSpec image.ImageSpec, containerId string) specs.S
 		Version: specs.Version,
 		Process: &specs.Process{
 			Args: []string{"powershell"},
-			Cwd:  "/",
+			Cwd:  "C:\\",
 		},
 		Root: &specs.Root{
 			Path: imageSpec.RootFs,

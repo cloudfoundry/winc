@@ -3,6 +3,7 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -116,11 +117,22 @@ var _ = Describe("Validate", func() {
 		})
 
 		Context("when provided a bundle with a config.json that does not conform to the runtime spec", func() {
-			var logOutput *bytes.Buffer
+			var (
+				logOutput   *bytes.Buffer
+				invalidSpec specs.Spec
+			)
 
 			BeforeEach(func() {
-				var spec specs.Spec
-				config, err := json.Marshal(&spec)
+				invalidSpec = runtimeSpecGenerator(image.ImageSpec{
+					RootFs: rootfsPath,
+					Spec: specs.Spec{
+						Windows: &specs.Windows{
+							LayerFolders: []string{"a layer", "another layer"},
+						},
+					},
+				}, containerId)
+				invalidSpec.Version = ""
+				config, err := json.Marshal(&invalidSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
@@ -136,6 +148,20 @@ var _ = Describe("Validate", func() {
 			It("logs the invalid fields", func() {
 				logOutputStr := logOutput.String()
 				Expect(logOutputStr).To(ContainSubstring("'Spec.Version' should not be empty."))
+			})
+
+			Context("when the config.json spec version does not match the expected version", func() {
+				BeforeEach(func() {
+					invalidSpec.Version = specs.Version + "1"
+					config, err := json.Marshal(&invalidSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+				})
+
+				It("errors", func() {
+					logOutputStr := logOutput.String()
+					Expect(logOutputStr).To(ContainSubstring(fmt.Sprintf("validate currently only handles version %s, but the supplied configuration targets %s1", specs.Version, specs.Version)))
+				})
 			})
 		})
 	})

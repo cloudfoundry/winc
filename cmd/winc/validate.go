@@ -42,7 +42,7 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 		return nil, err
 	}
 
-	msgs := validator.CheckMandatoryFields()
+	msgs := checkAll(validator)
 	if len(msgs) != 0 {
 		for _, m := range msgs {
 			logger.WithField("bundleConfigError", m).Error(fmt.Sprintf("error in bundle %s", specConfig))
@@ -51,6 +51,14 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 	}
 
 	return &spec, nil
+}
+
+func checkAll(v validate.Validator) []string {
+	msgs := []string{}
+	msgs = append(msgs, v.CheckPlatform()...)
+	msgs = append(msgs, v.CheckMandatoryFields()...)
+	msgs = append(msgs, v.CheckSemVer()...)
+	return msgs
 }
 
 func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *specs.Process) (*specs.Process, error) {
