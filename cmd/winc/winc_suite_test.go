@@ -15,6 +15,8 @@ import (
 	"code.cloudfoundry.org/winc/image"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/netrules"
+	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
 
@@ -138,7 +140,10 @@ func execute(cmd string, args ...string) error {
 	return c.Run()
 }
 
-func networkManager(client *hcs.Client) *network.Manager {
+func networkManager(client *hcs.Client, containerId string) *network.Manager {
+	runner := netsh.NewRunner(client, containerId)
+	applier := netrules.NewApplier(runner, containerId)
+
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,
 		Capacity:  5000,
@@ -152,7 +157,7 @@ func networkManager(client *hcs.Client) *network.Manager {
 		Locker:     locker,
 	}
 
-	return network.NewManager(client, pa)
+	return network.NewManager(client, pa, applier, network.Config{}, containerId)
 }
 
 func allEndpoints(containerID string) []string {

@@ -61,6 +61,19 @@ type FakeHCSClient struct {
 		result1 *hcsshim.HNSEndpoint
 		result2 error
 	}
+	GetHNSEndpointByNameStub        func(string) (*hcsshim.HNSEndpoint, error)
+	getHNSEndpointByNameMutex       sync.RWMutex
+	getHNSEndpointByNameArgsForCall []struct {
+		arg1 string
+	}
+	getHNSEndpointByNameReturns struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}
+	getHNSEndpointByNameReturnsOnCall map[int]struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}
 	DeleteEndpointStub        func(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	deleteEndpointMutex       sync.RWMutex
 	deleteEndpointArgsForCall []struct {
@@ -282,6 +295,57 @@ func (fake *FakeHCSClient) GetHNSEndpointByIDReturnsOnCall(i int, result1 *hcssh
 	}{result1, result2}
 }
 
+func (fake *FakeHCSClient) GetHNSEndpointByName(arg1 string) (*hcsshim.HNSEndpoint, error) {
+	fake.getHNSEndpointByNameMutex.Lock()
+	ret, specificReturn := fake.getHNSEndpointByNameReturnsOnCall[len(fake.getHNSEndpointByNameArgsForCall)]
+	fake.getHNSEndpointByNameArgsForCall = append(fake.getHNSEndpointByNameArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	fake.recordInvocation("GetHNSEndpointByName", []interface{}{arg1})
+	fake.getHNSEndpointByNameMutex.Unlock()
+	if fake.GetHNSEndpointByNameStub != nil {
+		return fake.GetHNSEndpointByNameStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getHNSEndpointByNameReturns.result1, fake.getHNSEndpointByNameReturns.result2
+}
+
+func (fake *FakeHCSClient) GetHNSEndpointByNameCallCount() int {
+	fake.getHNSEndpointByNameMutex.RLock()
+	defer fake.getHNSEndpointByNameMutex.RUnlock()
+	return len(fake.getHNSEndpointByNameArgsForCall)
+}
+
+func (fake *FakeHCSClient) GetHNSEndpointByNameArgsForCall(i int) string {
+	fake.getHNSEndpointByNameMutex.RLock()
+	defer fake.getHNSEndpointByNameMutex.RUnlock()
+	return fake.getHNSEndpointByNameArgsForCall[i].arg1
+}
+
+func (fake *FakeHCSClient) GetHNSEndpointByNameReturns(result1 *hcsshim.HNSEndpoint, result2 error) {
+	fake.GetHNSEndpointByNameStub = nil
+	fake.getHNSEndpointByNameReturns = struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeHCSClient) GetHNSEndpointByNameReturnsOnCall(i int, result1 *hcsshim.HNSEndpoint, result2 error) {
+	fake.GetHNSEndpointByNameStub = nil
+	if fake.getHNSEndpointByNameReturnsOnCall == nil {
+		fake.getHNSEndpointByNameReturnsOnCall = make(map[int]struct {
+			result1 *hcsshim.HNSEndpoint
+			result2 error
+		})
+	}
+	fake.getHNSEndpointByNameReturnsOnCall[i] = struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeHCSClient) DeleteEndpoint(arg1 *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
 	fake.deleteEndpointMutex.Lock()
 	ret, specificReturn := fake.deleteEndpointReturnsOnCall[len(fake.deleteEndpointArgsForCall)]
@@ -344,6 +408,8 @@ func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	defer fake.createEndpointMutex.RUnlock()
 	fake.getHNSEndpointByIDMutex.RLock()
 	defer fake.getHNSEndpointByIDMutex.RUnlock()
+	fake.getHNSEndpointByNameMutex.RLock()
+	defer fake.getHNSEndpointByNameMutex.RUnlock()
 	fake.deleteEndpointMutex.RLock()
 	defer fake.deleteEndpointMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

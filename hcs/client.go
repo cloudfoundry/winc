@@ -103,6 +103,10 @@ func (c *Client) GetHNSEndpointByID(id string) (*hcsshim.HNSEndpoint, error) {
 	return hcsshim.GetHNSEndpointByID(id)
 }
 
+func (c *Client) GetHNSEndpointByName(name string) (*hcsshim.HNSEndpoint, error) {
+	return hcsshim.GetHNSEndpointByName(name)
+}
+
 func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 	return hcsshim.GetHNSNetworkByName(name)
 }

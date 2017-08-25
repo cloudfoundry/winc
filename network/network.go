@@ -2,10 +2,13 @@ package network
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/hcs"
+	"code.cloudfoundry.org/winc/netrules"
 
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
@@ -27,44 +30,79 @@ type HCSClient interface {
 	CreateNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
 	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	GetHNSEndpointByID(string) (*hcsshim.HNSEndpoint, error)
+	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
+}
+
+type Config struct {
+	MTU int `json:"mtu"`
+}
+
+type UpInputs struct {
+	Pid        int
+	Properties map[string]interface{}
+	NetOut     []netrules.NetOut `json:"netout_rules"`
+	NetIn      []netrules.NetIn  `json:"netin"`
+}
+
+type UpOutputs struct {
+	Properties struct {
+		ContainerIP      string `json:"garden.network.container-ip"`
+		DeprecatedHostIP string `json:"garden.network.host-ip"`
+		MappedPorts      string `json:"garden.network.mapped-ports"`
+	} `json:"properties"`
+	DNSServers []string `json:"dns_servers,omitempty"`
+}
+
+//go:generate counterfeiter . NetRuleApplier
+type NetRuleApplier interface {
+	In(netrules.NetIn, *hcsshim.HNSEndpoint) (netrules.PortMapping, error)
+	Out(netrules.NetOut, *hcsshim.HNSEndpoint) error
+	MTU(string, int) error
+	Cleanup() error
 }
 
 type Manager struct {
 	hcsClient     HCSClient
 	portAllocator PortAllocator
+	applier       NetRuleApplier
+	config        Config
+	id            string
 }
 
-func NewManager(client HCSClient, portAllocator PortAllocator) *Manager {
+func NewManager(client HCSClient, portAllocator PortAllocator, applier NetRuleApplier, config Config, containerID string) *Manager {
 	return &Manager{
 		hcsClient:     client,
 		portAllocator: portAllocator,
+		applier:       applier,
+		config:        config,
+		id:            containerID,
 	}
 }
 
-func (n *Manager) AttachEndpointToConfig(config hcsshim.ContainerConfig, containerID string) (hcsshim.ContainerConfig, error) {
+func (n *Manager) AttachEndpointToConfig(containerConfig hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error) {
 	wincNATNetwork, err := n.getWincNATNetwork()
 	if err != nil {
 		logrus.Error(err.Error())
 		return hcsshim.ContainerConfig{}, err
 	}
 
-	appPortMapping, err := n.portMapping(8080, containerID)
+	appPortMapping, err := n.portMapping(8080)
 	if err != nil {
 		logrus.Error(err.Error())
-		n.cleanupPorts(containerID)
+		n.cleanupPorts()
 		return hcsshim.ContainerConfig{}, err
 	}
 
-	sshPortMapping, err := n.portMapping(2222, containerID)
+	sshPortMapping, err := n.portMapping(2222)
 	if err != nil {
 		logrus.Error(err.Error())
-		n.cleanupPorts(containerID)
+		n.cleanupPorts()
 		return hcsshim.ContainerConfig{}, err
 	}
 
 	endpoint := &hcsshim.HNSEndpoint{
-		Name:           containerID,
+		Name:           n.id,
 		VirtualNetwork: wincNATNetwork.Id,
 		Policies:       []json.RawMessage{appPortMapping, sshPortMapping},
 	}
@@ -72,12 +110,12 @@ func (n *Manager) AttachEndpointToConfig(config hcsshim.ContainerConfig, contain
 	endpointID, err := n.createEndpoint(endpoint)
 	if err != nil {
 		logrus.Error(err.Error())
-		n.cleanupPorts(containerID)
+		n.cleanupPorts()
 		return hcsshim.ContainerConfig{}, err
 	}
 
-	config.EndpointList = []string{endpointID}
-	return config, nil
+	containerConfig.EndpointList = []string{endpointID}
+	return containerConfig, nil
 }
 
 func (n *Manager) getWincNATNetwork() (*hcsshim.HNSNetwork, error) {
@@ -115,8 +153,8 @@ func (n *Manager) getWincNATNetwork() (*hcsshim.HNSNetwork, error) {
 	return wincNATNetwork, nil
 }
 
-func (n *Manager) portMapping(containerPort int, containerID string) (json.RawMessage, error) {
-	hostPort, err := n.portAllocator.AllocatePort(containerID, 0)
+func (n *Manager) portMapping(containerPort int) (json.RawMessage, error) {
+	hostPort, err := n.portAllocator.AllocatePort(n.id, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +193,7 @@ func (n *Manager) createEndpoint(endpoint *hcsshim.HNSEndpoint) (string, error) 
 	return createdEndpoint.Id, nil
 }
 
-func (n *Manager) DeleteContainerEndpoints(container hcs.Container, containerID string) error {
+func (n *Manager) DeleteContainerEndpoints(container hcs.Container) error {
 	stats, err := container.Statistics()
 	if err != nil {
 		return err
@@ -166,10 +204,10 @@ func (n *Manager) DeleteContainerEndpoints(container hcs.Container, containerID 
 		endpointIDs = append(endpointIDs, network.EndpointId)
 	}
 
-	return n.DeleteEndpointsById(endpointIDs, containerID)
+	return n.DeleteEndpointsById(endpointIDs)
 }
 
-func (n *Manager) DeleteEndpointsById(ids []string, containerID string) error {
+func (n *Manager) DeleteEndpointsById(ids []string) error {
 	var deleteErrors []error
 	for _, endpointId := range ids {
 		endpoint, err := n.hcsClient.GetHNSEndpointByID(endpointId)
@@ -192,12 +230,63 @@ func (n *Manager) DeleteEndpointsById(ids []string, containerID string) error {
 		return deleteErrors[0]
 	}
 
-	return n.portAllocator.ReleaseAllPorts(containerID)
+	return n.portAllocator.ReleaseAllPorts(n.id)
 }
 
-func (n *Manager) cleanupPorts(containerID string) {
-	releaseErr := n.portAllocator.ReleaseAllPorts(containerID)
+func (n *Manager) cleanupPorts() {
+	releaseErr := n.portAllocator.ReleaseAllPorts(n.id)
 	if releaseErr != nil {
 		logrus.Error(releaseErr.Error())
 	}
+}
+
+func (n *Manager) Up(inputs UpInputs) (UpOutputs, error) {
+	outputs := UpOutputs{}
+
+	if len(inputs.NetIn) > 2 {
+		return outputs, fmt.Errorf("invalid number of port mappings: %d", len(inputs.NetIn))
+	}
+
+	endpoint, err := n.hcsClient.GetHNSEndpointByName(n.id)
+	if err != nil {
+		return outputs, err
+	}
+
+	mappedPorts := []netrules.PortMapping{}
+
+	for _, rule := range inputs.NetIn {
+		mapping, err := n.applier.In(rule, endpoint)
+		if err != nil {
+			return outputs, err
+		}
+		mappedPorts = append(mappedPorts, mapping)
+	}
+
+	for _, rule := range inputs.NetOut {
+		if err := n.applier.Out(rule, endpoint); err != nil {
+			return outputs, err
+		}
+	}
+
+	if err := n.applier.MTU(endpoint.Id, n.config.MTU); err != nil {
+		return outputs, err
+	}
+
+	portBytes, err := json.Marshal(mappedPorts)
+	if err != nil {
+		return outputs, err
+	}
+
+	outputs.Properties.MappedPorts = string(portBytes)
+	outputs.Properties.ContainerIP, err = localip.LocalIP()
+	if err != nil {
+		return outputs, err
+	}
+	outputs.Properties.DeprecatedHostIP = "255.255.255.255"
+
+	return outputs, nil
+}
+
+func (n *Manager) Down() error {
+	return n.applier.Cleanup()
 }

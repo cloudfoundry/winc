@@ -40,7 +40,7 @@ var _ = Describe("Create", func() {
 		containerId = filepath.Base(bundlePath)
 
 		client = &hcs.Client{}
-		nm := networkManager(client)
+		nm := networkManager(client, containerId)
 		cm = container.NewManager(client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
 		bundleSpec = runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)

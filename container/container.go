@@ -59,9 +59,9 @@ type HCSClient interface {
 
 //go:generate counterfeiter . NetworkManager
 type NetworkManager interface {
-	AttachEndpointToConfig(hcsshim.ContainerConfig, string) (hcsshim.ContainerConfig, error)
-	DeleteContainerEndpoints(hcs.Container, string) error
-	DeleteEndpointsById([]string, string) error
+	AttachEndpointToConfig(hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error)
+	DeleteContainerEndpoints(hcs.Container) error
+	DeleteEndpointsById([]string) error
 }
 
 func NewManager(hcsClient HCSClient, mounter Mounter, networkManager NetworkManager, rootPath, bundlePath string) *Manager {
@@ -133,7 +133,7 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		MappedDirectories: mappedDirs,
 	}
 
-	containerConfig, err = c.networkManager.AttachEndpointToConfig(containerConfig, c.id)
+	containerConfig, err = c.networkManager.AttachEndpointToConfig(containerConfig)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (c *Manager) Create(spec *specs.Spec) error {
 
 	container, err := c.hcsClient.CreateContainer(c.id, &containerConfig)
 	if err != nil {
-		if deleteErr := c.networkManager.DeleteEndpointsById(containerConfig.EndpointList, c.id); deleteErr != nil {
+		if deleteErr := c.networkManager.DeleteEndpointsById(containerConfig.EndpointList); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 
@@ -317,7 +317,7 @@ func (c *Manager) containerPid(id string) (int, error) {
 }
 
 func (c *Manager) deleteContainer(container hcs.Container) error {
-	if err := c.networkManager.DeleteContainerEndpoints(container, c.id); err != nil {
+	if err := c.networkManager.DeleteContainerEndpoints(container); err != nil {
 		logrus.Error(err.Error())
 	}
 

@@ -12,6 +12,8 @@ import (
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/netrules"
+	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
 	"code.cloudfoundry.org/winc/volume"
@@ -192,6 +194,15 @@ func wireContainerManager(rootPath, bundlePath, containerId string) (*container.
 		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
+	nm := wireNetworkManager(network.Config{}, containerId)
+	return container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath), nil
+}
+
+func wireNetworkManager(config network.Config, handle string) *network.Manager {
+	client := &hcs.Client{}
+	runner := netsh.NewRunner(client, handle)
+	applier := netrules.NewApplier(runner, handle)
+
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,
 		Capacity:  5000,
@@ -205,7 +216,11 @@ func wireContainerManager(rootPath, bundlePath, containerId string) (*container.
 		Locker:     locker,
 	}
 
-	nm := network.NewManager(&client, pa)
-
-	return container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath), nil
+	return network.NewManager(
+		client,
+		pa,
+		applier,
+		config,
+		handle,
+	)
 }

@@ -44,7 +44,7 @@ var _ = Describe("Create", func() {
 		networkManager = &containerfakes.FakeNetworkManager{}
 		containerManager = container.NewManager(hcsClient, mounter, networkManager, rootPath, bundlePath)
 
-		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig, containerId string) (hcsshim.ContainerConfig, error) {
+		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error) {
 			config.EndpointList = []string{"endpoint-for-" + containerId}
 			return config, nil
 		}
@@ -280,9 +280,8 @@ var _ = Describe("Create", func() {
 			It("deletes the network endpoints", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(networkManager.DeleteEndpointsByIdCallCount()).To(Equal(1))
-				endpointIds, actualContainerId := networkManager.DeleteEndpointsByIdArgsForCall(0)
+				endpointIds := networkManager.DeleteEndpointsByIdArgsForCall(0)
 				Expect(endpointIds).To(Equal([]string{"endpoint-for-" + containerId}))
-				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 
@@ -296,9 +295,8 @@ var _ = Describe("Create", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
-				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 
@@ -314,9 +312,8 @@ var _ = Describe("Create", func() {
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
-				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 
@@ -330,9 +327,8 @@ var _ = Describe("Create", func() {
 				Expect(containerManager.Create(spec)).NotTo(Succeed())
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(&fakeContainer))
-				Expect(actualContainerId).To(Equal(containerId))
 			})
 		})
 	})

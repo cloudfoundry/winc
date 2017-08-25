@@ -10,11 +10,10 @@ import (
 )
 
 type FakeNetworkManager struct {
-	AttachEndpointToConfigStub        func(hcsshim.ContainerConfig, string) (hcsshim.ContainerConfig, error)
+	AttachEndpointToConfigStub        func(hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error)
 	attachEndpointToConfigMutex       sync.RWMutex
 	attachEndpointToConfigArgsForCall []struct {
 		arg1 hcsshim.ContainerConfig
-		arg2 string
 	}
 	attachEndpointToConfigReturns struct {
 		result1 hcsshim.ContainerConfig
@@ -24,11 +23,10 @@ type FakeNetworkManager struct {
 		result1 hcsshim.ContainerConfig
 		result2 error
 	}
-	DeleteContainerEndpointsStub        func(hcs.Container, string) error
+	DeleteContainerEndpointsStub        func(hcs.Container) error
 	deleteContainerEndpointsMutex       sync.RWMutex
 	deleteContainerEndpointsArgsForCall []struct {
 		arg1 hcs.Container
-		arg2 string
 	}
 	deleteContainerEndpointsReturns struct {
 		result1 error
@@ -36,11 +34,10 @@ type FakeNetworkManager struct {
 	deleteContainerEndpointsReturnsOnCall map[int]struct {
 		result1 error
 	}
-	DeleteEndpointsByIdStub        func([]string, string) error
+	DeleteEndpointsByIdStub        func([]string) error
 	deleteEndpointsByIdMutex       sync.RWMutex
 	deleteEndpointsByIdArgsForCall []struct {
 		arg1 []string
-		arg2 string
 	}
 	deleteEndpointsByIdReturns struct {
 		result1 error
@@ -52,17 +49,16 @@ type FakeNetworkManager struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNetworkManager) AttachEndpointToConfig(arg1 hcsshim.ContainerConfig, arg2 string) (hcsshim.ContainerConfig, error) {
+func (fake *FakeNetworkManager) AttachEndpointToConfig(arg1 hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error) {
 	fake.attachEndpointToConfigMutex.Lock()
 	ret, specificReturn := fake.attachEndpointToConfigReturnsOnCall[len(fake.attachEndpointToConfigArgsForCall)]
 	fake.attachEndpointToConfigArgsForCall = append(fake.attachEndpointToConfigArgsForCall, struct {
 		arg1 hcsshim.ContainerConfig
-		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("AttachEndpointToConfig", []interface{}{arg1, arg2})
+	}{arg1})
+	fake.recordInvocation("AttachEndpointToConfig", []interface{}{arg1})
 	fake.attachEndpointToConfigMutex.Unlock()
 	if fake.AttachEndpointToConfigStub != nil {
-		return fake.AttachEndpointToConfigStub(arg1, arg2)
+		return fake.AttachEndpointToConfigStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -76,10 +72,10 @@ func (fake *FakeNetworkManager) AttachEndpointToConfigCallCount() int {
 	return len(fake.attachEndpointToConfigArgsForCall)
 }
 
-func (fake *FakeNetworkManager) AttachEndpointToConfigArgsForCall(i int) (hcsshim.ContainerConfig, string) {
+func (fake *FakeNetworkManager) AttachEndpointToConfigArgsForCall(i int) hcsshim.ContainerConfig {
 	fake.attachEndpointToConfigMutex.RLock()
 	defer fake.attachEndpointToConfigMutex.RUnlock()
-	return fake.attachEndpointToConfigArgsForCall[i].arg1, fake.attachEndpointToConfigArgsForCall[i].arg2
+	return fake.attachEndpointToConfigArgsForCall[i].arg1
 }
 
 func (fake *FakeNetworkManager) AttachEndpointToConfigReturns(result1 hcsshim.ContainerConfig, result2 error) {
@@ -104,17 +100,16 @@ func (fake *FakeNetworkManager) AttachEndpointToConfigReturnsOnCall(i int, resul
 	}{result1, result2}
 }
 
-func (fake *FakeNetworkManager) DeleteContainerEndpoints(arg1 hcs.Container, arg2 string) error {
+func (fake *FakeNetworkManager) DeleteContainerEndpoints(arg1 hcs.Container) error {
 	fake.deleteContainerEndpointsMutex.Lock()
 	ret, specificReturn := fake.deleteContainerEndpointsReturnsOnCall[len(fake.deleteContainerEndpointsArgsForCall)]
 	fake.deleteContainerEndpointsArgsForCall = append(fake.deleteContainerEndpointsArgsForCall, struct {
 		arg1 hcs.Container
-		arg2 string
-	}{arg1, arg2})
-	fake.recordInvocation("DeleteContainerEndpoints", []interface{}{arg1, arg2})
+	}{arg1})
+	fake.recordInvocation("DeleteContainerEndpoints", []interface{}{arg1})
 	fake.deleteContainerEndpointsMutex.Unlock()
 	if fake.DeleteContainerEndpointsStub != nil {
-		return fake.DeleteContainerEndpointsStub(arg1, arg2)
+		return fake.DeleteContainerEndpointsStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
@@ -128,10 +123,10 @@ func (fake *FakeNetworkManager) DeleteContainerEndpointsCallCount() int {
 	return len(fake.deleteContainerEndpointsArgsForCall)
 }
 
-func (fake *FakeNetworkManager) DeleteContainerEndpointsArgsForCall(i int) (hcs.Container, string) {
+func (fake *FakeNetworkManager) DeleteContainerEndpointsArgsForCall(i int) hcs.Container {
 	fake.deleteContainerEndpointsMutex.RLock()
 	defer fake.deleteContainerEndpointsMutex.RUnlock()
-	return fake.deleteContainerEndpointsArgsForCall[i].arg1, fake.deleteContainerEndpointsArgsForCall[i].arg2
+	return fake.deleteContainerEndpointsArgsForCall[i].arg1
 }
 
 func (fake *FakeNetworkManager) DeleteContainerEndpointsReturns(result1 error) {
@@ -153,7 +148,7 @@ func (fake *FakeNetworkManager) DeleteContainerEndpointsReturnsOnCall(i int, res
 	}{result1}
 }
 
-func (fake *FakeNetworkManager) DeleteEndpointsById(arg1 []string, arg2 string) error {
+func (fake *FakeNetworkManager) DeleteEndpointsById(arg1 []string) error {
 	var arg1Copy []string
 	if arg1 != nil {
 		arg1Copy = make([]string, len(arg1))
@@ -163,12 +158,11 @@ func (fake *FakeNetworkManager) DeleteEndpointsById(arg1 []string, arg2 string) 
 	ret, specificReturn := fake.deleteEndpointsByIdReturnsOnCall[len(fake.deleteEndpointsByIdArgsForCall)]
 	fake.deleteEndpointsByIdArgsForCall = append(fake.deleteEndpointsByIdArgsForCall, struct {
 		arg1 []string
-		arg2 string
-	}{arg1Copy, arg2})
-	fake.recordInvocation("DeleteEndpointsById", []interface{}{arg1Copy, arg2})
+	}{arg1Copy})
+	fake.recordInvocation("DeleteEndpointsById", []interface{}{arg1Copy})
 	fake.deleteEndpointsByIdMutex.Unlock()
 	if fake.DeleteEndpointsByIdStub != nil {
-		return fake.DeleteEndpointsByIdStub(arg1, arg2)
+		return fake.DeleteEndpointsByIdStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
@@ -182,10 +176,10 @@ func (fake *FakeNetworkManager) DeleteEndpointsByIdCallCount() int {
 	return len(fake.deleteEndpointsByIdArgsForCall)
 }
 
-func (fake *FakeNetworkManager) DeleteEndpointsByIdArgsForCall(i int) ([]string, string) {
+func (fake *FakeNetworkManager) DeleteEndpointsByIdArgsForCall(i int) []string {
 	fake.deleteEndpointsByIdMutex.RLock()
 	defer fake.deleteEndpointsByIdMutex.RUnlock()
-	return fake.deleteEndpointsByIdArgsForCall[i].arg1, fake.deleteEndpointsByIdArgsForCall[i].arg2
+	return fake.deleteEndpointsByIdArgsForCall[i].arg1
 }
 
 func (fake *FakeNetworkManager) DeleteEndpointsByIdReturns(result1 error) {

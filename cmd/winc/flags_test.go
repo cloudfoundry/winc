@@ -114,7 +114,7 @@ var _ = Describe("Flags", func() {
 
 			AfterEach(func() {
 				client := &hcs.Client{}
-				nm := networkManager(client)
+				nm := networkManager(client, containerId)
 				cm := container.NewManager(client, &volume.Mounter{}, nm, rootPath, containerId)
 				Expect(cm.Delete()).To(Succeed())
 				Expect(execute(wincImageBin, "--store", rootPath, "delete", containerId)).To(Succeed())
@@ -193,7 +193,7 @@ var _ = Describe("Flags", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			client := &hcs.Client{}
-			nm := networkManager(client)
+			nm := networkManager(client, containerId)
 			cm = container.NewManager(client, &volume.Mounter{}, nm, storePath, containerId)
 
 			bundleSpec := runtimeSpecGenerator(createSandbox(storePath, rootfsPath, containerId), containerId)

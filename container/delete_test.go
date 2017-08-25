@@ -64,9 +64,8 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 			Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-			container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
+			container := networkManager.DeleteContainerEndpointsArgsForCall(0)
 			Expect(container).To(Equal(fakeContainer))
-			Expect(actualContainerId).To(Equal(containerId))
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
@@ -86,9 +85,8 @@ var _ = Describe("Delete", func() {
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container, actualContainerId := networkManager.DeleteContainerEndpointsArgsForCall(0)
+				container := networkManager.DeleteContainerEndpointsArgsForCall(0)
 				Expect(container).To(Equal(fakeContainer))
-				Expect(actualContainerId).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})

@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/netrules"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -83,21 +83,6 @@ var _ = Describe("up", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.TrimSpace(string(output))).To(Equal("1405"))
 		})
-
-		Context("when the requested network MTU is over 1500", func() {
-			BeforeEach(func() {
-				mtu = 1505
-			})
-
-			It("returns an error", func() {
-				cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
-				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
-
-				output, err := cmd.CombinedOutput()
-				Expect(err).NotTo(Succeed())
-				Expect(string(output)).To(Equal("networkUp: invalid mtu specified: 1505"))
-			})
-		})
 	})
 
 	Context("stdin contains a port mapping request", func() {
@@ -140,18 +125,6 @@ var _ = Describe("up", func() {
 		})
 	})
 
-	Context("stdin contains a port mapping request with two ports", func() {
-		It("prints the correct port mapping for the container", func() {
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
-			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}, {"host_port": 0, "container_port": 2222}]}`)
-			output, err := cmd.CombinedOutput()
-			Expect(err).To(Succeed())
-
-			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080},{\\"HostPort\\":\d+,\\"ContainerPort\\":2222}\]"}}`
-			Expect(string(output)).To(MatchRegexp(regex))
-		})
-	})
-
 	Context("stdin does not contain a port mapping request", func() {
 		It("prints an empty list of mapped ports", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
@@ -177,39 +150,26 @@ var _ = Describe("up", func() {
 	})
 
 	Context("stdin contains net out rules", func() {
-		type firewallRuleRemoteIP struct {
-			Value []string `json:"Value"`
-		}
-
-		type firewallRuleUDPTCP struct {
+		type firewallRule struct {
 			Protocol   string `json:"Protocol"`
-			RemotePort struct {
-				Value []string `json:"Value"`
-			} `json:"RemotePort"`
-			RemoteIP struct {
-				Value []string `json:"Value"`
-			} `json:"RemoteIP"`
+			RemotePort string `json:"RemotePort"`
+			RemoteIP   string `json:"RemoteIP"`
 		}
 
-		var (
-			containerIp string
-			protocol    network.Protocol
-		)
+		var containerIp string
 
 		JustBeforeEach(func() {
 			containerIp = getContainerIp(containerId).String()
-			netOutRule := network.NetOutRule{
-				Protocol: protocol,
-				Networks: []network.IPRange{
-					network.IPRangeFromIP(net.ParseIP("8.8.8.8")),
-					network.IPRange{
+			netOutRule := netrules.NetOut{
+				Protocol: netrules.ProtocolTCP,
+				Networks: []netrules.IPRange{
+					netrules.IPRange{
 						Start: net.ParseIP("10.0.0.0"),
 						End:   net.ParseIP("13.0.0.0"),
 					},
 				},
-				Ports: []network.PortRange{
-					network.PortRangeFromPort(80),
-					network.PortRange{
+				Ports: []netrules.PortRange{
+					netrules.PortRange{
 						Start: 8080,
 						End:   8090,
 					},
@@ -231,62 +191,12 @@ var _ = Describe("up", func() {
 			Expect(string(output)).To(BeEmpty())
 		})
 
-		Context("with a single port/ip and port/ip ranges", func() {
-			Context("with the TCP protocol", func() {
-				BeforeEach(func() {
-					protocol = network.ProtocolTCP
-				})
-
-				It("creates the correct firewall rule", func() {
-					var f firewallRuleUDPTCP
-					getContainerFirewallRule(containerIp, &f)
-					Expect(strings.ToUpper(f.Protocol)).To(Equal("TCP"))
-					Expect(f.RemoteIP.Value).To(ConsistOf([]string{"8.8.8.8", "10.0.0.0-13.0.0.0"}))
-					Expect(f.RemotePort.Value).To(ConsistOf([]string{"80", "8080-8090"}))
-				})
-			})
-
-			Context("with the UDP protocol", func() {
-				BeforeEach(func() {
-					protocol = network.ProtocolUDP
-				})
-
-				It("creates the correct firewall rule", func() {
-					var f firewallRuleUDPTCP
-					getContainerFirewallRule(containerIp, &f)
-					Expect(strings.ToUpper(f.Protocol)).To(Equal("UDP"))
-					Expect(f.RemoteIP.Value).To(ConsistOf([]string{"8.8.8.8", "10.0.0.0-13.0.0.0"}))
-					Expect(f.RemotePort.Value).To(ConsistOf([]string{"80", "8080-8090"}))
-				})
-			})
-
-			Context("with the ICMP protocol", func() {
-				BeforeEach(func() {
-					protocol = network.ProtocolICMP
-				})
-
-				It("does not create a firewall rule", func() {
-					noMatchingFirewallRule(containerIp)
-				})
-			})
-
-			Context("with the ANY protocol", func() {
-				type firewallRuleAll struct {
-					Protocol string               `json:"Protocol"`
-					RemoteIP firewallRuleRemoteIP `json:"RemoteIP"`
-				}
-
-				BeforeEach(func() {
-					protocol = network.ProtocolAll
-				})
-
-				It("creates the correct firewall rule", func() {
-					var f firewallRuleAll
-					getContainerFirewallRule(containerIp, &f)
-					Expect(strings.ToUpper(f.Protocol)).To(Equal("ANY"))
-					Expect(f.RemoteIP.Value).To(ConsistOf([]string{"8.8.8.8", "10.0.0.0-13.0.0.0"}))
-				})
-			})
+		It("creates the correct firewall rule", func() {
+			var f firewallRule
+			getContainerFirewallRule(containerIp, &f)
+			Expect(strings.ToUpper(f.Protocol)).To(Equal("TCP"))
+			Expect(f.RemoteIP).To(Equal("10.0.0.0-13.0.0.0"))
+			Expect(f.RemotePort).To(Equal("8080-8090"))
 		})
 	})
 })
@@ -304,21 +214,6 @@ func getContainerFirewallRule(containerIp string, ruleInfo interface{}) {
 	output, err = exec.Command("powershell.exe", "-Command", getRemoteAddressesCmd).CombinedOutput()
 	Expect(err).To(Succeed())
 	Expect(json.Unmarshal(output, ruleInfo)).To(Succeed())
-}
-
-func noMatchingFirewallRule(containerIp string) {
-	const getContainerFirewallRuleAddresses = `Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"} | ConvertTo-Json`
-	const getContainerFirewallRulePorts = `Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"} | Get-NetFirewallRule | Get-NetFirewallPortFilter | ConvertTo-Json`
-
-	getRemotePortsCmd := fmt.Sprintf(getContainerFirewallRulePorts, containerIp)
-	output, err := exec.Command("powershell.exe", "-Command", getRemotePortsCmd).CombinedOutput()
-	Expect(err).To(Succeed())
-	Expect(string(output)).To(Equal(""))
-
-	getRemoteAddressesCmd := fmt.Sprintf(getContainerFirewallRuleAddresses, containerIp)
-	output, err = exec.Command("powershell.exe", "-Command", getRemoteAddressesCmd).CombinedOutput()
-	Expect(err).To(Succeed())
-	Expect(string(output)).To(Equal(""))
 }
 
 func getContainerIp(containerId string) net.IP {

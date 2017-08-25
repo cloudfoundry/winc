@@ -44,7 +44,7 @@ var _ = Describe("Exec", func() {
 		containerId = filepath.Base(bundlePath)
 
 		client = hcs.Client{}
-		nm := networkManager(&client)
+		nm := networkManager(&client, containerId)
 		cm = container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath)
 
 		stdOut = new(bytes.Buffer)
