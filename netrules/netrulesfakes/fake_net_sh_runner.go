@@ -19,16 +19,18 @@ type FakeNetShRunner struct {
 	runContainerReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RunHostStub        func([]string) error
+	RunHostStub        func([]string) ([]byte, error)
 	runHostMutex       sync.RWMutex
 	runHostArgsForCall []struct {
 		arg1 []string
 	}
 	runHostReturns struct {
-		result1 error
+		result1 []byte
+		result2 error
 	}
 	runHostReturnsOnCall map[int]struct {
-		result1 error
+		result1 []byte
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -87,7 +89,7 @@ func (fake *FakeNetShRunner) RunContainerReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeNetShRunner) RunHost(arg1 []string) error {
+func (fake *FakeNetShRunner) RunHost(arg1 []string) ([]byte, error) {
 	var arg1Copy []string
 	if arg1 != nil {
 		arg1Copy = make([]string, len(arg1))
@@ -104,9 +106,9 @@ func (fake *FakeNetShRunner) RunHost(arg1 []string) error {
 		return fake.RunHostStub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fake.runHostReturns.result1
+	return fake.runHostReturns.result1, fake.runHostReturns.result2
 }
 
 func (fake *FakeNetShRunner) RunHostCallCount() int {
@@ -121,23 +123,26 @@ func (fake *FakeNetShRunner) RunHostArgsForCall(i int) []string {
 	return fake.runHostArgsForCall[i].arg1
 }
 
-func (fake *FakeNetShRunner) RunHostReturns(result1 error) {
+func (fake *FakeNetShRunner) RunHostReturns(result1 []byte, result2 error) {
 	fake.RunHostStub = nil
 	fake.runHostReturns = struct {
-		result1 error
-	}{result1}
+		result1 []byte
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeNetShRunner) RunHostReturnsOnCall(i int, result1 error) {
+func (fake *FakeNetShRunner) RunHostReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.RunHostStub = nil
 	if fake.runHostReturnsOnCall == nil {
 		fake.runHostReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 []byte
+			result2 error
 		})
 	}
 	fake.runHostReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 []byte
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeNetShRunner) Invocations() map[string][][]interface{} {

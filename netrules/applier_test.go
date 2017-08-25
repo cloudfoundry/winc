@@ -259,9 +259,26 @@ var _ = Describe("Applier", func() {
 		})
 
 		Context("the specified mtu is 0", func() {
-			It("returns without doing anything", func() {
+			BeforeEach(func() {
+				netSh.RunHostReturns([]byte(`
+   MTU  MediaSenseState   Bytes In  Bytes Out  Interface
+------  ---------------  ---------  ---------  -------------
+  1302                1     142864    2448382  vEthernet (HNS Internal NIC)
+				`), nil)
+			})
+
+			It("sets the container MTU to the host MTU", func() {
 				Expect(applier.MTU(endpointId, 0)).To(Succeed())
-				Expect(netSh.RunContainerCallCount()).To(Equal(0))
+
+				Expect(netSh.RunHostCallCount()).To(Equal(1))
+				expectedMTUArgs := []string{"interface", "ipv4", "show", "subinterface",
+					"interface=vEthernet (HNS Internal NIC)"}
+				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedMTUArgs))
+
+				Expect(netSh.RunContainerCallCount()).To(Equal(1))
+				expectedMTUArgs = []string{"interface", "ipv4", "set", "subinterface",
+					`"vEthernet (Container NIC 1234)"`, "mtu=1302", "store=persistent"}
+				Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedMTUArgs))
 			})
 		})
 
@@ -289,7 +306,7 @@ var _ = Describe("Applier", func() {
 
 		Context("there are no firewall rules applied to the container", func() {
 			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(0, errors.New("firewall rule not found"))
+				netSh.RunHostReturnsOnCall(0, []byte{}, errors.New("firewall rule not found"))
 			})
 
 			It("does not error", func() {

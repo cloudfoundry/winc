@@ -83,6 +83,28 @@ var _ = Describe("up", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.TrimSpace(string(output))).To(Equal("1405"))
 		})
+
+		Context("when the requested MTU is 0", func() {
+			BeforeEach(func() {
+				mtu = 0
+			})
+
+			It("sets the host MTU in the container", func() {
+				cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
+				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+				Expect(cmd.Run()).To(Succeed())
+
+				cmd = exec.Command("powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
+				output, err := cmd.CombinedOutput()
+				Expect(err).NotTo(HaveOccurred())
+				hostMTU := strings.TrimSpace(string(output))
+
+				cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
+				output, err = cmd.CombinedOutput()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(strings.TrimSpace(string(output))).To(Equal(hostMTU))
+			})
+		})
 	})
 
 	Context("stdin contains a port mapping request", func() {

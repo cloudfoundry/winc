@@ -2,7 +2,10 @@ package netrules
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Microsoft/hcsshim"
@@ -11,7 +14,7 @@ import (
 //go:generate counterfeiter . NetShRunner
 type NetShRunner interface {
 	RunContainer([]string) error
-	RunHost([]string) error
+	RunHost([]string) ([]byte, error)
 }
 
 type Applier struct {
@@ -90,12 +93,17 @@ func (a *Applier) Out(rule NetOut, endpoint *hcsshim.HNSEndpoint) error {
 
 	netShArgs = append(netShArgs, fmt.Sprintf("protocol=%s", protocol))
 
-	return a.netSh.RunHost(netShArgs)
+	_, err := a.netSh.RunHost(netShArgs)
+	return err
 }
 
 func (a *Applier) MTU(endpointId string, mtu int) error {
+	var err error
 	if mtu == 0 {
-		return nil
+		mtu, err = a.getHostMTU()
+		if err != nil {
+			return err
+		}
 	}
 
 	if mtu > 1500 {
@@ -115,11 +123,33 @@ func (a *Applier) openPort(port uint32) error {
 
 func (a *Applier) Cleanup() error {
 	existsArgs := []string{"advfirewall", "firewall", "show", "rule", fmt.Sprintf(`name="%s"`, a.id)}
-	if err := a.netSh.RunHost(existsArgs); err != nil {
+	_, err := a.netSh.RunHost(existsArgs)
+	if err != nil {
 		return nil
 	}
 
 	deleteArgs := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name="%s"`, a.id)}
 
-	return a.netSh.RunHost(deleteArgs)
+	_, err = a.netSh.RunHost(deleteArgs)
+	return err
+}
+
+func (a *Applier) getHostMTU() (int, error) {
+	output, err := a.netSh.RunHost([]string{"interface", "ipv4", "show", "subinterface", "interface=vEthernet (HNS Internal NIC)"})
+	if err != nil {
+		return 0, err
+	}
+
+	mtuRegex := regexp.MustCompile("\\d+")
+	mtuBytes := mtuRegex.Find(output)
+	if mtuBytes == nil {
+		return 0, errors.New("could not obtain host MTU")
+	}
+
+	hostMTU, err := strconv.Atoi(string(mtuBytes))
+	if err != nil {
+		return 0, errors.New("could not obtain host MTU")
+	}
+
+	return hostMTU, nil
 }

@@ -58,6 +58,6 @@ func (nr *Runner) RunContainer(args []string) error {
 	return nil
 }
 
-func (nr *Runner) RunHost(args []string) error {
-	return exec.Command("netsh", args...).Run()
+func (nr *Runner) RunHost(args []string) ([]byte, error) {
+	return exec.Command("netsh", args...).Output()
 }
