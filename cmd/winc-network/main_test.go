@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -27,8 +26,6 @@ var _ = Describe("up", func() {
 		containerId string
 		bundleSpec  specs.Spec
 		err         error
-		stdOut      *bytes.Buffer
-		stdErr      *bytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -38,17 +35,15 @@ var _ = Describe("up", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
-		err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).Run()
-		Expect(err).ToNot(HaveOccurred())
-
-		stdOut = new(bytes.Buffer)
-		stdErr = new(bytes.Buffer)
+		output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(output))
 	})
 
 	AfterEach(func() {
-		err := exec.Command(wincBin, "delete", containerId).Run()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).Run()).To(Succeed())
+		output, err := exec.Command(wincBin, "delete", containerId).CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(output))
+		output, err = exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(output))
 	})
 
 	Context("a config file contains network MTU", func() {
@@ -76,11 +71,12 @@ var _ = Describe("up", func() {
 		It("sets the network MTU on the internal container NIC", func() {
 			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
-			Expect(cmd.Run()).To(Succeed())
+			output, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
 
 			cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
-			output, err := cmd.CombinedOutput()
-			Expect(err).NotTo(HaveOccurred())
+			output, err = cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
 			Expect(strings.TrimSpace(string(output))).To(Equal("1405"))
 		})
 
@@ -92,16 +88,17 @@ var _ = Describe("up", func() {
 			It("sets the host MTU in the container", func() {
 				cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
-				Expect(cmd.Run()).To(Succeed())
+				output, err := cmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
 
 				cmd = exec.Command("powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
-				output, err := cmd.CombinedOutput()
-				Expect(err).NotTo(HaveOccurred())
+				output, err = cmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
 				hostMTU := strings.TrimSpace(string(output))
 
 				cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
 				output, err = cmd.CombinedOutput()
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), string(output))
 				Expect(strings.TrimSpace(string(output))).To(Equal(hostMTU))
 			})
 		})
@@ -112,7 +109,7 @@ var _ = Describe("up", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
 			output, err := cmd.CombinedOutput()
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred(), string(output))
 
 			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080}\]"}}`
 			Expect(string(output)).To(MatchRegexp(regex))
@@ -122,7 +119,7 @@ var _ = Describe("up", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
 			output, err := cmd.CombinedOutput()
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred(), string(output))
 
 			regex := regexp.MustCompile(`"garden\.network\.container-ip":"(\d+\.\d+\.\d+\.\d+)"`)
 			matches := regex.FindStringSubmatch(string(output))
@@ -130,7 +127,7 @@ var _ = Describe("up", func() {
 
 			cmd = exec.Command("powershell", "-Command", "Get-NetIPAddress", matches[1])
 			output, err = cmd.CombinedOutput()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred(), string(output))
 			Expect(string(output)).NotTo(ContainSubstring("Loopback"))
 			Expect(string(output)).NotTo(ContainSubstring("HNS Internal NIC"))
 			Expect(string(output)).To(MatchRegexp("AddressFamily.*IPv4"))
@@ -139,10 +136,11 @@ var _ = Describe("up", func() {
 		It("creates the correct urlacl in the container", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
-			Expect(cmd.Run()).To(Succeed())
+			output, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
 
-			output, err := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User").CombinedOutput()
-			Expect(err).ToNot(HaveOccurred())
+			output, err = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User").CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
 			Expect(string(output)).To(ContainSubstring("BUILTIN\\Users"))
 		})
 	})
@@ -152,7 +150,7 @@ var _ = Describe("up", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} }`)
 			output, err := cmd.CombinedOutput()
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred(), string(output))
 
 			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
 			Expect(string(output)).To(MatchRegexp(regex))
@@ -163,11 +161,11 @@ var _ = Describe("up", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 1234}, {"host_port": 0, "container_port": 2222}]}`)
-			session, err := gexec.Start(cmd, stdOut, stdErr)
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).To(Succeed())
 
 			Eventually(session).Should(gexec.Exit(1))
-			Expect(stdErr.String()).To(ContainSubstring("invalid port mapping"))
+			Expect(string(session.Err.Contents())).To(ContainSubstring("invalid port mapping"))
 		})
 	})
 
@@ -202,14 +200,15 @@ var _ = Describe("up", func() {
 
 			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": [%s]}`, string(netOutRuleStr)))
-			Expect(cmd.Run()).To(Succeed())
+			output, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
 		})
 
 		AfterEach(func() {
 			Expect(exec.Command(wincNetworkBin, "--action", "down", "--handle", containerId).Run()).To(Succeed())
 			parsedCmd := fmt.Sprintf(`Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"}`, containerIp)
 			output, err := exec.Command("powershell.exe", "-Command", parsedCmd).CombinedOutput()
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred(), string(output))
 			Expect(string(output)).To(BeEmpty())
 		})
 
