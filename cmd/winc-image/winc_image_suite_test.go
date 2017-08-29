@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,8 +68,8 @@ func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
 	command := exec.Command(cmd, args...)
-	command.Stdout = stdOut
-	command.Stderr = stdErr
+	command.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
+	command.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
 	err := command.Run()
 	return stdOut, stdErr, err
 }

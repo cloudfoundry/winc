@@ -37,7 +37,8 @@ var _ = Describe("Stats", func() {
 	})
 
 	AfterEach(func() {
-		Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
+		_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+		Expect(err).To(Succeed())
 		Expect(os.RemoveAll(storePath)).To(Succeed())
 	})
 

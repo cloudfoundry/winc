@@ -59,7 +59,8 @@ var _ = Describe("WincImage", func() {
 		driverInfo := hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeTrue())
 
-		Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
+		_, _, err = execute(wincImageBin, "--store", storePath, "delete", containerId)
+		Expect(err).To(Succeed())
 
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
 		Expect(filepath.Join(driverInfo.HomeDir, containerId)).NotTo(BeADirectory())
@@ -114,7 +115,8 @@ var _ = Describe("WincImage", func() {
 			driverInfo := hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
 			Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeTrue())
 
-			Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
+			_, _, err = execute(wincImageBin, "--store", storePath, "delete", containerId)
+			Expect(err).To(Succeed())
 
 			Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
 		})
@@ -146,7 +148,8 @@ var _ = Describe("WincImage", func() {
 			AfterEach(func() {
 				Expect(exec.Command("mountvol", mountPath, "/D").Run()).To(Succeed())
 				Expect(os.RemoveAll(mountPath)).To(Succeed())
-				Expect(exec.Command(wincImageBin, "--store", storePath, "delete", containerId).Run()).To(Succeed())
+				_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+				Expect(err).To(Succeed())
 			})
 
 			It("doesn't allow files large than the limit to be created", func() {
