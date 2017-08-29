@@ -51,7 +51,7 @@ var _ = Describe("Netsh", func() {
 			Expect(*fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 
 			Expect(fakeProcess.WaitTimeoutCallCount()).To(Equal(1))
-			Expect(fakeProcess.WaitTimeoutArgsForCall(0)).To(Equal(time.Second))
+			Expect(fakeProcess.WaitTimeoutArgsForCall(0)).To(Equal(time.Second * 2))
 
 			Expect(fakeProcess.ExitCodeCallCount()).To(Equal(1))
 

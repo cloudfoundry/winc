@@ -10,6 +10,8 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
+const CMD_TIMEOUT = time.Second * 2
+
 //go:generate counterfeiter . HCSClient
 type HCSClient interface {
 	OpenContainer(string) (hcs.Container, error)
@@ -43,7 +45,7 @@ func (nr *Runner) RunContainer(args []string) error {
 		return err
 	}
 
-	if err := p.WaitTimeout(time.Second); err != nil {
+	if err := p.WaitTimeout(CMD_TIMEOUT); err != nil {
 		return err
 	}
 
