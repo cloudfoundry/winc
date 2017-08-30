@@ -32,7 +32,7 @@ var _ = Describe("Create", func() {
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
 
-		bundleSpec = runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
+		bundleSpec = runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId))
 
 		createCmd = exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 	})

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/winc/config"
+
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -78,7 +80,7 @@ following will output a list of processes running in the container:
 
 		logger := logrus.WithField("containerId", containerId)
 
-		spec, err := ValidateProcess(logger, processConfig, &specs.Process{
+		spec, err := config.ValidateProcess(logger, processConfig, &specs.Process{
 			Args: args,
 			Cwd:  cwd,
 			User: specs.User{

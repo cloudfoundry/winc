@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"code.cloudfoundry.org/winc/config"
+
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -19,7 +21,7 @@ Where "<container-id>" is your name for the instance of the container that you
 are starting. The name you provide for the container instance must be unique on
 your host.`,
 	Description: `The create command creates an instance of a container for a bundle. The bundle
-	is a directory with a specification file named "` + specConfig + `" and a root
+	is a directory with a specification file named "` + config.SpecConfig + `" and a root
 	filesystem.
 
 	The specification file includes an args parameter. The args parameter is used
@@ -67,7 +69,7 @@ your host.`,
 		}
 		bundlePath = filepath.Clean(bundlePath)
 
-		spec, err := ValidateBundle(logger, bundlePath)
+		spec, err := config.ValidateBundle(logger, bundlePath)
 		if err != nil {
 			return err
 		}

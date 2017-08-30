@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -15,7 +15,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const defaultCwd = "C:\\"
+const (
+	SpecConfig = "config.json"
+	defaultCwd = "C:\\"
+)
 
 func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error) {
 	logger.Debug("validating bundle")
@@ -24,7 +27,7 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 		return nil, &MissingBundleError{BundlePath: bundlePath}
 	}
 
-	configPath := filepath.Join(bundlePath, specConfig)
+	configPath := filepath.Join(bundlePath, SpecConfig)
 	content, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, &MissingBundleConfigError{BundlePath: bundlePath}
@@ -45,7 +48,7 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 	msgs := checkAll(validator)
 	if len(msgs) != 0 {
 		for _, m := range msgs {
-			logger.WithField("bundleConfigError", m).Error(fmt.Sprintf("error in bundle %s", specConfig))
+			logger.WithField("bundleConfigError", m).Error(fmt.Sprintf("error in bundle %s", SpecConfig))
 		}
 		return nil, &BundleConfigValidationError{BundlePath: bundlePath}
 	}

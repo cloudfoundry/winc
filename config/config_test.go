@@ -1,4 +1,4 @@
-package main_test
+package config_test
 
 import (
 	"bytes"
@@ -10,24 +10,27 @@ import (
 
 	"golang.org/x/text/encoding/unicode"
 
-	. "code.cloudfoundry.org/winc/cmd/winc"
-	"code.cloudfoundry.org/winc/image"
+	"code.cloudfoundry.org/winc/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("Validate", func() {
+var _ = Describe("Config", func() {
 	var (
 		logger      *logrus.Entry
 		containerId string
+		bundlePath  string
 	)
 
 	BeforeEach(func() {
-		containerId = filepath.Base(bundlePath)
+		var err error
+		bundlePath, err = ioutil.TempDir("", "config.test")
+		Expect(err).NotTo(HaveOccurred())
 
-		logger = logrus.WithField("suite", "winc")
+		containerId = filepath.Base(bundlePath)
+		logger = logrus.WithField("suite", "config")
 	})
 
 	AfterEach(func() {
@@ -41,7 +44,7 @@ var _ = Describe("Validate", func() {
 		)
 
 		JustBeforeEach(func() {
-			spec, err = ValidateBundle(logger, bundlePath)
+			spec, err = config.ValidateBundle(logger, bundlePath)
 		})
 
 		Context("given a valid bundle", func() {
@@ -50,14 +53,20 @@ var _ = Describe("Validate", func() {
 			)
 
 			BeforeEach(func() {
-				expectedSpec = runtimeSpecGenerator(image.ImageSpec{
-					RootFs: rootfsPath,
-					Spec: specs.Spec{
-						Windows: &specs.Windows{
-							LayerFolders: []string{"a layer", "another layer"},
-						},
+				expectedSpec = specs.Spec{
+					Version: specs.Version,
+					Process: &specs.Process{
+						Args: []string{"powershell"},
+						Cwd:  "C:\\",
 					},
-				}, containerId)
+					Root: &specs.Root{
+						Path: "some-volume-guid",
+					},
+					Windows: &specs.Windows{
+						LayerFolders: []string{"a layer", "another layer"},
+					},
+				}
+
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
@@ -74,14 +83,14 @@ var _ = Describe("Validate", func() {
 				Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			})
 			It("errors", func() {
-				Expect(err).To(MatchError(&MissingBundleError{BundlePath: bundlePath}))
+				Expect(err).To(MatchError(&config.MissingBundleError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
 		})
 
 		Context("when the bundle directory does not contain a config.json", func() {
 			It("errors", func() {
-				Expect(err).To(MatchError(&MissingBundleConfigError{BundlePath: bundlePath}))
+				Expect(err).To(MatchError(&config.MissingBundleConfigError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -99,7 +108,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&BundleConfigInvalidEncodingError{BundlePath: bundlePath}))
+				Expect(err).To(MatchError(&config.BundleConfigInvalidEncodingError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -111,7 +120,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&BundleConfigInvalidJSONError{BundlePath: bundlePath}))
+				Expect(err).To(MatchError(&config.BundleConfigInvalidJSONError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -123,15 +132,19 @@ var _ = Describe("Validate", func() {
 			)
 
 			BeforeEach(func() {
-				invalidSpec = runtimeSpecGenerator(image.ImageSpec{
-					RootFs: rootfsPath,
-					Spec: specs.Spec{
-						Windows: &specs.Windows{
-							LayerFolders: []string{"a layer", "another layer"},
-						},
+				invalidSpec = specs.Spec{
+					Version: "",
+					Process: &specs.Process{
+						Args: []string{"powershell"},
+						Cwd:  "C:\\",
 					},
-				}, containerId)
-				invalidSpec.Version = ""
+					Root: &specs.Root{
+						Path: "some-volume-guid",
+					},
+					Windows: &specs.Windows{
+						LayerFolders: []string{"a layer", "another layer"},
+					},
+				}
 				config, err := json.Marshal(&invalidSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
@@ -141,7 +154,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&BundleConfigValidationError{BundlePath: bundlePath}))
+				Expect(err).To(MatchError(&config.BundleConfigValidationError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
 
@@ -187,14 +200,18 @@ var _ = Describe("Validate", func() {
 		})
 
 		JustBeforeEach(func() {
-			spec, err = ValidateProcess(logger, processConfig, processConfigOverrides)
+			spec, err = config.ValidateProcess(logger, processConfig, processConfigOverrides)
 		})
 
 		Context("when provided a valid process config file", func() {
 			var expectedSpec specs.Process
 
 			BeforeEach(func() {
-				expectedSpec = processSpecGenerator()
+				expectedSpec = specs.Process{
+					Cwd:  "C:\\Windows",
+					Args: []string{"cmd.exe"},
+					Env:  []string{"var1=foo", "var2=bar"},
+				}
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
@@ -272,7 +289,7 @@ var _ = Describe("Validate", func() {
 				})
 
 				It("errors", func() {
-					Expect(err).To(MatchError(&ProcessConfigValidationError{processConfigOverrides}))
+					Expect(err).To(MatchError(&config.ProcessConfigValidationError{processConfigOverrides}))
 					Expect(spec).To(BeNil())
 				})
 
@@ -291,7 +308,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&MissingProcessConfigError{processConfig}))
+				Expect(err).To(MatchError(&config.MissingProcessConfigError{processConfig}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -309,7 +326,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&ProcessConfigInvalidEncodingError{processConfig}))
+				Expect(err).To(MatchError(&config.ProcessConfigInvalidEncodingError{processConfig}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -321,7 +338,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&ProcessConfigInvalidJSONError{processConfig}))
+				Expect(err).To(MatchError(&config.ProcessConfigInvalidJSONError{processConfig}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -347,7 +364,7 @@ var _ = Describe("Validate", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&ProcessConfigValidationError{invalidSpec}))
+				Expect(err).To(MatchError(&config.ProcessConfigValidationError{invalidSpec}))
 				Expect(spec).To(BeNil())
 			})
 

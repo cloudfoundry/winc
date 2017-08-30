@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	specConfig = "config.json"
-	usage      = `Open Container Initiative runtime for Windows
+	usage = `Open Container Initiative runtime for Windows
 
 winc is a command line client for running applications on Windows packaged
 according to the Open Container Initiative (OCI) format and is a compliant

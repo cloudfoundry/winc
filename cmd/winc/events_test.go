@@ -21,7 +21,7 @@ var _ = Describe("Events", func() {
 		BeforeEach(func() {
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
+			bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId))
 			config, err := json.Marshal(&bundleSpec)
 			Expect(err).NotTo(HaveOccurred())
 

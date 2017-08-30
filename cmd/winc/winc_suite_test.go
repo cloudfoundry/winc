@@ -111,7 +111,7 @@ func createSandbox(storePath, rootfsPath, containerId string) image.ImageSpec {
 	return imageSpec
 }
 
-func runtimeSpecGenerator(imageSpec image.ImageSpec, containerId string) specs.Spec {
+func runtimeSpecGenerator(imageSpec image.ImageSpec) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{

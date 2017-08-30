@@ -100,7 +100,7 @@ var _ = Describe("Flags", func() {
 
 		Context("when the winc command logs non error messages", func() {
 			BeforeEach(func() {
-				bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
+				bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId))
 				config, err := json.Marshal(&bundleSpec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
@@ -183,7 +183,7 @@ var _ = Describe("Flags", func() {
 			storePath, err = ioutil.TempDir("", "wincroot")
 			Expect(err).ToNot(HaveOccurred())
 
-			bundleSpec := runtimeSpecGenerator(createSandbox(storePath, rootfsPath, containerId), containerId)
+			bundleSpec := runtimeSpecGenerator(createSandbox(storePath, rootfsPath, containerId))
 			config, err := json.Marshal(&bundleSpec)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
