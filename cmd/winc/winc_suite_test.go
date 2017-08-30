@@ -11,14 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/image"
-	"code.cloudfoundry.org/winc/lib/filelock"
-	"code.cloudfoundry.org/winc/lib/serial"
-	"code.cloudfoundry.org/winc/netrules"
-	"code.cloudfoundry.org/winc/netsh"
-	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/port_allocator"
 
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
@@ -99,6 +92,15 @@ func TestWinc(t *testing.T) {
 	RunSpecs(t, "Winc Suite")
 }
 
+func getContainerState(containerId string) specs.State {
+	stdOut, _, err := execute(exec.Command(wincBin, "state", containerId))
+	Expect(err).ToNot(HaveOccurred())
+
+	var state specs.State
+	Expect(json.Unmarshal(stdOut.Bytes(), &state)).To(Succeed())
+	return state
+}
+
 func createSandbox(storePath, rootfsPath, containerId string) image.ImageSpec {
 	stdOut := new(bytes.Buffer)
 	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
@@ -133,31 +135,14 @@ func processSpecGenerator() specs.Process {
 	}
 }
 
-func execute(cmd string, args ...string) error {
-	c := exec.Command(cmd, args...)
-	c.Stdout = GinkgoWriter
-	c.Stderr = GinkgoWriter
-	return c.Run()
-}
+func execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
+	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
+	err := c.Run()
 
-func networkManager(client *hcs.Client, containerId string) *network.Manager {
-	runner := netsh.NewRunner(client, containerId)
-	applier := netrules.NewApplier(runner, containerId)
-
-	tracker := &port_allocator.Tracker{
-		StartPort: 40000,
-		Capacity:  5000,
-	}
-
-	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
-
-	pa := &port_allocator.PortAllocator{
-		Tracker:    tracker,
-		Serializer: &serial.Serial{},
-		Locker:     locker,
-	}
-
-	return network.NewManager(client, pa, applier, network.Config{}, containerId)
+	return stdOut, stdErr, err
 }
 
 func allEndpoints(containerID string) []string {
@@ -185,8 +170,8 @@ func containerExists(containerId string) bool {
 	return len(containers) > 0
 }
 
-func containerProcesses(client *hcs.Client, containerId, filter string) []hcsshim.ProcessListItem {
-	container, err := client.OpenContainer(containerId)
+func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
+	container, err := hcsshim.OpenContainer(containerId)
 	Expect(err).To(Succeed())
 
 	pl, err := container.ProcessList()

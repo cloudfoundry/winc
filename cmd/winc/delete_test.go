@@ -2,14 +2,14 @@ package main_test
 
 import (
 	"bytes"
+	"encoding/json"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/volume"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -17,51 +17,50 @@ import (
 )
 
 var _ = Describe("Delete", func() {
-	var (
-		stdOut *bytes.Buffer
-		stdErr *bytes.Buffer
-	)
-
-	BeforeEach(func() {
-		stdOut = new(bytes.Buffer)
-		stdErr = new(bytes.Buffer)
-	})
-
 	Context("when provided an existing container id", func() {
-		var (
-			containerId string
-			cm          *container.Manager
-		)
+		var containerId string
 
 		BeforeEach(func() {
 			containerId = filepath.Base(bundlePath)
 
-			client := hcs.Client{}
-			nm := networkManager(&client, containerId)
-			cm = container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath)
-
 			bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId), containerId)
-			Expect(cm.Create(&bundleSpec)).To(Succeed())
+			config, err := json.Marshal(&bundleSpec)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+			_, _, err = execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			Expect(execute(wincImageBin, "--store", rootPath, "delete", containerId)).To(Succeed())
+			_, _, err := execute(exec.Command(wincImageBin, "--store", rootPath, "delete", containerId))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("when the container is running", func() {
-			It("deletes the container", func() {
-				err := execute(wincBin, "delete", containerId)
-				Expect(err).ToNot(HaveOccurred())
+			var (
+				containerEndpoints []string
+				rootPath           string
+			)
 
+			BeforeEach(func() {
+				containerEndpoints = allEndpoints(containerId)
+				pid := getContainerState(containerId).Pid
+				rootPath = filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
+				_, err := os.Lstat(rootPath)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("deletes the container", func() {
 				Expect(containerExists(containerId)).To(BeFalse())
 			})
 
 			It("deletes the container endpoints", func() {
-				containerEndpoints := allEndpoints(containerId)
-
-				err := execute(wincBin, "delete", containerId)
-				Expect(err).ToNot(HaveOccurred())
-
 				existingEndpoints, err := hcsshim.HNSListEndpointRequest()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -73,26 +72,14 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("does not delete the bundle directory", func() {
-				err := execute(wincBin, "delete", containerId)
-				Expect(err).ToNot(HaveOccurred())
-
 				Expect(bundlePath).To(BeADirectory())
 			})
 
 			It("unmounts sandbox.vhdx", func() {
-				state, err := cm.State()
-				Expect(err).NotTo(HaveOccurred())
-				rootPath := filepath.Join("c:\\", "proc", strconv.Itoa(state.Pid), "root")
-				_, err = os.Lstat(rootPath)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = execute(wincBin, "delete", containerId)
-				Expect(err).ToNot(HaveOccurred())
-
 				Expect(rootPath).NotTo(BeADirectory())
 
 				// if not cleanly unmounted, the mount point is left as a symlink
-				_, err = os.Lstat(rootPath)
+				_, err := os.Lstat(rootPath)
 				Expect(err).NotTo(BeNil())
 			})
 		})
@@ -101,12 +88,12 @@ var _ = Describe("Delete", func() {
 	Context("when provided a nonexistent container id", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincBin, "delete", "nonexistentcontainer")
-			session, err := gexec.Start(cmd, stdOut, stdErr)
+			stdErr := new(bytes.Buffer)
+			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(session).Should(gexec.Exit(1))
-			expectedError := &hcs.NotFoundError{Id: "nonexistentcontainer"}
-			Expect(stdErr.String()).To(ContainSubstring(expectedError.Error()))
+			Expect(stdErr.String()).To(ContainSubstring("container not found: nonexistentcontainer"))
 		})
 	})
 })
