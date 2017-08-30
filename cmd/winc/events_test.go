@@ -88,7 +88,7 @@ var _ = Describe("Events", func() {
 
 					var statsAfter wincStats
 					Expect(json.Unmarshal(stdOut.Bytes(), &statsAfter)).To(Succeed())
-					Expect(statsAfter.Data.CPUStats.CPUUsage.Usage - cpuUsageBefore).To(BeNumerically(">", 300000000))
+					Expect(statsAfter.Data.CPUStats.CPUUsage.Usage - cpuUsageBefore).To(BeNumerically(">", 150000000))
 				})
 			})
 		})
