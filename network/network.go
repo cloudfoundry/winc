@@ -15,8 +15,8 @@ import (
 )
 
 const WINC_NETWORK = "winc-nat"
-const SUBNET_RANGE = "172.35.0.0/22"
-const GATEWAY_ADDRESS = "172.35.0.1"
+const SUBNET_RANGE = "172.30.0.0/22"
+const GATEWAY_ADDRESS = "172.30.0.1"
 
 //go:generate counterfeiter . PortAllocator
 type PortAllocator interface {

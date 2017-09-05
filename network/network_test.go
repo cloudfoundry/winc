@@ -212,7 +212,7 @@ var _ = Describe("Network", func() {
 				newNAT := hcsClient.CreateNetworkArgsForCall(0)
 				Expect(newNAT.Name).To(Equal("winc-nat"))
 				Expect(newNAT.Type).To(Equal("nat"))
-				Expect(newNAT.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "172.35.0.0/22", GatewayAddress: "172.35.0.1"}))
+				Expect(newNAT.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "172.30.0.0/22", GatewayAddress: "172.30.0.1"}))
 			})
 
 			Context("creating winc-nat fails", func() {
