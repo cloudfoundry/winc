@@ -34,3 +34,47 @@ go get github.com/onsi/ginkgo/...
 cd $GOPATH/src/code.cloudfoundry.org/winc
 ginkgo -r -race -keepGoing
 ```
+
+### Using
+
+The following `powershell` script can be used to quickly create a new container. It takes an optional container ID as an argument. It requires `winc.exe` and `winc-image.exe` to be on your path, and `quote.dll` to be in the same directory as `winc-image.exe`.
+
+```
+if (!(Get-Command "winc.exe" -ErrorAction SilentlyContinue)) {
+   Write-Host "Unable to find winc.exe"
+   Exit 1
+}
+
+if (!(Get-Command "winc-image.exe" -ErrorAction SilentlyContinue)) {
+   Write-Host "Unable to find winc-image.exe"
+   Exit 1
+}
+
+$wincImageParent = Split-Path (Get-Command winc-image.exe).Path
+$quotaDllPath = Join-Path "$wincImageParent" "quota.dll"
+if (!(Test-Path $quotaDllPath)) {
+   Write-Host "Unable to find quota.dll in the same directory as winc-image.exe"
+   Exit 1
+}
+
+$containerId = $args[0]
+if (!$containerId) {
+  $containerId = [guid]::NewGuid()
+}
+
+$rootfs = (docker inspect cloudfoundry/windows2016fs | ConvertFrom-Json).GraphDriver.Data.Dir
+
+$config = winc-image.exe create $rootfs $containerId | ConvertFrom-Json
+$config.ociVersion = "1.0.0-rc6"
+$config.PSObject.Properties.Remove("rootfs")
+
+$containerDir = Join-Path $env:TEMP $containerId
+$configPath = Join-Path $containerDir "config.json"
+rm -Recurse -Force -ErrorAction SilentlyContinue $containerDir
+mkdir $containerDir | Out-Null
+Set-Content -Path $configPath -Value ($config | ConvertTo-Json)
+
+winc.exe --root "C:\var\lib\winc-image" create -b $containerDir $containerId
+
+Write-Host "Created container $containerId"
+```
