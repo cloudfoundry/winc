@@ -45,19 +45,14 @@ var _ = Describe("Events", func() {
 			})
 
 			Context("when passed the --stats flag", func() {
-				var stats wincStats
-
 				BeforeEach(func() {
 					pid := getContainerState(containerId).Pid
 					err := copy(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 					Expect(err).NotTo(HaveOccurred())
-
-					stdOut, _, err := execute(exec.Command(wincBin, "events", "--stats", containerId))
-					Expect(err).To(Succeed())
-					Expect(json.Unmarshal(stdOut.Bytes(), &stats)).To(Succeed())
 				})
 
 				It("prints the container memory stats to stdout", func() {
+					stats := getStats(containerId)
 					Expect(stats.Data.Memory.Stats.TotalRss).To(BeNumerically(">", 0))
 
 					memConsumedBytes := 100 * 1024 * 1024
@@ -65,30 +60,21 @@ var _ = Describe("Events", func() {
 					_, _, err := execute(exec.Command(wincBin, "exec", "-d", containerId, "c:\\consume.exe", strconv.Itoa(memConsumedBytes), "10"))
 					Expect(err).ToNot(HaveOccurred())
 
-					stdOut, _, err := execute(exec.Command(wincBin, "events", "--stats", containerId))
-					Expect(err).To(Succeed())
-
-					var statsAfter wincStats
-					Expect(json.Unmarshal(stdOut.Bytes(), &statsAfter)).To(Succeed())
-
+					statsAfter := getStats(containerId)
 					expectedMemConsumedBytes := stats.Data.Memory.Stats.TotalRss + uint64(memConsumedBytes)
 					threshold := 15 * 1024 * 1024
 					Expect(statsAfter.Data.Memory.Stats.TotalRss).To(BeNumerically("~", expectedMemConsumedBytes, threshold))
 				})
 
 				It("prints the container CPU stats to stdout", func() {
-					cpuUsageBefore := stats.Data.CPUStats.CPUUsage.Usage
+					cpuUsageBefore := getStats(containerId).Data.CPUStats.CPUUsage.Usage
 					Expect(cpuUsageBefore).To(BeNumerically(">", 0))
 
-					_, _, err := execute(exec.Command(wincBin, "exec", "-d", containerId, "powershell.exe", "-Command", "foreach ($loopnumber in 1..2147483647) {$result=1;foreach ($number in 1..2147483647) {$result = $result * $number};$result}"))
+					_, _, err := execute(exec.Command(wincBin, "exec", "-d", containerId, "powershell.exe", "-Command", "$result = 1; foreach ($number in 1..2147483647) {$result = $result * $number};"))
 					Expect(err).ToNot(HaveOccurred())
 
-					stdOut, _, err := execute(exec.Command(wincBin, "events", "--stats", containerId))
-					Expect(err).To(Succeed())
-
-					var statsAfter wincStats
-					Expect(json.Unmarshal(stdOut.Bytes(), &statsAfter)).To(Succeed())
-					Expect(statsAfter.Data.CPUStats.CPUUsage.Usage - cpuUsageBefore).To(BeNumerically(">", 150000000))
+					cpuUsageAfter := getStats(containerId).Data.CPUStats.CPUUsage.Usage
+					Expect(cpuUsageAfter).To(BeNumerically(">", cpuUsageBefore))
 				})
 			})
 		})
@@ -122,4 +108,12 @@ type wincStats struct {
 			} `json:"raw"`
 		} `json:"memory"`
 	} `json:"data"`
+}
+
+func getStats(containerId string) wincStats {
+	var stats wincStats
+	stdOut, _, err := execute(exec.Command(wincBin, "events", "--stats", containerId))
+	Expect(err).To(Succeed())
+	Expect(json.Unmarshal(stdOut.Bytes(), &stats)).To(Succeed())
+	return stats
 }
