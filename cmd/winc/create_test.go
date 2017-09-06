@@ -310,7 +310,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("is constrained by hitting the memory limit", func() {
-				Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: runtime: cannot map pages in arena address space"))
+				Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: out of memory"))
 			})
 		})
 	})
