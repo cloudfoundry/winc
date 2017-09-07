@@ -6,7 +6,7 @@
 
 #### Requirements
 
-* [Golang 1.8](https://golang.org/dl/)
+* [Golang](https://golang.org/dl/)
   * Make sure you have set a `GOPATH`
 * [Git](https://git-for-windows.github.io/)
 * [mingw-w64](https://sourceforge.net/projects/mingw-w64/)
