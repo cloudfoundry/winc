@@ -59,27 +59,23 @@ var _ = Describe("Events", func() {
 
 					memConsumedBytes := 200 * 1024 * 1024
 
-					done := make(chan struct{})
+					cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(memConsumedBytes), "10")
+					stdOut, err := cmd.StdoutPipe()
+					Expect(err).NotTo(HaveOccurred())
 
-					stdOut := new(bytes.Buffer)
-
-					go func() {
-						defer GinkgoRecover()
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(memConsumedBytes), "10")
-						cmd.Stdout = stdOut
-						Expect(cmd.Run()).To(Succeed())
-						close(done)
-					}()
+					Expect(cmd.Start()).To(Succeed())
 
 					Eventually(func() string {
-						return strings.TrimSpace(stdOut.String())
+						out := make([]byte, 256, 256)
+						n, _ := stdOut.Read(out)
+						return strings.TrimSpace(string(out[:n]))
 					}).Should(Equal(fmt.Sprintf("Allocated %d", memConsumedBytes)))
 
 					statsAfter := getStats(containerId)
 					expectedMemConsumedBytes := stats.Data.Memory.Stats.TotalRss + uint64(memConsumedBytes)
 					threshold := 30 * 1024 * 1024
 					Expect(statsAfter.Data.Memory.Stats.TotalRss).To(BeNumerically("~", expectedMemConsumedBytes, threshold))
-					Eventually(done).Should(BeClosed())
+					Expect(cmd.Wait()).To(Succeed())
 				})
 
 				It("prints the container CPU stats to stdout", func() {
