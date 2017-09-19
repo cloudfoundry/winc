@@ -3,11 +3,13 @@ package main_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -57,13 +59,27 @@ var _ = Describe("Events", func() {
 
 					memConsumedBytes := 200 * 1024 * 1024
 
-					_, _, err := execute(exec.Command(wincBin, "exec", "-d", containerId, "c:\\consume.exe", strconv.Itoa(memConsumedBytes), "10"))
-					Expect(err).ToNot(HaveOccurred())
+					done := make(chan struct{})
+
+					stdOut := new(bytes.Buffer)
+
+					go func() {
+						defer GinkgoRecover()
+						cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(memConsumedBytes), "10")
+						cmd.Stdout = stdOut
+						Expect(cmd.Run()).To(Succeed())
+						close(done)
+					}()
+
+					Eventually(func() string {
+						return strings.TrimSpace(stdOut.String())
+					}).Should(Equal(fmt.Sprintf("Allocated %d", memConsumedBytes)))
 
 					statsAfter := getStats(containerId)
 					expectedMemConsumedBytes := stats.Data.Memory.Stats.TotalRss + uint64(memConsumedBytes)
 					threshold := 30 * 1024 * 1024
 					Expect(statsAfter.Data.Memory.Stats.TotalRss).To(BeNumerically("~", expectedMemConsumedBytes, threshold))
+					Eventually(done).Should(BeClosed())
 				})
 
 				It("prints the container CPU stats to stdout", func() {
