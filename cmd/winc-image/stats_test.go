@@ -3,12 +3,10 @@ package main_test
 import (
 	"encoding/json"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,8 +21,7 @@ var _ = Describe("Stats", func() {
 
 	BeforeEach(func() {
 		var err error
-		rand.Seed(time.Now().UnixNano())
-		containerId = strconv.Itoa(rand.Int())
+		containerId = randomContainerId()
 		storePath, err = ioutil.TempDir("", "container-store")
 		Expect(err).ToNot(HaveOccurred())
 

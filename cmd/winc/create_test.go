@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -359,7 +358,7 @@ var _ = Describe("Create", func() {
 
 	Context("when the bundle directory name and container id do not match", func() {
 		It("errors and does not create the container", func() {
-			newContainerId := strconv.Itoa(rand.Int())
+			newContainerId := randomContainerId()
 			cmd := exec.Command(wincBin, "create", "-b", bundlePath, newContainerId)
 			stdErr := new(bytes.Buffer)
 			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))

@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -26,8 +24,7 @@ var _ = Describe("WincImage", func() {
 
 	BeforeEach(func() {
 		var err error
-		rand.Seed(time.Now().UnixNano())
-		containerId = strconv.Itoa(rand.Int())
+		containerId = randomContainerId()
 		storePath, err = ioutil.TempDir("", "container-store")
 		Expect(err).ToNot(HaveOccurred())
 	})

@@ -3,11 +3,8 @@ package image_test
 import (
 	"errors"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/winc/image"
 	"code.cloudfoundry.org/winc/image/imagefakes"
@@ -19,10 +16,10 @@ import (
 
 var _ = Describe("Create", func() {
 	const containerVolume = "containerVolume"
+	const containerId = "some-container-id"
 
 	var (
 		rootfs        string
-		containerId   string
 		layerManager  *imagefakes.FakeLayerManager
 		limiter       *imagefakes.FakeLimiter
 		statser       *imagefakes.FakeStatser
@@ -38,9 +35,6 @@ var _ = Describe("Create", func() {
 
 		storePath, err = ioutil.TempDir("", "store")
 		Expect(err).ToNot(HaveOccurred())
-
-		rand.Seed(time.Now().UnixNano())
-		containerId = strconv.Itoa(rand.Int())
 
 		layerManager = &imagefakes.FakeLayerManager{}
 		layerManager.HomeDirReturns(storePath)

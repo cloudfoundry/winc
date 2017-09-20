@@ -2,10 +2,13 @@ package main_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,7 +75,6 @@ func TestWinc(t *testing.T) {
 		Expect(err).ToNot(HaveOccurred())
 		readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
 		Expect(err).ToNot(HaveOccurred())
-		rand.Seed(time.Now().UnixNano())
 	})
 
 	AfterSuite(func() {
@@ -189,6 +191,14 @@ func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
 	}
 
 	return pl
+}
+
+func randomContainerId() string {
+	max := big.NewInt(math.MaxInt64)
+	r, err := rand.Int(rand.Reader, max)
+	Expect(err).NotTo(HaveOccurred())
+
+	return fmt.Sprintf("%d", r.Int64())
 }
 
 func isParentOf(parentPid, childPid int) bool {

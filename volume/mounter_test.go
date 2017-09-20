@@ -1,12 +1,13 @@
 package volume_test
 
 import (
-	"math/rand"
+	"crypto/rand"
+	"math"
+	"math/big"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"code.cloudfoundry.org/winc/volume"
 
@@ -26,8 +27,12 @@ var _ = Describe("Mounter", func() {
 		Expect(err).ToNot(HaveOccurred())
 		volumeGuid = strings.TrimSpace(string(outBytes))
 
-		rand.Seed(time.Now().UnixNano())
-		pid = rand.Int()
+		max := big.NewInt(math.MaxInt32)
+		p, err := rand.Int(rand.Reader, max)
+		Expect(err).NotTo(HaveOccurred())
+		// negate so we don't collide with any 'real' pids created by winc
+		pid = -int(p.Int64())
+
 		mountPath = filepath.Join("C:\\", "proc", strconv.Itoa(pid), "root")
 	})
 

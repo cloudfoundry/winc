@@ -2,11 +2,9 @@ package layer_test
 
 import (
 	"errors"
-	"math/rand"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/winc/layer"
 	"code.cloudfoundry.org/winc/layer/layerfakes"
@@ -21,15 +19,17 @@ var _ = Describe("Manager", func() {
 		m            *layer.Manager
 		parentLayers []string
 		storeDir     string
-		layerId      string
 		rootfsPath   string
 	)
 
 	const expectedVolumeGuid = `\\?\Volume{some-guid}\`
+	const layerId = "some-layer-id"
 
 	BeforeEach(func() {
-		rand.Seed(time.Now().UnixNano())
-		storeDir = filepath.Join(os.TempDir(), "store-layer-test-"+strconv.Itoa(rand.Int()))
+		tmpDir, err := ioutil.TempDir("", "store-layer-test")
+		Expect(err).NotTo(HaveOccurred())
+
+		storeDir = filepath.Join(tmpDir, "layer-home-dir")
 
 		rootfsPath = "rootfs"
 		parentLayers = []string{"rootfs", "layer-2", "layer-1"}
@@ -161,7 +161,7 @@ var _ = Describe("Manager", func() {
 
 			It("returns a missing volume path error", func() {
 				_, err := m.CreateLayer(layerId, rootfsPath, parentLayers)
-				Expect(err).To(MatchError(&layer.MissingVolumePathError{}))
+				Expect(err).To(MatchError(&layer.MissingVolumePathError{Id: layerId}))
 			})
 		})
 	})

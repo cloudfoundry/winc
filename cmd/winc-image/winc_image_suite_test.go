@@ -2,7 +2,11 @@ package main_test
 
 import (
 	"bytes"
+	"crypto/rand"
+	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,4 +76,12 @@ func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	command.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
 	err := command.Run()
 	return stdOut, stdErr, err
+}
+
+func randomContainerId() string {
+	max := big.NewInt(math.MaxInt64)
+	r, err := rand.Int(rand.Reader, max)
+	Expect(err).NotTo(HaveOccurred())
+
+	return fmt.Sprintf("%d", r.Int64())
 }
