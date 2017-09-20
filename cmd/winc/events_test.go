@@ -72,7 +72,8 @@ var _ = Describe("Events", func() {
 					}).Should(Equal(fmt.Sprintf("Allocated %d", memConsumedBytes)))
 
 					statsAfter := getStats(containerId)
-					expectedMemConsumedBytes := stats.Data.Memory.Stats.TotalRss + uint64(memConsumedBytes)
+					goRuntimeOverhead := uint64(25 * 1024 * 1024)
+					expectedMemConsumedBytes := stats.Data.Memory.Stats.TotalRss + uint64(memConsumedBytes) + goRuntimeOverhead
 					threshold := 30 * 1024 * 1024
 					Expect(statsAfter.Data.Memory.Stats.TotalRss).To(BeNumerically("~", expectedMemConsumedBytes, threshold))
 					Expect(cmd.Wait()).To(Succeed())
