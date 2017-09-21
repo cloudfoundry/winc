@@ -2,6 +2,7 @@
 *.dll
 *.so
 *.dylib
+*.o
 
 *.test
 
