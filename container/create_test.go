@@ -30,6 +30,7 @@ var _ = Describe("Create", func() {
 		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
+		hostName         = "some-hostname"
 	)
 
 	BeforeEach(func() {
@@ -62,6 +63,7 @@ var _ = Describe("Create", func() {
 			Windows: &specs.Windows{
 				LayerFolders: layerFolders,
 			},
+			Hostname: hostName,
 		}
 	})
 
@@ -115,6 +117,7 @@ var _ = Describe("Create", func() {
 			Expect(containerConfig).To(Equal(&hcsshim.ContainerConfig{
 				SystemType:        "Container",
 				Name:              bundlePath,
+				HostName:          hostName,
 				VolumePath:        containerVolume,
 				Owner:             "winc",
 				LayerFolderPath:   filepath.Join(rootPath, containerId),

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
@@ -164,6 +165,18 @@ var _ = Describe("Create", func() {
 
 			It("ignores it and creates and starts a container", func() {
 				Expect(containerExists(containerId)).To(BeTrue())
+			})
+		})
+
+		Context("when the bundle config.json specifies a hostname", func() {
+			BeforeEach(func() {
+				bundleSpec.Hostname = "some-random-hostname"
+			})
+
+			It("sets it as the container hostname", func() {
+				stdOut, _, err := execute(exec.Command(wincBin, "exec", containerId, "hostname"))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.TrimSpace(stdOut.String())).To(Equal("some-random-hostname"))
 			})
 		})
 

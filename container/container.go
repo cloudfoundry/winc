@@ -126,6 +126,7 @@ func (c *Manager) Create(spec *specs.Spec) error {
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
 		Name:              c.bundlePath,
+		HostName:          spec.Hostname,
 		VolumePath:        volumePath,
 		Owner:             "winc",
 		LayerFolderPath:   sandboxDir,
