@@ -3,28 +3,8 @@ package layer
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Microsoft/hcsshim"
-)
-
-type createStep int
-
-const (
-	noCreateFailure = iota
-	createSandboxLayerFailed
-	activateLayerFailed
-	prepareLayerFailed
-	getLayerMountPathFailed
-)
-
-type deleteStep int
-
-const (
-	noDeleteFailure deleteStep = iota
-	unprepareLayerFailed
-	deactivateLayerFailed
-	destroyLayerFailed
 )
 
 //go:generate counterfeiter . HCSClient
@@ -40,10 +20,8 @@ type HCSClient interface {
 }
 
 type Manager struct {
-	hcsClient        HCSClient
-	driverInfo       hcsshim.DriverInfo
-	createFailedStep createStep
-	deleteFailedStep deleteStep
+	hcsClient  HCSClient
+	driverInfo hcsshim.DriverInfo
 }
 
 func NewManager(hcsClient HCSClient, storePath string) *Manager {
@@ -53,10 +31,8 @@ func NewManager(hcsClient HCSClient, storePath string) *Manager {
 	}
 
 	return &Manager{
-		hcsClient:        hcsClient,
-		driverInfo:       driverInfo,
-		createFailedStep: noCreateFailure,
-		deleteFailedStep: noDeleteFailure,
+		hcsClient:  hcsClient,
+		driverInfo: driverInfo,
 	}
 }
 
@@ -65,74 +41,42 @@ func (m *Manager) CreateLayer(id, parentId string, parentLayerPaths []string) (s
 		return "", err
 	}
 
-	var err error
-	var volumePath string
-
-	switch m.createFailedStep {
-	case noCreateFailure:
-		fallthrough
-	case createSandboxLayerFailed:
-		if err := m.hcsClient.CreateSandboxLayer(m.driverInfo, id, parentId, parentLayerPaths); err != nil {
-			m.createFailedStep = createSandboxLayerFailed
-			return "", err
+	var createErr, activateErr, prepareErr error
+	for i := 0; i < 3; i++ {
+		createErr = m.hcsClient.CreateSandboxLayer(m.driverInfo, id, parentId, parentLayerPaths)
+		activateErr = m.hcsClient.ActivateLayer(m.driverInfo, id)
+		prepareErr = m.hcsClient.PrepareLayer(m.driverInfo, id, parentLayerPaths)
+		if prepareErr == nil {
+			break
 		}
-		fallthrough
+	}
+	if prepareErr != nil {
+		return "", fmt.Errorf("failed to create layer (create error: %s, activate error: %s, prepare error: %s)", createErr.Error(), activateErr.Error(), prepareErr.Error())
+	}
 
-	case activateLayerFailed:
-		if err := m.hcsClient.ActivateLayer(m.driverInfo, id); err != nil {
-			m.createFailedStep = activateLayerFailed
-			return "", err
-		}
-		fallthrough
-
-	case prepareLayerFailed:
-		if err := m.hcsClient.PrepareLayer(m.driverInfo, id, parentLayerPaths); err != nil {
-			m.createFailedStep = prepareLayerFailed
-			return "", err
-		}
-		fallthrough
-
-	case getLayerMountPathFailed:
-		volumePath, err = m.hcsClient.GetLayerMountPath(m.driverInfo, id)
-		if err != nil {
-			m.createFailedStep = getLayerMountPathFailed
-			return "", err
-		} else if volumePath == "" {
-			return "", &MissingVolumePathError{Id: id}
-		}
-	default:
-		panic(fmt.Sprintf("invalid create failed step %d", m.createFailedStep))
+	volumePath, err := m.hcsClient.GetLayerMountPath(m.driverInfo, id)
+	if err != nil {
+		return "", err
+	} else if volumePath == "" {
+		return "", &MissingVolumePathError{Id: id}
 	}
 
 	return volumePath, nil
 }
 
 func (m *Manager) RemoveLayer(id string) error {
-	switch m.deleteFailedStep {
-	case noDeleteFailure:
-		fallthrough
-	case unprepareLayerFailed:
-		if err := m.hcsClient.UnprepareLayer(m.driverInfo, id); err != nil {
-			m.deleteFailedStep = unprepareLayerFailed
-			return err
+	var unprepareErr, deactivateErr, destroyErr error
+
+	for i := 0; i < 3; i++ {
+		unprepareErr = m.hcsClient.UnprepareLayer(m.driverInfo, id)
+		deactivateErr = m.hcsClient.DeactivateLayer(m.driverInfo, id)
+		destroyErr = m.hcsClient.DestroyLayer(m.driverInfo, id)
+		if destroyErr == nil {
+			return nil
 		}
-		fallthrough
-	case deactivateLayerFailed:
-		if err := m.hcsClient.DeactivateLayer(m.driverInfo, id); err != nil {
-			m.deleteFailedStep = deactivateLayerFailed
-			return err
-		}
-		fallthrough
-	case destroyLayerFailed:
-		if err := m.hcsClient.DestroyLayer(m.driverInfo, id); err != nil {
-			m.deleteFailedStep = destroyLayerFailed
-			return err
-		}
-	default:
-		panic(fmt.Sprintf("invalid delete failed step %d", m.deleteFailedStep))
 	}
 
-	return nil
+	return fmt.Errorf("failed to remove layer (unprepare error: %s, deactivate error: %s, destroy error: %s)", unprepareErr.Error(), deactivateErr.Error(), destroyErr.Error())
 }
 
 func (m *Manager) LayerExists(id string) (bool, error) {
@@ -145,9 +89,4 @@ func (m *Manager) GetLayerMountPath(id string) (string, error) {
 
 func (m *Manager) HomeDir() string {
 	return m.driverInfo.HomeDir
-}
-
-func (m *Manager) Retryable(err error) bool {
-	return err != nil &&
-		(strings.Contains(err.Error(), "This operation returned because the timeout period expired"))
 }

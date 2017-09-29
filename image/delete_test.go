@@ -97,61 +97,16 @@ var _ = Describe("Delete", func() {
 			})
 		})
 
-		Context("when destroying the sandbox fails with a non-retryable error", func() {
-			var destroyLayerError = errors.New("destroy sandbox failed (non-retryable)")
-
+		Context("when destroying the sandbox fails", func() {
 			BeforeEach(func() {
-				layerManager.RemoveLayerReturns(destroyLayerError)
-				layerManager.RetryableReturns(false)
+				layerManager.RemoveLayerReturns(errors.New("some-error"))
 			})
 
-			It("errors immediately", func() {
+			It("errors", func() {
 				err := imageManager.Delete()
-				Expect(err).To(Equal(destroyLayerError))
+				Expect(err).To(MatchError("some-error"))
 
 				Expect(layerManager.RemoveLayerCallCount()).To(Equal(1))
-				Expect(layerManager.RetryableCallCount()).To(Equal(1))
-				Expect(layerManager.RetryableArgsForCall(0)).To(Equal(destroyLayerError))
-			})
-		})
-
-		Context("when destroying the sandbox fails with a retryable error", func() {
-			var destroyLayerError = errors.New("destroy sandbox failed (retryable)")
-
-			BeforeEach(func() {
-				layerManager.RemoveLayerReturns(destroyLayerError)
-				layerManager.RetryableReturns(true)
-			})
-
-			It("tries to destroy the sandbox DESTROY_ATTEMPTS times before returning an error", func() {
-				err := imageManager.Delete()
-				Expect(err).To(Equal(destroyLayerError))
-
-				Expect(layerManager.RemoveLayerCallCount()).To(Equal(image.DESTROY_ATTEMPTS))
-				Expect(layerManager.RetryableCallCount()).To(Equal(image.DESTROY_ATTEMPTS))
-				for i := 0; i < image.DESTROY_ATTEMPTS; i++ {
-					Expect(layerManager.RetryableArgsForCall(i)).To(Equal(destroyLayerError))
-				}
-			})
-		})
-
-		Context("when destroying the sandbox fails with a retryable error and eventually succeeds", func() {
-			var destroyLayerError = errors.New("destroy sandbox failed (retryable)")
-
-			BeforeEach(func() {
-				layerManager.RemoveLayerReturnsOnCall(0, destroyLayerError)
-				layerManager.RemoveLayerReturnsOnCall(1, destroyLayerError)
-				layerManager.RemoveLayerReturnsOnCall(2, nil)
-				layerManager.RetryableReturns(true)
-			})
-
-			It("tries to destroy the sandbox three times", func() {
-				Expect(imageManager.Delete()).To(Succeed())
-
-				Expect(layerManager.RemoveLayerCallCount()).To(Equal(3))
-				Expect(layerManager.RetryableCallCount()).To(Equal(2))
-				Expect(layerManager.RetryableArgsForCall(0)).To(Equal(destroyLayerError))
-				Expect(layerManager.RetryableArgsForCall(1)).To(Equal(destroyLayerError))
 			})
 		})
 	})

@@ -120,19 +120,16 @@ var _ = Describe("Create", func() {
 				})
 			})
 
-			Context("when creating the sandbox fails with a non-retryable error", func() {
-				var createSandboxLayerError = errors.New("create sandbox failed (non-retryable)")
-
+			Context("when creating the sandbox fails", func() {
 				BeforeEach(func() {
 					layerManager.LayerExistsReturnsOnCall(0, false, nil)
 					layerManager.LayerExistsReturnsOnCall(1, true, nil)
-					layerManager.CreateLayerReturns("", createSandboxLayerError)
-					layerManager.RetryableReturns(false)
+					layerManager.CreateLayerReturns("", errors.New("some-error"))
 				})
 
-				It("immediately deletes the sandbox and errors", func() {
+				It("deletes the sandbox and errors", func() {
 					_, err := imageManager.Create(rootfs, 666)
-					Expect(err).To(Equal(createSandboxLayerError))
+					Expect(err).To(MatchError("some-error"))
 
 					Expect(layerManager.CreateLayerCallCount()).To(Equal(1))
 
@@ -143,80 +140,6 @@ var _ = Describe("Create", func() {
 					Expect(layerManager.RemoveLayerCallCount()).To(Equal(1))
 					actualContainerId = layerManager.RemoveLayerArgsForCall(0)
 					Expect(actualContainerId).To(Equal(containerId))
-				})
-			})
-
-			Context("when creating the sandbox fails with a retryable error", func() {
-				var createLayerError = errors.New("create sandbox failed (retryable)")
-
-				BeforeEach(func() {
-					layerManager.LayerExistsReturnsOnCall(0, false, nil)
-					layerManager.LayerExistsReturnsOnCall(1, true, nil)
-					layerManager.CreateLayerReturns("", createLayerError)
-					layerManager.RetryableReturns(true)
-				})
-
-				It("tries to create the sandbox CREATE_ATTEMPTS times before returning an error", func() {
-					_, err := imageManager.Create(rootfs, 666)
-					Expect(err).To(Equal(createLayerError))
-
-					Expect(layerManager.CreateLayerCallCount()).To(Equal(image.CREATE_ATTEMPTS))
-					Expect(layerManager.RetryableCallCount()).To(Equal(image.CREATE_ATTEMPTS))
-					for i := 0; i < image.CREATE_ATTEMPTS; i++ {
-						Expect(layerManager.RetryableArgsForCall(i)).To(Equal(createLayerError))
-					}
-
-					Expect(layerManager.LayerExistsCallCount()).To(BeNumerically(">", 0))
-					actualContainerId := layerManager.LayerExistsArgsForCall(0)
-					Expect(actualContainerId).To(Equal(containerId))
-
-					Expect(layerManager.RemoveLayerCallCount()).To(Equal(1))
-					actualContainerId = layerManager.RemoveLayerArgsForCall(0)
-					Expect(actualContainerId).To(Equal(containerId))
-				})
-			})
-
-			Context("when creating the sandbox fails with a retryable error and eventually succeeds", func() {
-				var (
-					createLayerError = errors.New("create sandbox failed (retryable)")
-				)
-
-				BeforeEach(func() {
-					attempts := 0
-					layerManager.LayerExistsReturnsOnCall(0, false, nil)
-					layerManager.CreateLayerStub = func(containerId string, _ string, _ []string) (string, error) {
-						attempts += 1
-						if attempts < image.CREATE_ATTEMPTS {
-							return "", createLayerError
-						}
-						Expect(os.MkdirAll(filepath.Join(layerManager.HomeDir(), containerId), 0755)).To(Succeed())
-						return containerVolume, nil
-					}
-					layerManager.RetryableReturns(true)
-				})
-
-				It("tries to create the sandbox CREATE_ATTEMPTS times", func() {
-					actualImageSpec, err := imageManager.Create(rootfs, 666)
-					Expect(err).ToNot(HaveOccurred())
-					expectedImageSpec := &image.ImageSpec{
-						RootFs: containerVolume,
-						Spec: specs.Spec{
-							Root: &specs.Root{
-								Path: containerVolume,
-							},
-							Windows: &specs.Windows{
-								LayerFolders: []string{rootfs, "path1", "path2"},
-							},
-						},
-					}
-					Expect(actualImageSpec).To(Equal(expectedImageSpec))
-
-					Expect(layerManager.CreateLayerCallCount()).To(Equal(image.CREATE_ATTEMPTS))
-					Expect(layerManager.RetryableCallCount()).To(Equal(image.CREATE_ATTEMPTS - 1))
-
-					for i := 0; i < image.CREATE_ATTEMPTS-1; i++ {
-						Expect(layerManager.RetryableArgsForCall(i)).To(Equal(createLayerError))
-					}
 				})
 			})
 

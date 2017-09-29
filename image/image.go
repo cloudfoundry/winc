@@ -11,9 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const CREATE_ATTEMPTS = 5
-const DESTROY_ATTEMPTS = 10
-
 type ImageSpec struct {
 	RootFs string `json:"rootfs,omitempty"`
 	specs.Spec
@@ -44,7 +41,6 @@ type LayerManager interface {
 	RemoveLayer(string) error
 	LayerExists(string) (bool, error)
 	GetLayerMountPath(string) (string, error)
-	Retryable(error) bool
 	HomeDir() string
 }
 
@@ -91,17 +87,10 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 	}
 	sandboxLayers := append([]string{rootfs}, parentLayers...)
 
-	var volumePath string
-	var createErr error
-	for i := 0; i < CREATE_ATTEMPTS; i++ {
-		volumePath, createErr = s.layerManager.CreateLayer(s.id, rootfs, sandboxLayers)
-		if createErr == nil || !s.layerManager.Retryable(createErr) {
-			break
-		}
-	}
-	if createErr != nil {
+	volumePath, err := s.layerManager.CreateLayer(s.id, rootfs, sandboxLayers)
+	if err != nil {
 		_ = s.Delete()
-		return nil, createErr
+		return nil, err
 	}
 
 	if err := s.limiter.SetDiskLimit(volumePath, diskLimit); err != nil {
@@ -144,15 +133,7 @@ func (s *Manager) Delete() error {
 		return nil
 	}
 
-	var destroyErr error
-	for i := 0; i < DESTROY_ATTEMPTS; i++ {
-		destroyErr = s.layerManager.RemoveLayer(s.id)
-		if destroyErr == nil || !s.layerManager.Retryable(destroyErr) {
-			break
-		}
-	}
-
-	return destroyErr
+	return s.layerManager.RemoveLayer(s.id)
 }
 
 func (s *Manager) Stats() (*ImageStats, error) {

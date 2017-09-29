@@ -213,4 +213,43 @@ var _ = Describe("WincImage", func() {
 			Expect(stdOut.String()).To(ContainSubstring("Incorrect Usage"))
 		})
 	})
+
+	Context("deleting after failed attempts", func() {
+		var (
+			driverInfo    hcsshim.DriverInfo
+			sandboxLayers []string
+		)
+
+		BeforeEach(func() {
+			driverInfo = hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
+
+			parentLayerChain, err := ioutil.ReadFile(filepath.Join(rootfsPath, "layerchain.json"))
+			Expect(err).NotTo(HaveOccurred())
+			parentLayers := []string{}
+			Expect(json.Unmarshal(parentLayerChain, &parentLayers)).To(Succeed())
+
+			sandboxLayers = append([]string{rootfsPath}, parentLayers...)
+		})
+
+		Context("when a layer has been created but is not activated", func() {
+			It("destroys the layer", func() {
+				Expect(hcsshim.CreateSandboxLayer(driverInfo, containerId, rootfsPath, sandboxLayers)).To(Succeed())
+
+				_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
+			})
+		})
+
+		Context("when a layer has been created and activated but is not prepared", func() {
+			It("destroys the layer", func() {
+				Expect(hcsshim.CreateSandboxLayer(driverInfo, containerId, rootfsPath, sandboxLayers)).To(Succeed())
+				Expect(hcsshim.ActivateLayer(driverInfo, containerId)).To(Succeed())
+
+				_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
+			})
+		})
+	})
 })

@@ -60,17 +60,6 @@ type FakeLayerManager struct {
 		result1 string
 		result2 error
 	}
-	RetryableStub        func(error) bool
-	retryableMutex       sync.RWMutex
-	retryableArgsForCall []struct {
-		arg1 error
-	}
-	retryableReturns struct {
-		result1 bool
-	}
-	retryableReturnsOnCall map[int]struct {
-		result1 bool
-	}
 	HomeDirStub        func() string
 	homeDirMutex       sync.RWMutex
 	homeDirArgsForCall []struct{}
@@ -292,54 +281,6 @@ func (fake *FakeLayerManager) GetLayerMountPathReturnsOnCall(i int, result1 stri
 	}{result1, result2}
 }
 
-func (fake *FakeLayerManager) Retryable(arg1 error) bool {
-	fake.retryableMutex.Lock()
-	ret, specificReturn := fake.retryableReturnsOnCall[len(fake.retryableArgsForCall)]
-	fake.retryableArgsForCall = append(fake.retryableArgsForCall, struct {
-		arg1 error
-	}{arg1})
-	fake.recordInvocation("Retryable", []interface{}{arg1})
-	fake.retryableMutex.Unlock()
-	if fake.RetryableStub != nil {
-		return fake.RetryableStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.retryableReturns.result1
-}
-
-func (fake *FakeLayerManager) RetryableCallCount() int {
-	fake.retryableMutex.RLock()
-	defer fake.retryableMutex.RUnlock()
-	return len(fake.retryableArgsForCall)
-}
-
-func (fake *FakeLayerManager) RetryableArgsForCall(i int) error {
-	fake.retryableMutex.RLock()
-	defer fake.retryableMutex.RUnlock()
-	return fake.retryableArgsForCall[i].arg1
-}
-
-func (fake *FakeLayerManager) RetryableReturns(result1 bool) {
-	fake.RetryableStub = nil
-	fake.retryableReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *FakeLayerManager) RetryableReturnsOnCall(i int, result1 bool) {
-	fake.RetryableStub = nil
-	if fake.retryableReturnsOnCall == nil {
-		fake.retryableReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.retryableReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
 func (fake *FakeLayerManager) HomeDir() string {
 	fake.homeDirMutex.Lock()
 	ret, specificReturn := fake.homeDirReturnsOnCall[len(fake.homeDirArgsForCall)]
@@ -391,8 +332,6 @@ func (fake *FakeLayerManager) Invocations() map[string][][]interface{} {
 	defer fake.layerExistsMutex.RUnlock()
 	fake.getLayerMountPathMutex.RLock()
 	defer fake.getLayerMountPathMutex.RUnlock()
-	fake.retryableMutex.RLock()
-	defer fake.retryableMutex.RUnlock()
 	fake.homeDirMutex.RLock()
 	defer fake.homeDirMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
