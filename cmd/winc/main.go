@@ -12,8 +12,6 @@ import (
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
-	"code.cloudfoundry.org/winc/netrules"
-	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
 	"code.cloudfoundry.org/winc/volume"
@@ -186,14 +184,12 @@ func wireContainerManager(rootPath, bundlePath, containerId string) (*container.
 		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
-	nm := wireNetworkManager(network.Config{}, containerId)
-	return container.NewManager(&client, &volume.Mounter{}, nm, rootPath, bundlePath), nil
+	endpointManager := wireEndpointManager(network.Config{}, containerId)
+	return container.NewManager(&client, &volume.Mounter{}, endpointManager, rootPath, bundlePath), nil
 }
 
-func wireNetworkManager(config network.Config, handle string) *network.Manager {
-	client := &hcs.Client{}
-	runner := netsh.NewRunner(client, handle)
-	applier := netrules.NewApplier(runner, handle)
+func wireEndpointManager(config network.Config, handle string) *network.EndpointManager {
+	hcsClient := &hcs.Client{}
 
 	tracker := &port_allocator.Tracker{
 		StartPort: 40000,
@@ -202,17 +198,15 @@ func wireNetworkManager(config network.Config, handle string) *network.Manager {
 
 	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
 
-	pa := &port_allocator.PortAllocator{
+	portAllocator := &port_allocator.PortAllocator{
 		Tracker:    tracker,
 		Serializer: &serial.Serial{},
 		Locker:     locker,
 	}
 
-	return network.NewManager(
-		client,
-		pa,
-		applier,
-		config,
+	return network.NewEndpointManager(
+		hcsClient,
+		portAllocator,
 		handle,
 	)
 }

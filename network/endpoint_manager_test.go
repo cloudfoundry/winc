@@ -5,9 +5,7 @@ import (
 	"errors"
 	"io/ioutil"
 
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/hcs/hcsfakes"
-	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/networkfakes"
 	"github.com/Microsoft/hcsshim"
@@ -16,116 +14,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("Network", func() {
+var _ = Describe("EndpointManager", func() {
 	const (
 		containerId = "containerid-1234"
 		networkId   = "networkid-5678"
 	)
 
 	var (
-		networkManager *network.Manager
-		portAllocator  *networkfakes.FakePortAllocator
-		netRuleApplier *networkfakes.FakeNetRuleApplier
-		hcsClient      *networkfakes.FakeHCSClient
-		config         network.Config
+		endpointManager *network.EndpointManager
+		hcsClient       *networkfakes.FakeHCSClient
+		portAllocator   *networkfakes.FakePortAllocator
 	)
 
 	BeforeEach(func() {
 		hcsClient = &networkfakes.FakeHCSClient{}
 		portAllocator = &networkfakes.FakePortAllocator{}
-		netRuleApplier = &networkfakes.FakeNetRuleApplier{}
-		config = network.Config{
-			MTU: 1434,
-		}
 
-		networkManager = network.NewManager(hcsClient, portAllocator, netRuleApplier, config, containerId)
+		endpointManager = network.NewEndpointManager(hcsClient, portAllocator, containerId)
 
 		logrus.SetOutput(ioutil.Discard)
-	})
-
-	Describe("Up", func() {
-		var (
-			inputs   network.UpInputs
-			endpoint *hcsshim.HNSEndpoint
-			localIp  string
-		)
-
-		BeforeEach(func() {
-			endpoint = &hcsshim.HNSEndpoint{
-				Id: "ep-987",
-			}
-			hcsClient.GetHNSEndpointByNameReturns(endpoint, nil)
-
-			inputs = network.UpInputs{
-				Pid: 1234,
-				NetIn: []netrules.NetIn{
-					{HostPort: 0, ContainerPort: 666},
-					{HostPort: 0, ContainerPort: 888},
-				},
-				NetOut: []netrules.NetOut{
-					{Protocol: 7},
-					{Protocol: 8},
-				},
-			}
-
-			netRuleApplier.InReturnsOnCall(0, netrules.PortMapping{HostPort: 555, ContainerPort: 666}, nil)
-			netRuleApplier.InReturnsOnCall(1, netrules.PortMapping{HostPort: 777, ContainerPort: 888}, nil)
-
-			var err error
-			localIp, err = localip.LocalIP()
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("applies NetIn rules, NetOut rules, and MTU", func() {
-			outputs, err := networkManager.Up(inputs)
-			Expect(err).ToNot(HaveOccurred())
-			expectedUpOutputs := network.UpOutputs{}
-			expectedUpOutputs.Properties.ContainerIP = localIp
-			expectedUpOutputs.Properties.DeprecatedHostIP = "255.255.255.255"
-			expectedUpOutputs.Properties.MappedPorts = `[{"HostPort":555,"ContainerPort":666},{"HostPort":777,"ContainerPort":888}]`
-			expectedUpOutputs.DNSServers = nil
-			Expect(outputs).To(Equal(expectedUpOutputs))
-
-			Expect(hcsClient.GetHNSEndpointByNameArgsForCall(0)).To(Equal("containerid-1234"))
-
-			Expect(netRuleApplier.InCallCount()).To(Equal(2))
-			niRule, ep := netRuleApplier.InArgsForCall(0)
-			Expect(niRule).To(Equal(netrules.NetIn{
-				HostPort:      0,
-				ContainerPort: 666,
-			}))
-			Expect(ep).To(Equal(endpoint))
-			niRule, ep = netRuleApplier.InArgsForCall(1)
-			Expect(niRule).To(Equal(netrules.NetIn{
-				HostPort:      0,
-				ContainerPort: 888,
-			}))
-			Expect(ep).To(Equal(endpoint))
-
-			Expect(netRuleApplier.OutCallCount()).To(Equal(2))
-			noRule, ep := netRuleApplier.OutArgsForCall(0)
-			Expect(noRule).To(Equal(netrules.NetOut{
-				Protocol: 7,
-			}))
-			Expect(ep).To(Equal(endpoint))
-			noRule, ep = netRuleApplier.OutArgsForCall(1)
-			Expect(noRule).To(Equal(netrules.NetOut{
-				Protocol: 8,
-			}))
-			Expect(ep).To(Equal(endpoint))
-
-			Expect(netRuleApplier.MTUCallCount()).To(Equal(1))
-			eId, mtu := netRuleApplier.MTUArgsForCall(0)
-			Expect(eId).To(Equal("ep-987"))
-			Expect(mtu).To(Equal(1434))
-		})
-	})
-
-	Describe("Down", func() {
-		It("cleans up the container network", func() {
-			Expect(networkManager.Down()).To(Succeed())
-			Expect(netRuleApplier.CleanupCallCount()).To(Equal(1))
-		})
 	})
 
 	Describe("AtachEndpointToConfig", func() {
@@ -165,7 +72,7 @@ var _ = Describe("Network", func() {
 		It("creates an endpoint on the nat network with two allocated ports", func() {
 			config := hcsshim.ContainerConfig{}
 			var err error
-			config, err = networkManager.AttachEndpointToConfig(config)
+			config, err = endpointManager.AttachEndpointToConfig(config)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
 
@@ -206,7 +113,7 @@ var _ = Describe("Network", func() {
 			It("creates winc-nat", func() {
 				config := hcsshim.ContainerConfig{}
 				var err error
-				_, err = networkManager.AttachEndpointToConfig(config)
+				_, err = endpointManager.AttachEndpointToConfig(config)
 				Expect(err).NotTo(HaveOccurred())
 
 				newNAT := hcsClient.CreateNetworkArgsForCall(0)
@@ -223,7 +130,7 @@ var _ = Describe("Network", func() {
 				It("errors", func() {
 					config := hcsshim.ContainerConfig{}
 					var err error
-					config, err = networkManager.AttachEndpointToConfig(config)
+					config, err = endpointManager.AttachEndpointToConfig(config)
 					Expect(err).To(HaveOccurred())
 				})
 
@@ -236,7 +143,7 @@ var _ = Describe("Network", func() {
 					It("retries until the network can be found", func() {
 						config := hcsshim.ContainerConfig{}
 						var err error
-						config, err = networkManager.AttachEndpointToConfig(config)
+						config, err = endpointManager.AttachEndpointToConfig(config)
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
@@ -249,7 +156,7 @@ var _ = Describe("Network", func() {
 						})
 
 						It("errors", func() {
-							_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
+							_, err := endpointManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
 							Expect(err).To(MatchError(&network.NoNATNetworkError{Name: "winc-nat"}))
 						})
 					})
@@ -268,7 +175,7 @@ var _ = Describe("Network", func() {
 				It("retries creating the endpoint", func() {
 					config := hcsshim.ContainerConfig{}
 					var err error
-					config, err = networkManager.AttachEndpointToConfig(config)
+					config, err = endpointManager.AttachEndpointToConfig(config)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
 				})
@@ -280,7 +187,7 @@ var _ = Describe("Network", func() {
 				})
 
 				It("returns an error and deallocates the ports", func() {
-					_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
+					_, err := endpointManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
 					Expect(err).To(MatchError("HNS failed with error : Unspecified error"))
 					Expect(hcsClient.CreateEndpointCallCount()).To(Equal(3))
 
@@ -295,7 +202,7 @@ var _ = Describe("Network", func() {
 				})
 
 				It("deallocates the port", func() {
-					_, err := networkManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
+					_, err := endpointManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
 					Expect(err).To(MatchError("cannot create endpoint"))
 					Expect(hcsClient.CreateEndpointCallCount()).To(Equal(1))
 
@@ -328,7 +235,7 @@ var _ = Describe("Network", func() {
 		})
 
 		It("deletes all endpoint and port mappings for the container", func() {
-			Expect(networkManager.DeleteContainerEndpoints(fakeContainer)).To(Succeed())
+			Expect(endpointManager.DeleteContainerEndpoints(fakeContainer)).To(Succeed())
 
 			Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(2))
 			Expect(hcsClient.DeleteEndpointArgsForCall(0)).To(Equal(endpoint1))
@@ -345,7 +252,7 @@ var _ = Describe("Network", func() {
 			})
 
 			It("continues to delete all other endpoints", func() {
-				err := networkManager.DeleteContainerEndpoints(fakeContainer)
+				err := endpointManager.DeleteContainerEndpoints(fakeContainer)
 				Expect(err).To(MatchError("cannot delete endpoint 1"))
 
 				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(2))
@@ -353,7 +260,7 @@ var _ = Describe("Network", func() {
 			})
 
 			It("does not release the ports", func() {
-				err := networkManager.DeleteContainerEndpoints(fakeContainer)
+				err := endpointManager.DeleteContainerEndpoints(fakeContainer)
 				Expect(err).To(MatchError("cannot delete endpoint 1"))
 				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(0))
 			})
@@ -373,7 +280,7 @@ var _ = Describe("Network", func() {
 		})
 
 		It("deletes all endpoints and port mappings for the container", func() {
-			Expect(networkManager.DeleteEndpointsById([]string{endpoint1.Id, endpoint2.Id})).To(Succeed())
+			Expect(endpointManager.DeleteEndpointsById([]string{endpoint1.Id, endpoint2.Id})).To(Succeed())
 
 			Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(2))
 			Expect(hcsClient.DeleteEndpointArgsForCall(0)).To(Equal(endpoint1))
@@ -390,7 +297,7 @@ var _ = Describe("Network", func() {
 			})
 
 			It("continues to delete all other endpoints", func() {
-				err := networkManager.DeleteEndpointsById([]string{endpoint1.Id, endpoint2.Id})
+				err := endpointManager.DeleteEndpointsById([]string{endpoint1.Id, endpoint2.Id})
 				Expect(err).To(MatchError("cannot delete endpoint 1"))
 
 				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(2))
@@ -398,7 +305,7 @@ var _ = Describe("Network", func() {
 			})
 
 			It("does not release the ports", func() {
-				err := networkManager.DeleteEndpointsById([]string{endpoint1.Id, endpoint2.Id})
+				err := endpointManager.DeleteEndpointsById([]string{endpoint1.Id, endpoint2.Id})
 				Expect(err).To(MatchError("cannot delete endpoint 1"))
 				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(0))
 			})
