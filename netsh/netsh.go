@@ -61,5 +61,9 @@ func (nr *Runner) RunContainer(args []string) error {
 }
 
 func (nr *Runner) RunHost(args []string) ([]byte, error) {
-	return exec.Command("netsh", args...).Output()
+	output, err := exec.Command("netsh", args...).CombinedOutput()
+	if err != nil {
+		return output, fmt.Errorf("failed to run `netsh %s`: %s: %s", strings.Join(args, " "), err.Error(), string(output))
+	}
+	return output, nil
 }

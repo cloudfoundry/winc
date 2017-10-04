@@ -70,4 +70,21 @@ var _ = Describe("Netsh", func() {
 			})
 		})
 	})
+
+	Describe("RunContainer", func() {
+		It("runs a netsh command on the host", func() {
+			output, err := runner.RunHost([]string{"interface", "show", "interface"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(output)).To(ContainSubstring("Interface Name"))
+		})
+
+		Context("when the command fails", func() {
+			It("returns an error including the output", func() {
+				errorMsg := "The following command was not found: some-bad-command."
+				output, err := runner.RunHost([]string{"some-bad-command"})
+				Expect(err).To(MatchError(ContainSubstring(errorMsg)))
+				Expect(string(output)).To(ContainSubstring(errorMsg))
+			})
+		})
+	})
 })
