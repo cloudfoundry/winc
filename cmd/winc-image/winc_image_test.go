@@ -167,7 +167,7 @@ var _ = Describe("WincImage", func() {
 				})
 
 				It("does not set a limit", func() {
-					output, err := exec.Command("powershell.exe", "-Command", "Get-FSRMQuota", mountPath).CombinedOutput()
+					output, err := exec.Command("dirquota", "quota", "list", fmt.Sprintf("/Path:%s", mountPath)).CombinedOutput()
 					Expect(err).To(HaveOccurred())
 					Expect(string(output)).To(ContainSubstring("The requested object was not found"))
 				})
