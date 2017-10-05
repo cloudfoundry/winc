@@ -3,6 +3,7 @@ package netrules_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 
 	"code.cloudfoundry.org/winc/netrules"
@@ -26,7 +27,7 @@ var _ = Describe("Applier", func() {
 		endpoint = &hcsshim.HNSEndpoint{}
 
 		netSh = &netrulesfakes.FakeNetShRunner{}
-		applier = netrules.NewApplier(netSh, containerId)
+		applier = netrules.NewApplier(netSh, containerId, false, "")
 	})
 
 	Describe("In", func() {
@@ -287,6 +288,33 @@ var _ = Describe("Applier", func() {
 				err := applier.MTU(endpointId, 1600)
 				Expect(err).To(MatchError(errors.New("invalid mtu specified: 1600")))
 				Expect(netSh.RunContainerCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("when run on a technical preview", func() {
+			BeforeEach(func() {
+				applier = netrules.NewApplier(netSh, containerId, true, "some-network-name")
+
+				netSh.RunHostReturns([]byte(`
+   MTU  MediaSenseState   Bytes In  Bytes Out  Interface
+------  ---------------  ---------  ---------  -------------
+  1302                1     142864    2448382  vEthernet (some-network-name)
+				`), nil)
+			})
+
+			It("uses the correct interface names", func() {
+				interfaceName := "some-interface-name"
+				Expect(applier.MTU(interfaceName, 0)).To(Succeed())
+
+				Expect(netSh.RunHostCallCount()).To(Equal(1))
+				expectedMTUArgs := []string{"interface", "ipv4", "show", "subinterface",
+					"interface=vEthernet (some-network-name)"}
+				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedMTUArgs))
+
+				Expect(netSh.RunContainerCallCount()).To(Equal(1))
+				expectedMTUArgs = []string{"interface", "ipv4", "set", "subinterface",
+					fmt.Sprintf(`"vEthernet (%s)"`, interfaceName), "mtu=1302", "store=persistent"}
+				Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedMTUArgs))
 			})
 		})
 	})

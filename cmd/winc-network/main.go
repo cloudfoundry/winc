@@ -13,6 +13,8 @@ import (
 	"code.cloudfoundry.org/winc/network"
 )
 
+const NetworkName = "winc-nat"
+
 func main() {
 	action, handle, configFile, err := parseArgs(os.Args)
 	if err != nil {
@@ -102,12 +104,13 @@ func parseConfig(configFile string) (network.Config, error) {
 func wireNetworkManager(config network.Config, handle string) *network.NetworkManager {
 	hcsClient := &hcs.Client{}
 	runner := netsh.NewRunner(hcsClient, handle)
-	applier := netrules.NewApplier(runner, handle)
+	applier := netrules.NewApplier(runner, handle, config.TechnicalPreview, NetworkName)
 
 	return network.NewNetworkManager(
 		hcsClient,
 		applier,
 		config,
 		handle,
+		config.TechnicalPreview,
 	)
 }

@@ -30,7 +30,7 @@ var _ = Describe("NetworkManager", func() {
 			MTU: 1434,
 		}
 
-		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, config, containerId)
+		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, config, containerId, false)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -110,6 +110,22 @@ var _ = Describe("NetworkManager", func() {
 			eId, mtu := netRuleApplier.MTUArgsForCall(0)
 			Expect(eId).To(Equal("ep-987"))
 			Expect(mtu).To(Equal(1434))
+		})
+
+		Context("when run on a technical preview", func() {
+			BeforeEach(func() {
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, config, containerId, true)
+			})
+
+			It("sets the MTU using the container ID", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(netRuleApplier.MTUCallCount()).To(Equal(1))
+				actualContainerId, actualMtu := netRuleApplier.MTUArgsForCall(0)
+				Expect(actualContainerId).To(Equal(containerId))
+				Expect(actualMtu).To(Equal(1434))
+			})
 		})
 	})
 

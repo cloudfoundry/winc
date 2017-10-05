@@ -3,6 +3,7 @@ package network_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/hcs/hcsfakes"
@@ -18,6 +19,7 @@ var _ = Describe("EndpointManager", func() {
 	const (
 		containerId = "containerid-1234"
 		networkId   = "networkid-5678"
+		networkName = "some-network-name"
 	)
 
 	var (
@@ -30,7 +32,7 @@ var _ = Describe("EndpointManager", func() {
 		hcsClient = &networkfakes.FakeHCSClient{}
 		portAllocator = &networkfakes.FakePortAllocator{}
 
-		endpointManager = network.NewEndpointManager(hcsClient, portAllocator, containerId)
+		endpointManager = network.NewEndpointManager(hcsClient, portAllocator, containerId, networkName)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -50,7 +52,7 @@ var _ = Describe("EndpointManager", func() {
 			portAllocator.AllocatePortReturnsOnCall(0, port1, nil)
 			portAllocator.AllocatePortReturnsOnCall(1, port2, nil)
 
-			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId, Name: "winc-nat"}, nil)
+			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
 
 			endpoint = &hcsshim.HNSEndpoint{
 				Id: "endpoint-id",
@@ -104,25 +106,25 @@ var _ = Describe("EndpointManager", func() {
 			Expect(requestedPortMappings).To(ConsistOf(expectedPortMappings))
 		})
 
-		Context("winc-nat network does not already exist", func() {
+		Context("the network does not already exist", func() {
 			BeforeEach(func() {
-				hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("Network winc-nat not found"))
-				hcsClient.CreateNetworkReturns(&hcsshim.HNSNetwork{Id: networkId, Name: "winc-nat"}, nil)
+				hcsClient.GetHNSNetworkByNameReturns(nil, fmt.Errorf("Network %s not found", networkName))
+				hcsClient.CreateNetworkReturns(&hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
 			})
 
-			It("creates winc-nat", func() {
+			It("creates the network", func() {
 				config := hcsshim.ContainerConfig{}
 				var err error
 				_, err = endpointManager.AttachEndpointToConfig(config)
 				Expect(err).NotTo(HaveOccurred())
 
 				newNAT := hcsClient.CreateNetworkArgsForCall(0)
-				Expect(newNAT.Name).To(Equal("winc-nat"))
+				Expect(newNAT.Name).To(Equal(networkName))
 				Expect(newNAT.Type).To(Equal("nat"))
 				Expect(newNAT.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "172.30.0.0/22", GatewayAddress: "172.30.0.1"}))
 			})
 
-			Context("creating winc-nat fails", func() {
+			Context("creating the network fails", func() {
 				BeforeEach(func() {
 					hcsClient.CreateNetworkReturns(nil, errors.New("HNS failed with error : something happened"))
 				})
@@ -137,7 +139,7 @@ var _ = Describe("EndpointManager", func() {
 				Context("because it already exists", func() {
 					BeforeEach(func() {
 						hcsClient.CreateNetworkReturns(nil, errors.New("HNS failed with error : {Object Exists}"))
-						hcsClient.GetHNSNetworkByNameReturnsOnCall(2, &hcsshim.HNSNetwork{Id: networkId, Name: "winc-nat"}, nil)
+						hcsClient.GetHNSNetworkByNameReturnsOnCall(2, &hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
 					})
 
 					It("retries until the network can be found", func() {
@@ -152,12 +154,12 @@ var _ = Describe("EndpointManager", func() {
 					Context("when it hits the retry limit for finding the network", func() {
 						BeforeEach(func() {
 							// override the call 2 from the outer context
-							hcsClient.GetHNSNetworkByNameReturnsOnCall(2, nil, errors.New("Network winc-nat not found"))
+							hcsClient.GetHNSNetworkByNameReturnsOnCall(2, nil, fmt.Errorf("Network %s not found", networkName))
 						})
 
 						It("errors", func() {
 							_, err := endpointManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
-							Expect(err).To(MatchError(&network.NoNATNetworkError{Name: "winc-nat"}))
+							Expect(err).To(MatchError(&network.NoNATNetworkError{Name: networkName}))
 						})
 					})
 				})

@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const WINC_NETWORK = "winc-nat"
 const SUBNET_RANGE = "172.30.0.0/22"
 const GATEWAY_ADDRESS = "172.30.0.1"
 
@@ -25,13 +24,15 @@ type EndpointManager struct {
 	hcsClient     HCSClient
 	portAllocator PortAllocator
 	containerId   string
+	networkName   string
 }
 
-func NewEndpointManager(hcsClient HCSClient, portAllocator PortAllocator, containerId string) *EndpointManager {
+func NewEndpointManager(hcsClient HCSClient, portAllocator PortAllocator, containerId string, networkName string) *EndpointManager {
 	return &EndpointManager{
 		hcsClient:     hcsClient,
 		portAllocator: portAllocator,
 		containerId:   containerId,
+		networkName:   networkName,
 	}
 }
 
@@ -79,15 +80,15 @@ func (e *EndpointManager) getWincNATNetwork() (*hcsshim.HNSNetwork, error) {
 
 	for i := 0; i < 10 && wincNATNetwork == nil; i++ {
 		time.Sleep(time.Duration(i) * 100 * time.Millisecond)
-		wincNATNetwork, err = e.hcsClient.GetHNSNetworkByName(WINC_NETWORK)
-		if err != nil && !strings.Contains(err.Error(), "Network "+WINC_NETWORK+" not found") {
+		wincNATNetwork, err = e.hcsClient.GetHNSNetworkByName(e.networkName)
+		if err != nil && !strings.Contains(err.Error(), "Network "+e.networkName+" not found") {
 			logrus.Error(err.Error())
 			return nil, err
 		}
 
 		if wincNATNetwork == nil {
 			network := &hcsshim.HNSNetwork{
-				Name: WINC_NETWORK,
+				Name: e.networkName,
 				Type: "nat",
 				Subnets: []hcsshim.Subnet{
 					{AddressPrefix: SUBNET_RANGE, GatewayAddress: GATEWAY_ADDRESS},
@@ -102,7 +103,7 @@ func (e *EndpointManager) getWincNATNetwork() (*hcsshim.HNSNetwork, error) {
 	}
 
 	if wincNATNetwork == nil {
-		return nil, &NoNATNetworkError{Name: WINC_NETWORK}
+		return nil, &NoNATNetworkError{Name: e.networkName}
 	}
 
 	return wincNATNetwork, nil

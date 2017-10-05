@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	usage = `Open Container Initiative runtime for Windows
+	NetworkName = "winc-nat"
+	usage       = `Open Container Initiative runtime for Windows
 
 winc is a command line client for running applications on Windows packaged
 according to the Open Container Initiative (OCI) format and is a compliant
@@ -208,5 +209,6 @@ func wireEndpointManager(config network.Config, handle string) *network.Endpoint
 		hcsClient,
 		portAllocator,
 		handle,
+		NetworkName,
 	)
 }

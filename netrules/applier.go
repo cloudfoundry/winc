@@ -18,14 +18,18 @@ type NetShRunner interface {
 }
 
 type Applier struct {
-	netSh NetShRunner
-	id    string
+	netSh            NetShRunner
+	id               string
+	technicalPreview bool
+	networkName      string
 }
 
-func NewApplier(netSh NetShRunner, containerId string) *Applier {
+func NewApplier(netSh NetShRunner, containerId string, technicalPreview bool, networkName string) *Applier {
 	return &Applier{
-		netSh: netSh,
-		id:    containerId,
+		netSh:            netSh,
+		id:               containerId,
+		technicalPreview: technicalPreview,
+		networkName:      networkName,
 	}
 }
 
@@ -97,7 +101,7 @@ func (a *Applier) Out(rule NetOut, endpoint *hcsshim.HNSEndpoint) error {
 	return err
 }
 
-func (a *Applier) MTU(endpointId string, mtu int) error {
+func (a *Applier) MTU(interfaceInnerId string, mtu int) error {
 	var err error
 	if mtu == 0 {
 		mtu, err = a.getHostMTU()
@@ -110,8 +114,11 @@ func (a *Applier) MTU(endpointId string, mtu int) error {
 		return fmt.Errorf("invalid mtu specified: %d", mtu)
 	}
 
-	interfaceName := fmt.Sprintf("vEthernet (Container NIC %s)", strings.Split(endpointId, "-")[0])
-	args := []string{"interface", "ipv4", "set", "subinterface", fmt.Sprintf(`"%s"`, interfaceName), fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
+	interfaceId := fmt.Sprintf(`"vEthernet (Container NIC %s)"`, strings.Split(interfaceInnerId, "-")[0])
+	if a.technicalPreview {
+		interfaceId = fmt.Sprintf(`"vEthernet (%s)"`, interfaceInnerId)
+	}
+	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
 
 	return a.netSh.RunContainer(args)
 }
@@ -135,7 +142,11 @@ func (a *Applier) Cleanup() error {
 }
 
 func (a *Applier) getHostMTU() (int, error) {
-	output, err := a.netSh.RunHost([]string{"interface", "ipv4", "show", "subinterface", "interface=vEthernet (HNS Internal NIC)"})
+	interfaceId := "vEthernet (HNS Internal NIC)"
+	if a.technicalPreview {
+		interfaceId = fmt.Sprintf("vEthernet (%s)", a.networkName)
+	}
+	output, err := a.netSh.RunHost([]string{"interface", "ipv4", "show", "subinterface", "interface=" + interfaceId})
 	if err != nil {
 		return 0, err
 	}

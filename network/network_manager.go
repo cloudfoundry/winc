@@ -19,7 +19,8 @@ type NetRuleApplier interface {
 }
 
 type Config struct {
-	MTU int `json:"mtu"`
+	MTU              int  `json:"mtu"`
+	TechnicalPreview bool `json:"technical_preview"`
 }
 
 type UpInputs struct {
@@ -39,18 +40,20 @@ type UpOutputs struct {
 }
 
 type NetworkManager struct {
-	hcsClient   HCSClient
-	applier     NetRuleApplier
-	config      Config
-	containerId string
+	hcsClient        HCSClient
+	applier          NetRuleApplier
+	config           Config
+	containerId      string
+	technicalPreview bool
 }
 
-func NewNetworkManager(client HCSClient, applier NetRuleApplier, config Config, containerId string) *NetworkManager {
+func NewNetworkManager(client HCSClient, applier NetRuleApplier, config Config, containerId string, technicalPreview bool) *NetworkManager {
 	return &NetworkManager{
-		hcsClient:   client,
-		applier:     applier,
-		config:      config,
-		containerId: containerId,
+		hcsClient:        client,
+		applier:          applier,
+		config:           config,
+		containerId:      containerId,
+		technicalPreview: technicalPreview,
 	}
 }
 
@@ -82,7 +85,11 @@ func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 		}
 	}
 
-	if err := n.applier.MTU(endpoint.Id, n.config.MTU); err != nil {
+	interfaceId := endpoint.Id
+	if n.technicalPreview {
+		interfaceId = n.containerId
+	}
+	if err := n.applier.MTU(interfaceId, n.config.MTU); err != nil {
 		return outputs, err
 	}
 
