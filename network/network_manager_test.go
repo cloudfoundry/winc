@@ -112,7 +112,7 @@ var _ = Describe("NetworkManager", func() {
 			Expect(mtu).To(Equal(1434))
 		})
 
-		Context("when run on a technical preview", func() {
+		Context("when run on a insider preview", func() {
 			BeforeEach(func() {
 				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, config, containerId, true)
 			})

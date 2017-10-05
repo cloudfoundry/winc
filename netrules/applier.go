@@ -18,18 +18,18 @@ type NetShRunner interface {
 }
 
 type Applier struct {
-	netSh            NetShRunner
-	id               string
-	technicalPreview bool
-	networkName      string
+	netSh          NetShRunner
+	id             string
+	insiderPreview bool
+	networkName    string
 }
 
-func NewApplier(netSh NetShRunner, containerId string, technicalPreview bool, networkName string) *Applier {
+func NewApplier(netSh NetShRunner, containerId string, insiderPreview bool, networkName string) *Applier {
 	return &Applier{
-		netSh:            netSh,
-		id:               containerId,
-		technicalPreview: technicalPreview,
-		networkName:      networkName,
+		netSh:          netSh,
+		id:             containerId,
+		insiderPreview: insiderPreview,
+		networkName:    networkName,
 	}
 }
 
@@ -115,7 +115,7 @@ func (a *Applier) MTU(interfaceInnerId string, mtu int) error {
 	}
 
 	interfaceId := fmt.Sprintf(`"vEthernet (Container NIC %s)"`, strings.Split(interfaceInnerId, "-")[0])
-	if a.technicalPreview {
+	if a.insiderPreview {
 		interfaceId = fmt.Sprintf(`"vEthernet (%s)"`, interfaceInnerId)
 	}
 	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
@@ -143,7 +143,7 @@ func (a *Applier) Cleanup() error {
 
 func (a *Applier) getHostMTU() (int, error) {
 	interfaceId := "vEthernet (HNS Internal NIC)"
-	if a.technicalPreview {
+	if a.insiderPreview {
 		interfaceId = fmt.Sprintf("vEthernet (%s)", a.networkName)
 	}
 	output, err := a.netSh.RunHost([]string{"interface", "ipv4", "show", "subinterface", "interface=" + interfaceId})

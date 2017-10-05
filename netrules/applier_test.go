@@ -291,7 +291,7 @@ var _ = Describe("Applier", func() {
 			})
 		})
 
-		Context("when run on a technical preview", func() {
+		Context("when run on a insider preview", func() {
 			BeforeEach(func() {
 				applier = netrules.NewApplier(netSh, containerId, true, "some-network-name")
 

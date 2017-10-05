@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/winc/netrules"
+	"code.cloudfoundry.org/winc/network"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -22,21 +23,38 @@ import (
 
 var _ = Describe("up", func() {
 	var (
-		config      []byte
-		containerId string
-		bundleSpec  specs.Spec
-		err         error
+		config        []byte
+		containerId   string
+		bundleSpec    specs.Spec
+		configFile    string
+		networkConfig network.Config
 	)
 
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
 		bundleSpec = runtimeSpecGenerator(createSandbox("C:\\run\\winc", rootfsPath, containerId), containerId)
+		var err error
 		config, err = json.Marshal(&bundleSpec)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
 		output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
+
+		_, insiderPreview := os.LookupEnv("INSIDER_PREVIEW")
+		networkConfig = network.Config{
+			InsiderPreview: insiderPreview,
+		}
+	})
+
+	JustBeforeEach(func() {
+		dir, err := ioutil.TempDir("", "winc-network.config")
+		Expect(err).NotTo(HaveOccurred())
+
+		configFile = filepath.Join(dir, "winc-network.json")
+		c, err := json.Marshal(networkConfig)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(configFile, c, 0644)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -44,28 +62,12 @@ var _ = Describe("up", func() {
 		Expect(err).ToNot(HaveOccurred(), string(output))
 		output, err = exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
+		Expect(os.RemoveAll(filepath.Dir(configFile))).To(Succeed())
 	})
 
 	Context("a config file contains network MTU", func() {
-		var (
-			configFile string
-			mtu        int
-		)
-
 		BeforeEach(func() {
-			mtu = 1405
-			dir, err := ioutil.TempDir("", "winc-network.config")
-			Expect(err).NotTo(HaveOccurred())
-
-			configFile = filepath.Join(dir, "winc-network.json")
-		})
-
-		JustBeforeEach(func() {
-			Expect(ioutil.WriteFile(configFile, []byte(fmt.Sprintf(`{"mtu": %d}`, mtu)), 0644)).To(Succeed())
-		})
-
-		AfterEach(func() {
-			Expect(os.RemoveAll(filepath.Dir(configFile))).To(Succeed())
+			networkConfig.MTU = 1405
 		})
 
 		It("sets the network MTU on the internal container NIC", func() {
@@ -82,7 +84,7 @@ var _ = Describe("up", func() {
 
 		Context("when the requested MTU is 0", func() {
 			BeforeEach(func() {
-				mtu = 0
+				networkConfig.MTU = 0
 			})
 
 			It("sets the host MTU in the container", func() {
@@ -106,7 +108,7 @@ var _ = Describe("up", func() {
 
 	Context("stdin contains a port mapping request", func() {
 		It("prints the correct port mapping for the container", func() {
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
@@ -116,7 +118,7 @@ var _ = Describe("up", func() {
 		})
 
 		It("outputs the host's public IP as the container IP", func() {
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
@@ -134,7 +136,7 @@ var _ = Describe("up", func() {
 		})
 
 		It("creates the correct urlacl in the container", func() {
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
@@ -147,7 +149,7 @@ var _ = Describe("up", func() {
 
 	Context("stdin does not contain a port mapping request", func() {
 		It("prints an empty list of mapped ports", func() {
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} }`)
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
@@ -159,7 +161,7 @@ var _ = Describe("up", func() {
 
 	Context("stdin contains an invalid port mapping request", func() {
 		It("errors", func() {
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 1234}, {"host_port": 0, "container_port": 2222}]}`)
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 			Expect(err).To(Succeed())
@@ -198,14 +200,14 @@ var _ = Describe("up", func() {
 			netOutRuleStr, err := json.Marshal(&netOutRule)
 			Expect(err).ToNot(HaveOccurred())
 
-			cmd := exec.Command(wincNetworkBin, "--action", "up", "--handle", containerId)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
 			cmd.Stdin = strings.NewReader(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": [%s]}`, string(netOutRuleStr)))
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
 		})
 
 		AfterEach(func() {
-			Expect(exec.Command(wincNetworkBin, "--action", "down", "--handle", containerId).Run()).To(Succeed())
+			Expect(exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "down", "--handle", containerId).Run()).To(Succeed())
 			parsedCmd := fmt.Sprintf(`Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"}`, containerIp)
 			output, err := exec.Command("powershell.exe", "-Command", parsedCmd).CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
