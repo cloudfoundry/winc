@@ -41,7 +41,7 @@ var _ = Describe("up", func() {
 		output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
 
-		_, insiderPreview := os.LookupEnv("INSIDER_PREVIEW")
+		insiderPreview := os.Getenv("INSIDER_PREVIEW") != ""
 		networkConfig = network.Config{
 			InsiderPreview: insiderPreview,
 		}
