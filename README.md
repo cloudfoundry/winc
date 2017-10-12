@@ -37,7 +37,7 @@ ginkgo -r -race -keepGoing
 
 ### Using
 
-The following `powershell` script can be used to quickly create a new container. It takes an optional container ID as an argument. It requires `winc.exe` and `winc-image.exe` to be on your path, and `quota.dll` to be in the same directory as `winc-image.exe`.
+The following `powershell` script can be used to quickly create a new container. It takes an optional container ID as an argument. It requires `winc.exe` and `winc-image.exe` to be on your path, and `quota.dll` to be in the same directory as `winc-image.exe`. $env:WINC_TEST_ROOTFS must be set.
 
 ```
 if (!(Get-Command "winc.exe" -ErrorAction SilentlyContinue)) {
@@ -62,7 +62,7 @@ if (!$containerId) {
   $containerId = [guid]::NewGuid()
 }
 
-$rootfs = (docker inspect cloudfoundry/windows2016fs | ConvertFrom-Json).GraphDriver.Data.Dir
+$rootfs = $env:WINC_TEST_ROOTFS 
 
 $config = winc-image.exe create $rootfs $containerId | ConvertFrom-Json
 $config.ociVersion = "1.0.0-rc6"
