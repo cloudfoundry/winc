@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
@@ -19,8 +20,11 @@ type NetRuleApplier interface {
 }
 
 type Config struct {
-	MTU            int  `json:"mtu"`
-	InsiderPreview bool `json:"insider_preview"`
+	MTU            int    `json:"mtu"`
+	InsiderPreview bool   `json:"insider_preview"`
+	NetworkName    string `json:"network_name"`
+	SubnetRange    string `json:"subnet_range"`
+	GatewayAddress string `json:"gateway_address"`
 }
 
 type UpInputs struct {
@@ -40,21 +44,61 @@ type UpOutputs struct {
 }
 
 type NetworkManager struct {
-	hcsClient      HCSClient
-	applier        NetRuleApplier
-	config         Config
-	containerId    string
-	insiderPreview bool
+	hcsClient   HCSClient
+	applier     NetRuleApplier
+	containerId string
+	config      Config
 }
 
-func NewNetworkManager(client HCSClient, applier NetRuleApplier, config Config, containerId string, insiderPreview bool) *NetworkManager {
+func NewNetworkManager(client HCSClient, applier NetRuleApplier, containerId string, config Config) *NetworkManager {
 	return &NetworkManager{
-		hcsClient:      client,
-		applier:        applier,
-		config:         config,
-		containerId:    containerId,
-		insiderPreview: insiderPreview,
+		hcsClient:   client,
+		applier:     applier,
+		containerId: containerId,
+		config:      config,
 	}
+}
+
+func (n *NetworkManager) CreateHostNATNetwork() error {
+	existingNetwork, err := n.hcsClient.GetHNSNetworkByName(n.config.NetworkName)
+	if err != nil && !strings.Contains(err.Error(), "Network "+n.config.NetworkName+" not found") {
+		return err
+	}
+
+	subnets := []hcsshim.Subnet{{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}}
+
+	if existingNetwork != nil {
+		if len(existingNetwork.Subnets) == 1 && subnetsMatch(existingNetwork.Subnets[0], subnets[0]) {
+			return nil
+		}
+
+		return &SameNATNetworkNameError{Name: n.config.NetworkName, Subnets: existingNetwork.Subnets}
+	}
+
+	network := &hcsshim.HNSNetwork{
+		Name:    n.config.NetworkName,
+		Type:    "nat",
+		Subnets: subnets,
+	}
+	_, err = n.hcsClient.CreateNetwork(network)
+	return err
+}
+
+func subnetsMatch(a, b hcsshim.Subnet) bool {
+	return (a.AddressPrefix == b.AddressPrefix) && (a.GatewayAddress == b.GatewayAddress)
+}
+
+func (n *NetworkManager) DeleteHostNATNetwork() error {
+	network, err := n.hcsClient.GetHNSNetworkByName(n.config.NetworkName)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("Network %s not found", n.config.NetworkName) {
+			return nil
+		}
+
+		return err
+	}
+	_, err = n.hcsClient.DeleteNetwork(network)
+	return err
 }
 
 func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
@@ -86,7 +130,7 @@ func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	interfaceId := endpoint.Id
-	if n.insiderPreview {
+	if n.config.InsiderPreview {
 		interfaceId = n.containerId
 	}
 	if err := n.applier.MTU(interfaceId, n.config.MTU); err != nil {

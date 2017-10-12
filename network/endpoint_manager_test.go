@@ -37,7 +37,7 @@ var _ = Describe("EndpointManager", func() {
 		logrus.SetOutput(ioutil.Discard)
 	})
 
-	Describe("AtachEndpointToConfig", func() {
+	Describe("AttachEndpointToConfig", func() {
 		var (
 			port1                int
 			port2                int
@@ -112,57 +112,11 @@ var _ = Describe("EndpointManager", func() {
 				hcsClient.CreateNetworkReturns(&hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
 			})
 
-			It("creates the network", func() {
+			It("returns an error", func() {
 				config := hcsshim.ContainerConfig{}
 				var err error
 				_, err = endpointManager.AttachEndpointToConfig(config)
-				Expect(err).NotTo(HaveOccurred())
-
-				newNAT := hcsClient.CreateNetworkArgsForCall(0)
-				Expect(newNAT.Name).To(Equal(networkName))
-				Expect(newNAT.Type).To(Equal("nat"))
-				Expect(newNAT.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "172.30.0.0/22", GatewayAddress: "172.30.0.1"}))
-			})
-
-			Context("creating the network fails", func() {
-				BeforeEach(func() {
-					hcsClient.CreateNetworkReturns(nil, errors.New("HNS failed with error : something happened"))
-				})
-
-				It("errors", func() {
-					config := hcsshim.ContainerConfig{}
-					var err error
-					config, err = endpointManager.AttachEndpointToConfig(config)
-					Expect(err).To(HaveOccurred())
-				})
-
-				Context("because it already exists", func() {
-					BeforeEach(func() {
-						hcsClient.CreateNetworkReturns(nil, errors.New("HNS failed with error : {Object Exists}"))
-						hcsClient.GetHNSNetworkByNameReturnsOnCall(2, &hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
-					})
-
-					It("retries until the network can be found", func() {
-						config := hcsshim.ContainerConfig{}
-						var err error
-						config, err = endpointManager.AttachEndpointToConfig(config)
-						Expect(err).NotTo(HaveOccurred())
-
-						Expect(config.EndpointList).To(Equal([]string{endpoint.Id}))
-					})
-
-					Context("when it hits the retry limit for finding the network", func() {
-						BeforeEach(func() {
-							// override the call 2 from the outer context
-							hcsClient.GetHNSNetworkByNameReturnsOnCall(2, nil, fmt.Errorf("Network %s not found", networkName))
-						})
-
-						It("errors", func() {
-							_, err := endpointManager.AttachEndpointToConfig(hcsshim.ContainerConfig{})
-							Expect(err).To(MatchError(&network.NoNATNetworkError{Name: networkName}))
-						})
-					})
-				})
+				Expect(err).To(HaveOccurred())
 			})
 		})
 

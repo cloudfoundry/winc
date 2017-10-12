@@ -2,17 +2,12 @@ package network
 
 import (
 	"encoding/json"
-	"strings"
-	"time"
 
 	"code.cloudfoundry.org/winc/hcs"
 
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 )
-
-const SUBNET_RANGE = "172.30.0.0/22"
-const GATEWAY_ADDRESS = "172.30.0.1"
 
 //go:generate counterfeiter . PortAllocator
 type PortAllocator interface {
@@ -37,7 +32,7 @@ func NewEndpointManager(hcsClient HCSClient, portAllocator PortAllocator, contai
 }
 
 func (e *EndpointManager) AttachEndpointToConfig(containerConfig hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error) {
-	wincNATNetwork, err := e.getWincNATNetwork()
+	wincNATNetwork, err := e.hcsClient.GetHNSNetworkByName(e.networkName)
 	if err != nil {
 		logrus.Error(err.Error())
 		return hcsshim.ContainerConfig{}, err
@@ -72,41 +67,6 @@ func (e *EndpointManager) AttachEndpointToConfig(containerConfig hcsshim.Contain
 
 	containerConfig.EndpointList = []string{endpointID}
 	return containerConfig, nil
-}
-
-func (e *EndpointManager) getWincNATNetwork() (*hcsshim.HNSNetwork, error) {
-	var wincNATNetwork *hcsshim.HNSNetwork
-	var err error
-
-	for i := 0; i < 10 && wincNATNetwork == nil; i++ {
-		time.Sleep(time.Duration(i) * 100 * time.Millisecond)
-		wincNATNetwork, err = e.hcsClient.GetHNSNetworkByName(e.networkName)
-		if err != nil && !strings.Contains(err.Error(), "Network "+e.networkName+" not found") {
-			logrus.Error(err.Error())
-			return nil, err
-		}
-
-		if wincNATNetwork == nil {
-			network := &hcsshim.HNSNetwork{
-				Name: e.networkName,
-				Type: "nat",
-				Subnets: []hcsshim.Subnet{
-					{AddressPrefix: SUBNET_RANGE, GatewayAddress: GATEWAY_ADDRESS},
-				},
-			}
-			wincNATNetwork, err = e.hcsClient.CreateNetwork(network)
-			if err != nil && !strings.Contains(err.Error(), "HNS failed with error : {Object Exists}") {
-				logrus.Error(err.Error())
-				return nil, err
-			}
-		}
-	}
-
-	if wincNATNetwork == nil {
-		return nil, &NoNATNetworkError{Name: e.networkName}
-	}
-
-	return wincNATNetwork, nil
 }
 
 func (e *EndpointManager) portMapping(containerPort int) (json.RawMessage, error) {

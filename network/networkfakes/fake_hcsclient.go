@@ -35,6 +35,19 @@ type FakeHCSClient struct {
 		result1 *hcsshim.HNSNetwork
 		result2 error
 	}
+	DeleteNetworkStub        func(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
+	deleteNetworkMutex       sync.RWMutex
+	deleteNetworkArgsForCall []struct {
+		arg1 *hcsshim.HNSNetwork
+	}
+	deleteNetworkReturns struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}
+	deleteNetworkReturnsOnCall map[int]struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}
 	CreateEndpointStub        func(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	createEndpointMutex       sync.RWMutex
 	createEndpointArgsForCall []struct {
@@ -188,6 +201,57 @@ func (fake *FakeHCSClient) CreateNetworkReturnsOnCall(i int, result1 *hcsshim.HN
 		})
 	}
 	fake.createNetworkReturnsOnCall[i] = struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeHCSClient) DeleteNetwork(arg1 *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
+	fake.deleteNetworkMutex.Lock()
+	ret, specificReturn := fake.deleteNetworkReturnsOnCall[len(fake.deleteNetworkArgsForCall)]
+	fake.deleteNetworkArgsForCall = append(fake.deleteNetworkArgsForCall, struct {
+		arg1 *hcsshim.HNSNetwork
+	}{arg1})
+	fake.recordInvocation("DeleteNetwork", []interface{}{arg1})
+	fake.deleteNetworkMutex.Unlock()
+	if fake.DeleteNetworkStub != nil {
+		return fake.DeleteNetworkStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.deleteNetworkReturns.result1, fake.deleteNetworkReturns.result2
+}
+
+func (fake *FakeHCSClient) DeleteNetworkCallCount() int {
+	fake.deleteNetworkMutex.RLock()
+	defer fake.deleteNetworkMutex.RUnlock()
+	return len(fake.deleteNetworkArgsForCall)
+}
+
+func (fake *FakeHCSClient) DeleteNetworkArgsForCall(i int) *hcsshim.HNSNetwork {
+	fake.deleteNetworkMutex.RLock()
+	defer fake.deleteNetworkMutex.RUnlock()
+	return fake.deleteNetworkArgsForCall[i].arg1
+}
+
+func (fake *FakeHCSClient) DeleteNetworkReturns(result1 *hcsshim.HNSNetwork, result2 error) {
+	fake.DeleteNetworkStub = nil
+	fake.deleteNetworkReturns = struct {
+		result1 *hcsshim.HNSNetwork
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeHCSClient) DeleteNetworkReturnsOnCall(i int, result1 *hcsshim.HNSNetwork, result2 error) {
+	fake.DeleteNetworkStub = nil
+	if fake.deleteNetworkReturnsOnCall == nil {
+		fake.deleteNetworkReturnsOnCall = make(map[int]struct {
+			result1 *hcsshim.HNSNetwork
+			result2 error
+		})
+	}
+	fake.deleteNetworkReturnsOnCall[i] = struct {
 		result1 *hcsshim.HNSNetwork
 		result2 error
 	}{result1, result2}
@@ -404,6 +468,8 @@ func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	defer fake.getHNSNetworkByNameMutex.RUnlock()
 	fake.createNetworkMutex.RLock()
 	defer fake.createNetworkMutex.RUnlock()
+	fake.deleteNetworkMutex.RLock()
+	defer fake.deleteNetworkMutex.RUnlock()
 	fake.createEndpointMutex.RLock()
 	defer fake.createEndpointMutex.RUnlock()
 	fake.getHNSEndpointByIDMutex.RLock()

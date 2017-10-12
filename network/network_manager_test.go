@@ -1,6 +1,7 @@
 package network_test
 
 import (
+	"errors"
 	"io/ioutil"
 
 	"code.cloudfoundry.org/localip"
@@ -21,18 +22,152 @@ var _ = Describe("NetworkManager", func() {
 		netRuleApplier *networkfakes.FakeNetRuleApplier
 		hcsClient      *networkfakes.FakeHCSClient
 		config         network.Config
+		hnsNetwork     *hcsshim.HNSNetwork
 	)
 
 	BeforeEach(func() {
 		hcsClient = &networkfakes.FakeHCSClient{}
 		netRuleApplier = &networkfakes.FakeNetRuleApplier{}
 		config = network.Config{
-			MTU: 1434,
+			MTU:            1434,
+			InsiderPreview: false,
+			SubnetRange:    "123.45.0.0/67",
+			GatewayAddress: "123.45.0.1",
+			NetworkName:    "unit-test-name",
 		}
 
-		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, config, containerId, false)
+		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, containerId, config)
 
 		logrus.SetOutput(ioutil.Discard)
+	})
+
+	Describe("CreateHostNATNetwork", func() {
+		BeforeEach(func() {
+			hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("Network unit-test-name not found"))
+		})
+
+		It("creates the network with the correct values", func() {
+			Expect(networkManager.CreateHostNATNetwork()).To(Succeed())
+
+			Expect(hcsClient.GetHNSNetworkByNameCallCount()).To(Equal(1))
+			Expect(hcsClient.GetHNSNetworkByNameArgsForCall(0)).To(Equal("unit-test-name"))
+
+			Expect(hcsClient.CreateNetworkCallCount()).To(Equal(1))
+			net := hcsClient.CreateNetworkArgsForCall(0)
+			Expect(net.Name).To(Equal("unit-test-name"))
+			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
+		})
+
+		Context("the network already exists with the correct values", func() {
+			BeforeEach(func() {
+				hnsNetwork = &hcsshim.HNSNetwork{
+					Name:    "unit-test-name",
+					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}},
+				}
+				hcsClient.GetHNSNetworkByNameReturns(hnsNetwork, nil)
+			})
+
+			It("does not create the network", func() {
+				Expect(networkManager.CreateHostNATNetwork()).To(Succeed())
+
+				Expect(hcsClient.GetHNSNetworkByNameCallCount()).To(Equal(1))
+				Expect(hcsClient.GetHNSNetworkByNameArgsForCall(0)).To(Equal("unit-test-name"))
+				Expect(hcsClient.CreateNetworkCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("the network already exists with an incorrect address prefix", func() {
+			BeforeEach(func() {
+				hnsNetwork = &hcsshim.HNSNetwork{
+					Name:    "unit-test-name",
+					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.89.0.0/67", GatewayAddress: "123.45.0.1"}},
+				}
+				hcsClient.GetHNSNetworkByNameReturns(hnsNetwork, nil)
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(BeAssignableToTypeOf(&network.SameNATNetworkNameError{}))
+			})
+		})
+
+		Context("the network already exists with an incorrect gateway address", func() {
+			BeforeEach(func() {
+				hnsNetwork = &hcsshim.HNSNetwork{
+					Name:    "unit-test-name",
+					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.67.89"}},
+				}
+				hcsClient.GetHNSNetworkByNameReturns(hnsNetwork, nil)
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(BeAssignableToTypeOf(&network.SameNATNetworkNameError{}))
+			})
+		})
+
+		Context("GetHNSNetwork returns a non network not found error", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("some HNS error"))
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("CreateNetwork returns an error", func() {
+			BeforeEach(func() {
+				hcsClient.CreateNetworkReturns(nil, errors.New("couldn't create HNS network"))
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("DeleteHostNATNetwork", func() {
+		BeforeEach(func() {
+			hnsNetwork = &hcsshim.HNSNetwork{Name: "unit-test-name"}
+			hcsClient.GetHNSNetworkByNameReturnsOnCall(0, hnsNetwork, nil)
+		})
+
+		It("deletes the network", func() {
+			Expect(networkManager.DeleteHostNATNetwork()).To(Succeed())
+
+			Expect(hcsClient.GetHNSNetworkByNameCallCount()).To(Equal(1))
+			Expect(hcsClient.GetHNSNetworkByNameArgsForCall(0)).To(Equal("unit-test-name"))
+
+			Expect(hcsClient.DeleteNetworkCallCount()).To(Equal(1))
+			Expect(hcsClient.DeleteNetworkArgsForCall(0)).To(Equal(hnsNetwork))
+		})
+
+		Context("the network does not exist", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSNetworkByNameReturnsOnCall(0, nil, errors.New("Network unit-test-name not found"))
+			})
+
+			It("returns success", func() {
+				Expect(networkManager.DeleteHostNATNetwork()).To(Succeed())
+
+				Expect(hcsClient.GetHNSNetworkByNameCallCount()).To(Equal(1))
+				Expect(hcsClient.GetHNSNetworkByNameArgsForCall(0)).To(Equal("unit-test-name"))
+			})
+		})
+
+		Context("GetHNSNetwork returns a non network not found error", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("some HNS error"))
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(HaveOccurred())
+			})
+		})
 	})
 
 	Describe("Up", func() {
@@ -114,7 +249,8 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("when run on a insider preview", func() {
 			BeforeEach(func() {
-				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, config, containerId, true)
+				config.InsiderPreview = true
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, containerId, config)
 			})
 
 			It("sets the MTU using the container ID", func() {

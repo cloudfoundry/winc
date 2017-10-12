@@ -13,8 +13,6 @@ import (
 	"code.cloudfoundry.org/winc/network"
 )
 
-const NetworkName = "winc-nat"
-
 func main() {
 	action, handle, configFile, err := parseArgs(os.Args)
 	if err != nil {
@@ -49,6 +47,18 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "create":
+		if err := networkManager.CreateHostNATNetwork(); err != nil {
+			fmt.Fprintf(os.Stderr, "network create: %s", err.Error())
+			os.Exit(1)
+		}
+
+	case "delete":
+		if err := networkManager.DeleteHostNATNetwork(); err != nil {
+			fmt.Fprintf(os.Stderr, "network delete: %s", err.Error())
+			os.Exit(1)
+		}
+
 	case "down":
 		if err := networkManager.Down(); err != nil {
 			fmt.Fprintf(os.Stderr, "networkDown: %s", err.Error())
@@ -74,12 +84,12 @@ func parseArgs(allArgs []string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	if handle == "" {
-		return "", "", "", fmt.Errorf("missing required flag 'handle'")
-	}
-
 	if action == "" {
 		return "", "", "", fmt.Errorf("missing required flag 'action'")
+	}
+
+	if (action == "up" || action == "down") && handle == "" {
+		return "", "", "", fmt.Errorf("missing required flag 'handle'")
 	}
 
 	return action, handle, configFile, nil
@@ -104,13 +114,12 @@ func parseConfig(configFile string) (network.Config, error) {
 func wireNetworkManager(config network.Config, handle string) *network.NetworkManager {
 	hcsClient := &hcs.Client{}
 	runner := netsh.NewRunner(hcsClient, handle)
-	applier := netrules.NewApplier(runner, handle, config.InsiderPreview, NetworkName)
+	applier := netrules.NewApplier(runner, handle, config.InsiderPreview, config.NetworkName)
 
 	return network.NewNetworkManager(
 		hcsClient,
 		applier,
-		config,
 		handle,
-		config.InsiderPreview,
+		config,
 	)
 }

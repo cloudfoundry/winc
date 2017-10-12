@@ -6,6 +6,7 @@ import "github.com/Microsoft/hcsshim"
 type HCSClient interface {
 	GetHNSNetworkByName(string) (*hcsshim.HNSNetwork, error)
 	CreateNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
+	DeleteNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
 	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	GetHNSEndpointByID(string) (*hcsshim.HNSEndpoint, error)
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
