@@ -38,12 +38,13 @@ var _ = Describe("up", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
-		output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
+		output, err := exec.Command(wincBin, "--config-file", networkConfigFile, "create", "-b", bundlePath, containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
 
-		insiderPreview := os.Getenv("INSIDER_PREVIEW") != ""
 		networkConfig = network.Config{
-			InsiderPreview: insiderPreview,
+			SubnetRange:    subnetRange,
+			GatewayAddress: gatewayAddress,
+			NetworkName:    gatewayAddress,
 		}
 	})
 
@@ -93,12 +94,13 @@ var _ = Describe("up", func() {
 				output, err := cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred(), string(output))
 
-				cmd = exec.Command("powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
+				powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, gatewayAddress)
+				cmd = exec.Command("powershell.exe", "-Command", powershellCommand)
 				output, err = cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred(), string(output))
 				hostMTU := strings.TrimSpace(string(output))
 
-				cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
+				cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", "(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet *').NlMtu")
 				output, err = cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred(), string(output))
 				Expect(strings.TrimSpace(string(output))).To(Equal(hostMTU))

@@ -30,7 +30,6 @@ var _ = Describe("NetworkManager", func() {
 		netRuleApplier = &networkfakes.FakeNetRuleApplier{}
 		config = network.Config{
 			MTU:            1434,
-			InsiderPreview: false,
 			SubnetRange:    "123.45.0.0/67",
 			GatewayAddress: "123.45.0.1",
 			NetworkName:    "unit-test-name",
@@ -242,26 +241,9 @@ var _ = Describe("NetworkManager", func() {
 			Expect(ep).To(Equal(endpoint))
 
 			Expect(netRuleApplier.MTUCallCount()).To(Equal(1))
-			eId, mtu := netRuleApplier.MTUArgsForCall(0)
-			Expect(eId).To(Equal("ep-987"))
-			Expect(mtu).To(Equal(1434))
-		})
-
-		Context("when run on a insider preview", func() {
-			BeforeEach(func() {
-				config.InsiderPreview = true
-				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, containerId, config)
-			})
-
-			It("sets the MTU using the container ID", func() {
-				_, err := networkManager.Up(inputs)
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(netRuleApplier.MTUCallCount()).To(Equal(1))
-				actualContainerId, actualMtu := netRuleApplier.MTUArgsForCall(0)
-				Expect(actualContainerId).To(Equal(containerId))
-				Expect(actualMtu).To(Equal(1434))
-			})
+			actualContainerId, actualMtu := netRuleApplier.MTUArgsForCall(0)
+			Expect(actualContainerId).To(Equal(containerId))
+			Expect(actualMtu).To(Equal(1434))
 		})
 	})
 

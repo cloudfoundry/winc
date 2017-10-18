@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -78,6 +79,10 @@ func main() {
 			Name:  "newgidmap",
 			Value: "newgidmap",
 			Usage: "ignored",
+		},
+		cli.StringFlag{
+			Name:  "config-file",
+			Usage: "config file",
 		},
 	}
 
@@ -170,7 +175,27 @@ func fatal(err error) {
 	os.Exit(1)
 }
 
-func wireContainerManager(rootPath, bundlePath, containerId string) (*container.Manager, error) {
+func parseConfig(configFile string) (network.Config, error) {
+	var config network.Config
+	if configFile != "" {
+		content, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return config, err
+		}
+
+		if err := json.Unmarshal(content, &config); err != nil {
+			return config, err
+		}
+	}
+
+	if config.NetworkName == "" {
+		config.NetworkName = NetworkName
+	}
+
+	return config, nil
+}
+
+func wireContainerManager(rootPath, bundlePath, containerId string, networkConfig network.Config) (*container.Manager, error) {
 	client := hcs.Client{}
 
 	if bundlePath == "" {
@@ -185,7 +210,7 @@ func wireContainerManager(rootPath, bundlePath, containerId string) (*container.
 		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
-	endpointManager := wireEndpointManager(network.Config{}, containerId)
+	endpointManager := wireEndpointManager(networkConfig, containerId)
 	return container.NewManager(&client, &volume.Mounter{}, endpointManager, rootPath, bundlePath), nil
 }
 
@@ -209,6 +234,6 @@ func wireEndpointManager(config network.Config, handle string) *network.Endpoint
 		hcsClient,
 		portAllocator,
 		handle,
-		NetworkName,
+		config.NetworkName,
 	)
 }

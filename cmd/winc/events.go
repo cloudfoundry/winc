@@ -25,12 +25,18 @@ Where "<container-id>" is your name for the instance of the container.`,
 
 		containerId := context.Args().First()
 		showStats := context.Bool("stats")
+		configFile := context.GlobalString("config-file")
 
 		logrus.WithFields(logrus.Fields{
 			"containerId": containerId,
 		}).Debug("retrieving container events and info")
 
-		cm, err := wireContainerManager("", "", containerId)
+		networkConfig, err := parseConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		cm, err := wireContainerManager("", "", containerId, networkConfig)
 		if err != nil {
 			return err
 		}

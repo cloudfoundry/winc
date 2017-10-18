@@ -16,6 +16,7 @@ import (
 var _ = Describe("Applier", func() {
 	const containerId = "containerabc"
 	const endpointId = "1234-endpoint"
+	const networkName = "my-network"
 
 	var (
 		netSh    *netrulesfakes.FakeNetShRunner
@@ -27,7 +28,7 @@ var _ = Describe("Applier", func() {
 		endpoint = &hcsshim.HNSEndpoint{}
 
 		netSh = &netrulesfakes.FakeNetShRunner{}
-		applier = netrules.NewApplier(netSh, containerId, false, "")
+		applier = netrules.NewApplier(netSh, containerId, networkName)
 	})
 
 	Describe("In", func() {
@@ -255,17 +256,17 @@ var _ = Describe("Applier", func() {
 
 			Expect(netSh.RunContainerCallCount()).To(Equal(1))
 			expectedMTUArgs := []string{"interface", "ipv4", "set", "subinterface",
-				`"vEthernet (Container NIC 1234)"`, "mtu=1405", "store=persistent"}
+				`"vEthernet (1234-endpoint)"`, "mtu=1405", "store=persistent"}
 			Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedMTUArgs))
 		})
 
 		Context("the specified mtu is 0", func() {
 			BeforeEach(func() {
 				netSh.RunHostReturns([]byte(`
-   MTU  MediaSenseState   Bytes In  Bytes Out  Interface
+MTU  MediaSenseState   Bytes In  Bytes Out  Interface
 ------  ---------------  ---------  ---------  -------------
-  1302                1     142864    2448382  vEthernet (HNS Internal NIC)
-				`), nil)
+1302                1     142864    2448382  vEthernet (HNS Internal NIC)
+			`), nil)
 			})
 
 			It("sets the container MTU to the host MTU", func() {
@@ -273,12 +274,12 @@ var _ = Describe("Applier", func() {
 
 				Expect(netSh.RunHostCallCount()).To(Equal(1))
 				expectedMTUArgs := []string{"interface", "ipv4", "show", "subinterface",
-					"interface=vEthernet (HNS Internal NIC)"}
+					fmt.Sprintf("interface=vEthernet (%s)", networkName)}
 				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedMTUArgs))
 
 				Expect(netSh.RunContainerCallCount()).To(Equal(1))
 				expectedMTUArgs = []string{"interface", "ipv4", "set", "subinterface",
-					`"vEthernet (Container NIC 1234)"`, "mtu=1302", "store=persistent"}
+					fmt.Sprintf(`"vEthernet (%s)"`, endpointId), "mtu=1302", "store=persistent"}
 				Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedMTUArgs))
 			})
 		})
@@ -293,7 +294,7 @@ var _ = Describe("Applier", func() {
 
 		Context("when run on a insider preview", func() {
 			BeforeEach(func() {
-				applier = netrules.NewApplier(netSh, containerId, true, "some-network-name")
+				applier = netrules.NewApplier(netSh, containerId, "some-network-name")
 
 				netSh.RunHostReturns([]byte(`
    MTU  MediaSenseState   Bytes In  Bytes Out  Interface

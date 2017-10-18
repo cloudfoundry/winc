@@ -77,6 +77,7 @@ following will output a list of processes running in the container:
 		env := context.StringSlice("env")
 		pidFile := context.String("pid-file")
 		detach := context.Bool("detach")
+		configFile := context.GlobalString("config-file")
 
 		logger := logrus.WithField("containerId", containerId)
 
@@ -102,7 +103,12 @@ following will output a list of processes running in the container:
 			"detach":        detach,
 		}).Debug("executing process in container")
 
-		cm, err := wireContainerManager("", "", containerId)
+		networkConfig, err := parseConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		cm, err := wireContainerManager("", "", containerId, networkConfig)
 		if err != nil {
 			return err
 		}

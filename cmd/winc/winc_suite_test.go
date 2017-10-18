@@ -123,10 +123,8 @@ var _ = AfterEach(func() {
 })
 
 func createWincNATNetwork() {
-	insiderPreview := os.Getenv("INSIDER_PREVIEW") != ""
 	// default config follows:
 	conf := network.Config{
-		InsiderPreview: insiderPreview,
 		NetworkName:    "winc-nat",
 		SubnetRange:    "172.30.0.0/22",
 		GatewayAddress: "172.30.0.1",
@@ -137,11 +135,12 @@ func createWincNATNetwork() {
 	Expect(ioutil.WriteFile(suiteNetConfigFile, c, 0644)).To(Succeed())
 
 	_, err = hcsshim.GetHNSNetworkByName("winc-nat")
-	Expect(err).To(HaveOccurred())
-	Expect(err.Error()).To(Equal("Network winc-nat not found"))
+	if err != nil {
+		Expect(err.Error()).To(Equal("Network winc-nat not found"))
 
-	output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", suiteNetConfigFile).CombinedOutput()
-	Expect(err).ToNot(HaveOccurred(), string(output))
+		output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", suiteNetConfigFile).CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(output))
+	}
 
 	net, err := hcsshim.GetHNSNetworkByName(conf.NetworkName)
 	Expect(err).ToNot(HaveOccurred())

@@ -52,6 +52,7 @@ your host.`,
 		rootPath := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
+		configFile := context.GlobalString("config-file")
 
 		logger := logrus.WithFields(logrus.Fields{
 			"bundle":      bundlePath,
@@ -74,7 +75,12 @@ your host.`,
 			return err
 		}
 
-		cm, err := wireContainerManager(rootPath, bundlePath, containerId)
+		networkConfig, err := parseConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		cm, err := wireContainerManager(rootPath, bundlePath, containerId, networkConfig)
 		if err != nil {
 			return err
 		}

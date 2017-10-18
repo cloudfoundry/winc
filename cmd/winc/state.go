@@ -22,12 +22,18 @@ instance of a container.`,
 		}
 
 		containerId := context.Args().First()
+		configFile := context.GlobalString("config-file")
 
 		logrus.WithFields(logrus.Fields{
 			"containerId": containerId,
 		}).Debug("retrieving state of container")
 
-		cm, err := wireContainerManager("", "", containerId)
+		networkConfig, err := parseConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		cm, err := wireContainerManager("", "", containerId, networkConfig)
 		if err != nil {
 			return err
 		}

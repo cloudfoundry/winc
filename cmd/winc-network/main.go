@@ -114,7 +114,7 @@ func parseConfig(configFile string) (network.Config, error) {
 func wireNetworkManager(config network.Config, handle string) *network.NetworkManager {
 	hcsClient := &hcs.Client{}
 	runner := netsh.NewRunner(hcsClient, handle)
-	applier := netrules.NewApplier(runner, handle, config.InsiderPreview, config.NetworkName)
+	applier := netrules.NewApplier(runner, handle, config.NetworkName)
 
 	return network.NewNetworkManager(
 		hcsClient,

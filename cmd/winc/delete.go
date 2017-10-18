@@ -30,12 +30,18 @@ status of "windows01" as "stopped" the following will delete resources held for
 		}
 
 		containerId := context.Args().First()
+		configFile := context.GlobalString("config-file")
 
 		logrus.WithFields(logrus.Fields{
 			"containerId": containerId,
 		}).Debug("deleting container")
 
-		cm, err := wireContainerManager("", "", containerId)
+		networkConfig, err := parseConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		cm, err := wireContainerManager("", "", containerId, networkConfig)
 		if err != nil {
 			return err
 		}

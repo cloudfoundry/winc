@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/winc/image"
@@ -23,16 +23,21 @@ import (
 	"testing"
 )
 
-const defaultTimeout = time.Second * 10
-const defaultInterval = time.Millisecond * 200
+const (
+	defaultTimeout     = time.Second * 10
+	defaultInterval    = time.Millisecond * 200
+	maxStandardIPOctet = 256
+)
 
 var (
-	wincBin            string
-	wincNetworkBin     string
-	wincImageBin       string
-	rootfsPath         string
-	bundlePath         string
-	suiteNetConfigFile string
+	wincBin           string
+	wincNetworkBin    string
+	wincImageBin      string
+	rootfsPath        string
+	bundlePath        string
+	subnetRange       string
+	gatewayAddress    string
+	networkConfigFile string
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -42,7 +47,9 @@ func TestWincNetwork(t *testing.T) {
 	RunSpecs(t, "Winc-Network Suite")
 }
 
-var _ = SynchronizedBeforeSuite(func() []byte {
+var _ = BeforeSuite(func() {
+	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
+
 	var (
 		present bool
 		err     error
@@ -52,6 +59,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
+	Expect(err).ToNot(HaveOccurred())
+
+	wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
 	Expect(err).ToNot(HaveOccurred())
 
 	wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
@@ -67,82 +77,49 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		filepath.Join(wincImageDir, "quota.o"),
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
-
-	wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
-	Expect(err).ToNot(HaveOccurred())
-
-	configDir, err := ioutil.TempDir("", "winc-network.integration.suite.config")
-	Expect(err).ToNot(HaveOccurred())
-
-	suiteNetConfigFile = filepath.Join(configDir, "winc-network.json")
-
-	createWincNATNetwork()
-
-	return []byte(strings.Join([]string{wincBin, wincNetworkBin, wincImageBin, rootfsPath}, "^"))
-
-}, func(setupPaths []byte) {
-	paths := strings.Split(string(setupPaths), "^")
-	wincBin = paths[0]
-	wincNetworkBin = paths[1]
-	wincImageBin = paths[2]
-	rootfsPath = paths[3]
 })
 
-var _ = SynchronizedAfterSuite(func() {
-	//noop
-}, func() {
-	deleteWincNATNetwork()
-	Expect(os.RemoveAll(filepath.Dir(suiteNetConfigFile))).To(Succeed())
+var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
 var _ = BeforeEach(func() {
 	var err error
 	bundlePath, err = ioutil.TempDir("", "winccontainer")
-	Expect(err).To(Succeed())
+	Expect(err).NotTo(HaveOccurred())
+
+	subnetRange, gatewayAddress = randomSubnetAddress()
+
+	conf := network.Config{
+		SubnetRange:    subnetRange,
+		NetworkName:    gatewayAddress,
+		GatewayAddress: gatewayAddress,
+	}
+
+	content, err := json.Marshal(conf)
+	Expect(err).NotTo(HaveOccurred())
+
+	networkConfig, err := ioutil.TempFile("", "winc-network-config")
+	Expect(err).NotTo(HaveOccurred())
+	networkConfigFile = networkConfig.Name()
+
+	_, err = networkConfig.Write(content)
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(networkConfig.Close()).To(Succeed())
+
+	output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", networkConfigFile).CombinedOutput()
+	Expect(err).ToNot(HaveOccurred(), string(output))
 })
 
 var _ = AfterEach(func() {
 	Expect(os.RemoveAll(bundlePath)).To(Succeed())
+
+	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
+	Expect(err).ToNot(HaveOccurred(), string(output))
+
+	Expect(os.Remove(networkConfigFile)).To(Succeed())
 })
-
-func createWincNATNetwork() {
-	insiderPreview := os.Getenv("INSIDER_PREVIEW") != ""
-	// default config follows:
-	conf := network.Config{
-		InsiderPreview: insiderPreview,
-		NetworkName:    "winc-nat",
-		SubnetRange:    "172.30.0.0/22",
-		GatewayAddress: "172.30.0.1",
-	}
-
-	c, err := json.Marshal(conf)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(suiteNetConfigFile, c, 0644)).To(Succeed())
-
-	_, err = hcsshim.GetHNSNetworkByName("winc-nat")
-	Expect(err).To(HaveOccurred())
-	Expect(err.Error()).To(Equal("Network winc-nat not found"))
-
-	output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", suiteNetConfigFile).CombinedOutput()
-	Expect(err).ToNot(HaveOccurred(), string(output))
-
-	net, err := hcsshim.GetHNSNetworkByName(conf.NetworkName)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(net.Name).To(Equal(conf.NetworkName))
-
-	Expect(len(net.Subnets)).To(Equal(1))
-	Expect(net.Subnets[0].AddressPrefix).To(Equal(conf.SubnetRange))
-	Expect(net.Subnets[0].GatewayAddress).To(Equal(conf.GatewayAddress))
-}
-
-func deleteWincNATNetwork() {
-	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", suiteNetConfigFile).CombinedOutput()
-	Expect(err).ToNot(HaveOccurred(), string(output))
-
-	_, err = hcsshim.GetHNSNetworkByName("winc-nat")
-	Expect(err.Error()).To(Equal("Network winc-nat not found"))
-}
 
 func createSandbox(storePath, rootfsPath, containerId string) image.ImageSpec {
 	stdOut := new(bytes.Buffer)
@@ -170,4 +147,22 @@ func runtimeSpecGenerator(imageSpec image.ImageSpec, containerId string) specs.S
 			LayerFolders: imageSpec.Windows.LayerFolders,
 		},
 	}
+}
+
+func randomSubnetAddress() (string, string) {
+	for {
+		subnet, gateway := randomValidSubnetAddress()
+		_, err := hcsshim.GetHNSNetworkByName(subnet)
+		if err != nil {
+			Expect(err).To(MatchError(ContainSubstring("Network " + subnet + " not found")))
+			return subnet, gateway
+		}
+	}
+}
+
+func randomValidSubnetAddress() (string, string) {
+	octet1 := rand.Intn(maxStandardIPOctet)
+	gatewayAddress := fmt.Sprintf("172.0.%d.1", octet1)
+	subnet := fmt.Sprintf("172.0.%d.0/30", octet1)
+	return subnet, gatewayAddress
 }

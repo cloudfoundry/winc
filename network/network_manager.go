@@ -21,7 +21,6 @@ type NetRuleApplier interface {
 
 type Config struct {
 	MTU            int    `json:"mtu"`
-	InsiderPreview bool   `json:"insider_preview"`
 	NetworkName    string `json:"network_name"`
 	SubnetRange    string `json:"subnet_range"`
 	GatewayAddress string `json:"gateway_address"`
@@ -129,10 +128,7 @@ func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 		}
 	}
 
-	interfaceId := endpoint.Id
-	if n.config.InsiderPreview {
-		interfaceId = n.containerId
-	}
+	interfaceId := n.containerId
 	if err := n.applier.MTU(interfaceId, n.config.MTU); err != nil {
 		return outputs, err
 	}
