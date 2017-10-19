@@ -20,10 +20,11 @@ type NetRuleApplier interface {
 }
 
 type Config struct {
-	MTU            int    `json:"mtu"`
-	NetworkName    string `json:"network_name"`
-	SubnetRange    string `json:"subnet_range"`
-	GatewayAddress string `json:"gateway_address"`
+	MTU            int      `json:"mtu"`
+	NetworkName    string   `json:"network_name"`
+	SubnetRange    string   `json:"subnet_range"`
+	GatewayAddress string   `json:"gateway_address"`
+	DNSServers     []string `json:"dns_servers"`
 }
 
 type UpInputs struct {
@@ -79,6 +80,11 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		Type:    "nat",
 		Subnets: subnets,
 	}
+
+	if len(n.config.DNSServers) > 0 {
+		network.DNSServerList = strings.Join(n.config.DNSServers, ",")
+	}
+
 	_, err = n.hcsClient.CreateNetwork(network)
 	return err
 }

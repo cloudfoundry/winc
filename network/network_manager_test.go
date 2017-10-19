@@ -33,6 +33,7 @@ var _ = Describe("NetworkManager", func() {
 			SubnetRange:    "123.45.0.0/67",
 			GatewayAddress: "123.45.0.1",
 			NetworkName:    "unit-test-name",
+			DNSServers:     []string{"4.4.4.4", "5.5.5.5"},
 		}
 
 		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, containerId, config)
@@ -55,6 +56,7 @@ var _ = Describe("NetworkManager", func() {
 			net := hcsClient.CreateNetworkArgsForCall(0)
 			Expect(net.Name).To(Equal("unit-test-name"))
 			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
+			Expect(net.DNSServerList).To(Equal("4.4.4.4,5.5.5.5"))
 		})
 
 		Context("the network already exists with the correct values", func() {

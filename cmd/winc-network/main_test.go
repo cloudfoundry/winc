@@ -66,6 +66,16 @@ var _ = Describe("up", func() {
 		Expect(os.RemoveAll(filepath.Dir(configFile))).To(Succeed())
 	})
 
+	// note: using config.json from BeforeEach in winc_network_suite_test.go
+	Context("the config file contains DNSServers", func() {
+		It("uses those IP addresses as DNS servers", func() {
+			cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			Expect(strings.TrimSpace(string(output))).To(Equal("1.1.1.1,2.2.2.2"))
+		})
+	})
+
 	Context("a config file contains network MTU", func() {
 		BeforeEach(func() {
 			networkConfig.MTU = 1405
