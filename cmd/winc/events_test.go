@@ -23,7 +23,7 @@ var _ = Describe("Events", func() {
 		BeforeEach(func() {
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId))
+			bundleSpec := runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
 			config, err := json.Marshal(&bundleSpec)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -35,7 +35,7 @@ var _ = Describe("Events", func() {
 		AfterEach(func() {
 			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
 			Expect(err).NotTo(HaveOccurred())
-			_, _, err = execute(exec.Command(wincImageBin, "--store", rootPath, "delete", containerId))
+			_, _, err = execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
 			Expect(err).NotTo(HaveOccurred())
 		})
 

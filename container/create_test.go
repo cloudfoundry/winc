@@ -17,7 +17,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-const rootPath = "some-winc-root-path"
+const imageStore = "some-winc-image-store"
 
 var _ = Describe("Create", func() {
 	var (
@@ -43,7 +43,7 @@ var _ = Describe("Create", func() {
 		hcsClient = &containerfakes.FakeHCSClient{}
 		mounter = &containerfakes.FakeMounter{}
 		networkManager = &containerfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, mounter, networkManager, rootPath, bundlePath)
+		containerManager = container.NewManager(hcsClient, mounter, networkManager, imageStore, bundlePath)
 
 		networkManager.AttachEndpointToConfigStub = func(config hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error) {
 			config.EndpointList = []string{"endpoint-for-" + containerId}
@@ -120,7 +120,7 @@ var _ = Describe("Create", func() {
 				HostName:          hostName,
 				VolumePath:        containerVolume,
 				Owner:             "winc",
-				LayerFolderPath:   filepath.Join(rootPath, containerId),
+				LayerFolderPath:   filepath.Join(imageStore, containerId),
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
 				EndpointList:      []string{"endpoint-for-" + containerId},

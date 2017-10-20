@@ -66,9 +66,9 @@ func main() {
 			Usage: "set the format used by logs ('text' (default), or 'json')",
 		},
 		cli.StringFlag{
-			Name:  "root",
+			Name:  "image-store",
 			Value: "C:\\run\\winc",
-			Usage: "root directory for storage of container state",
+			Usage: "directory for storage of container state",
 		},
 		cli.StringFlag{
 			Name:  "newuidmap",
@@ -195,7 +195,7 @@ func parseConfig(configFile string) (network.Config, error) {
 	return config, nil
 }
 
-func wireContainerManager(rootPath, bundlePath, containerId string, networkConfig network.Config) (*container.Manager, error) {
+func wireContainerManager(imageStore, bundlePath, containerId string, networkConfig network.Config) (*container.Manager, error) {
 	client := hcs.Client{}
 
 	if bundlePath == "" {
@@ -211,7 +211,7 @@ func wireContainerManager(rootPath, bundlePath, containerId string, networkConfi
 	}
 
 	endpointManager := wireEndpointManager(networkConfig, containerId)
-	return container.NewManager(&client, &volume.Mounter{}, endpointManager, rootPath, bundlePath), nil
+	return container.NewManager(&client, &volume.Mounter{}, endpointManager, imageStore, bundlePath), nil
 }
 
 func wireEndpointManager(config network.Config, handle string) *network.EndpointManager {

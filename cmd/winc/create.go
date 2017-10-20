@@ -49,7 +49,7 @@ your host.`,
 		}
 
 		containerId := context.Args().First()
-		rootPath := context.GlobalString("root")
+		imageStore := context.GlobalString("image-store")
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
 		configFile := context.GlobalString("config-file")
@@ -80,7 +80,7 @@ your host.`,
 			return err
 		}
 
-		cm, err := wireContainerManager(rootPath, bundlePath, containerId, networkConfig)
+		cm, err := wireContainerManager(imageStore, bundlePath, containerId, networkConfig)
 		if err != nil {
 			return err
 		}

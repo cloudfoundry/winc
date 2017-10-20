@@ -20,7 +20,7 @@ type Manager struct {
 	hcsClient      HCSClient
 	mounter        Mounter
 	networkManager NetworkManager
-	rootPath       string
+	imageStore     string
 	bundlePath     string
 	id             string
 }
@@ -64,13 +64,13 @@ type NetworkManager interface {
 	DeleteEndpointsById([]string) error
 }
 
-func NewManager(hcsClient HCSClient, mounter Mounter, networkManager NetworkManager, rootPath, bundlePath string) *Manager {
+func NewManager(hcsClient HCSClient, mounter Mounter, networkManager NetworkManager, imageStore, bundlePath string) *Manager {
 	return &Manager{
 		hcsClient:      hcsClient,
 		mounter:        mounter,
 		networkManager: networkManager,
 		bundlePath:     bundlePath,
-		rootPath:       rootPath,
+		imageStore:     imageStore,
 		id:             filepath.Base(bundlePath),
 	}
 }
@@ -121,7 +121,7 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		})
 	}
 
-	sandboxDir := filepath.Join(c.rootPath, c.id)
+	sandboxDir := filepath.Join(c.imageStore, c.id)
 
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",

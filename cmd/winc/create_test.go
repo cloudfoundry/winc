@@ -32,13 +32,13 @@ var _ = Describe("Create", func() {
 	BeforeEach(func() {
 		containerId = filepath.Base(bundlePath)
 
-		bundleSpec = runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId))
+		bundleSpec = runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
 
 		createCmd = exec.Command(wincBin, "create", "-b", bundlePath, containerId)
 	})
 
 	AfterEach(func() {
-		_, _, err := execute(exec.Command(wincImageBin, "--store", rootPath, "delete", containerId))
+		_, _, err := execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
 		Expect(err).ToNot(HaveOccurred())
 	})
 

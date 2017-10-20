@@ -100,7 +100,7 @@ var _ = Describe("Flags", func() {
 
 		Context("when the winc command logs non error messages", func() {
 			BeforeEach(func() {
-				bundleSpec := runtimeSpecGenerator(createSandbox(rootPath, rootfsPath, containerId))
+				bundleSpec := runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
 				config, err := json.Marshal(&bundleSpec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
@@ -111,7 +111,7 @@ var _ = Describe("Flags", func() {
 			AfterEach(func() {
 				_, _, err := execute(exec.Command(wincBin, "delete", containerId))
 				Expect(err).ToNot(HaveOccurred())
-				_, _, err = execute(exec.Command(wincImageBin, "--store", rootPath, "delete", containerId))
+				_, _, err = execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -176,7 +176,7 @@ var _ = Describe("Flags", func() {
 		})
 	})
 
-	Context("when passed '--root'", func() {
+	Context("when passed '--image-store'", func() {
 		var storePath string
 
 		BeforeEach(func() {
@@ -188,7 +188,7 @@ var _ = Describe("Flags", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0755)).To(Succeed())
 
-			args = []string{"--root", storePath, "create", containerId, "-b", bundlePath}
+			args = []string{"--image-store", storePath, "create", containerId, "-b", bundlePath}
 		})
 
 		AfterEach(func() {

@@ -31,7 +31,7 @@ import (
 const (
 	defaultTimeout  = time.Second * 10
 	defaultInterval = time.Millisecond * 200
-	rootPath        = "C:\\run\\winc"
+	imageStore      = "C:\\run\\winc"
 )
 
 var (
