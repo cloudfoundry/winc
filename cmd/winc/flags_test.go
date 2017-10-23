@@ -149,7 +149,7 @@ var _ = Describe("Flags", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(session.Err).Should(gbytes.Say("bundle config.json does not exist"))
-				expectedLogContents := strings.Trim(string(session.Err.Contents()), "\n")
+				expectedLogContents := strings.Replace(strings.Trim(string(session.Err.Contents()), "\n"), `\`, `\\`, -1)
 				Expect(string(log)).To(ContainSubstring(expectedLogContents))
 			})
 		})
