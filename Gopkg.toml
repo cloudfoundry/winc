@@ -43,7 +43,7 @@
 
 [[constraint]]
   name = "github.com/opencontainers/runtime-spec"
-  version = "1.0.0-rc.6"
+  revision = "34170989dc28be797f7078f88df156a474d7fd11"
 
 [[constraint]]
   name = "github.com/opencontainers/runtime-tools"
