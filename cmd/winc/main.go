@@ -71,16 +71,6 @@ func main() {
 			Usage: "directory for storage of container state",
 		},
 		cli.StringFlag{
-			Name:  "newuidmap",
-			Value: "newuidmap",
-			Usage: "ignored",
-		},
-		cli.StringFlag{
-			Name:  "newgidmap",
-			Value: "newgidmap",
-			Usage: "ignored",
-		},
-		cli.StringFlag{
 			Name:  "config-file",
 			Usage: "config file",
 		},

@@ -202,24 +202,4 @@ var _ = Describe("Flags", func() {
 			Expect(containerExists(containerId)).To(BeTrue())
 		})
 	})
-
-	Context("when passed '--newuidmap'", func() {
-		BeforeEach(func() {
-			args = []string{"--newuidmap", "foo"}
-		})
-
-		It("accepts the flag and prints the --newuidmap flag usage", func() {
-			Eventually(session.Out).Should(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--newuidmap value"))
-		})
-	})
-
-	Context("when passed '--newgidmap'", func() {
-		BeforeEach(func() {
-			args = []string{"--newgidmap", "foo"}
-		})
-
-		It("accepts the flag and prints the --newgidmap flag usage", func() {
-			Eventually(session.Out).Should(gbytes.Say("GLOBAL OPTIONS:(.|\n)*--newgidmap value"))
-		})
-	})
 })
