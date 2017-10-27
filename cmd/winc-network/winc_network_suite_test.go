@@ -225,3 +225,13 @@ func allEndpoints(containerID string) []string {
 
 	return endpointIDs
 }
+
+func containerExists(containerId string) bool {
+	query := hcsshim.ComputeSystemQuery{
+		Owners: []string{"winc"},
+		IDs:    []string{containerId},
+	}
+	containers, err := hcsshim.GetContainers(query)
+	Expect(err).ToNot(HaveOccurred())
+	return len(containers) > 0
+}

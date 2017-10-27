@@ -64,11 +64,6 @@ var _ = Describe("Create", func() {
 			Expect(ps.FindProcess(getContainerState(containerId).Pid)).ToNot(BeNil())
 		})
 
-		It("does not attach a network endpoint", func() {
-			endpoints := allEndpoints(containerId)
-			Expect(len(endpoints)).To(Equal(0))
-		})
-
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
 			pid := getContainerState(containerId).Pid
 			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())

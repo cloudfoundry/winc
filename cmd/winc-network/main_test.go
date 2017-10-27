@@ -23,12 +23,11 @@ import (
 
 var _ = Describe("up", func() {
 	var (
-		config          []byte
-		containerId     string
-		bundleSpec      specs.Spec
-		configFile      string
-		networkConfig   network.Config
-		containerExists bool
+		config        []byte
+		containerId   string
+		bundleSpec    specs.Spec
+		configFile    string
+		networkConfig network.Config
 	)
 
 	BeforeEach(func() {
@@ -41,7 +40,6 @@ var _ = Describe("up", func() {
 
 		output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
-		containerExists = true
 
 		networkConfig = network.Config{
 			SubnetRange:    subnetRange,
@@ -65,7 +63,7 @@ var _ = Describe("up", func() {
 		Expect(err).ToNot(HaveOccurred(), string(output))
 		Expect(endpointExists(containerId)).To(BeFalse())
 
-		if containerExists {
+		if containerExists(containerId) {
 			output, err = exec.Command(wincBin, "delete", containerId).CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
 		}
@@ -113,7 +111,6 @@ var _ = Describe("up", func() {
 				output, err := cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred(), string(output))
 				Expect(endpointExists(containerId)).To(BeFalse())
-				containerExists = false
 			})
 		})
 	})
