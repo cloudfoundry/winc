@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/winc/image"
@@ -49,7 +48,7 @@ func TestWinc(t *testing.T) {
 	RunSpecs(t, "Winc Suite")
 }
 
-var _ = SynchronizedBeforeSuite(func() []byte {
+var _ = BeforeSuite(func() {
 	var (
 		present bool
 		err     error
@@ -79,21 +78,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).ToNot(HaveOccurred())
 	readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
 	Expect(err).ToNot(HaveOccurred())
-
-	return []byte(strings.Join([]string{wincBin, wincImageBin, rootfsPath, consumeBin, readBin}, "^"))
-
-}, func(setupPaths []byte) {
-	paths := strings.Split(string(setupPaths), "^")
-	wincBin = paths[0]
-	wincImageBin = paths[1]
-	rootfsPath = paths[2]
-	consumeBin = paths[3]
-	readBin = paths[4]
 })
 
-var _ = SynchronizedAfterSuite(func() {
-	//noop
-}, func() {
+var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
