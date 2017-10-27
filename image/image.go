@@ -11,11 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ImageSpec struct {
-	RootFs string `json:"rootfs,omitempty"`
-	specs.Spec
-}
-
 type DiskUsage struct {
 	TotalBytesUsed     uint64 `json:"total_bytes_used"`
 	ExclusiveBytesUsed uint64 `json:"exclusive_bytes_used"`
@@ -60,7 +55,7 @@ func NewManager(layerManager LayerManager, limiter Limiter, statser Statser, con
 	}
 }
 
-func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
+func (s *Manager) Create(rootfs string, diskLimit uint64) (*specs.Spec, error) {
 	_, err := os.Stat(rootfs)
 	if os.IsNotExist(err) {
 		return nil, &MissingRootfsError{Msg: rootfs}
@@ -110,15 +105,13 @@ func (s *Manager) Create(rootfs string, diskLimit uint64) (*ImageSpec, error) {
 		return nil, err
 	}
 
-	return &ImageSpec{
-		RootFs: volumePath,
-		Spec: specs.Spec{
-			Root: &specs.Root{
-				Path: volumePath,
-			},
-			Windows: &specs.Windows{
-				LayerFolders: sandboxLayers,
-			},
+	return &specs.Spec{
+		Version: specs.Version,
+		Root: &specs.Root{
+			Path: volumePath,
+		},
+		Windows: &specs.Windows{
+			LayerFolders: sandboxLayers,
 		},
 	}, nil
 }

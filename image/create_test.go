@@ -68,20 +68,18 @@ var _ = Describe("Create", func() {
 			It("creates and activates the sandbox", func() {
 				expectedLayerFolders := []string{rootfs, "path1", "path2"}
 
-				actualImageSpec, err := imageManager.Create(rootfs, 666)
+				actualSpec, err := imageManager.Create(rootfs, 666)
 				Expect(err).ToNot(HaveOccurred())
-				expectedImageSpec := &image.ImageSpec{
-					RootFs: containerVolume,
-					Spec: specs.Spec{
-						Root: &specs.Root{
-							Path: containerVolume,
-						},
-						Windows: &specs.Windows{
-							LayerFolders: expectedLayerFolders,
-						},
+				expectedSpec := &specs.Spec{
+					Version: specs.Version,
+					Root: &specs.Root{
+						Path: containerVolume,
+					},
+					Windows: &specs.Windows{
+						LayerFolders: expectedLayerFolders,
 					},
 				}
-				Expect(actualImageSpec).To(Equal(expectedImageSpec))
+				Expect(actualSpec).To(Equal(expectedSpec))
 
 				Expect(layerManager.LayerExistsCallCount()).To(Equal(1))
 				actualContainerId := layerManager.LayerExistsArgsForCall(0)

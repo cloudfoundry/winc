@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/winc/image"
 	"code.cloudfoundry.org/winc/network"
 
 	"github.com/Microsoft/hcsshim"
@@ -126,19 +125,19 @@ var _ = AfterEach(func() {
 	Expect(os.Remove(networkConfigFile)).To(Succeed())
 })
 
-func createSandbox(storePath, rootfsPath, containerId string) image.ImageSpec {
+func createSandbox(storePath, rootfsPath, containerId string) specs.Spec {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
 	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 	cmd.Stdout = stdOut
 	cmd.Stderr = stdErr
 	Expect(cmd.Run()).To(Succeed(), fmt.Sprintf("winc-image stdout: %s\n\n winc-image stderr: %s\n\n", stdOut.String(), stdErr.String()))
-	var imageSpec image.ImageSpec
-	Expect(json.Unmarshal(stdOut.Bytes(), &imageSpec)).To(Succeed())
-	return imageSpec
+	var spec specs.Spec
+	Expect(json.Unmarshal(stdOut.Bytes(), &spec)).To(Succeed())
+	return spec
 }
 
-func runtimeSpecGenerator(imageSpec image.ImageSpec, containerId string) specs.Spec {
+func runtimeSpecGenerator(baseSpec specs.Spec, containerId string) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{
@@ -146,10 +145,10 @@ func runtimeSpecGenerator(imageSpec image.ImageSpec, containerId string) specs.S
 			Cwd:  "/",
 		},
 		Root: &specs.Root{
-			Path: imageSpec.RootFs,
+			Path: baseSpec.Root.Path,
 		},
 		Windows: &specs.Windows{
-			LayerFolders: imageSpec.Windows.LayerFolders,
+			LayerFolders: baseSpec.Windows.LayerFolders,
 		},
 	}
 }

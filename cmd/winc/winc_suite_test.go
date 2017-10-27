@@ -14,8 +14,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/winc/image"
-
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -103,17 +101,17 @@ func getContainerState(containerId string) specs.State {
 	return state
 }
 
-func createSandbox(storePath, rootfsPath, containerId string) image.ImageSpec {
+func createSandbox(storePath, rootfsPath, containerId string) specs.Spec {
 	stdOut := new(bytes.Buffer)
 	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 	cmd.Stdout = stdOut
 	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
-	var imageSpec image.ImageSpec
-	Expect(json.Unmarshal(stdOut.Bytes(), &imageSpec)).To(Succeed())
-	return imageSpec
+	var spec specs.Spec
+	Expect(json.Unmarshal(stdOut.Bytes(), &spec)).To(Succeed())
+	return spec
 }
 
-func runtimeSpecGenerator(imageSpec image.ImageSpec) specs.Spec {
+func runtimeSpecGenerator(baseSpec specs.Spec) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{
@@ -121,10 +119,10 @@ func runtimeSpecGenerator(imageSpec image.ImageSpec) specs.Spec {
 			Cwd:  "C:\\",
 		},
 		Root: &specs.Root{
-			Path: imageSpec.RootFs,
+			Path: baseSpec.Root.Path,
 		},
 		Windows: &specs.Windows{
-			LayerFolders: imageSpec.Windows.LayerFolders,
+			LayerFolders: baseSpec.Windows.LayerFolders,
 		},
 	}
 }
