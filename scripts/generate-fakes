@@ -1,7 +1,0 @@
-#!/bin/bash
-
-repo_root=$(cd `dirname $0` && cd .. && pwd)
-find $repo_root -name "*fakes" -type d -not -path "$repo_root/vendor/*" | xargs rm -rf
-
-go get github.com/maxbrunsfeld/counterfeiter
-go generate $(go list code.cloudfoundry.org/winc/... | grep -v /vendor/)
