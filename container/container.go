@@ -17,12 +17,11 @@ import (
 const destroyTimeout = time.Minute
 
 type Manager struct {
-	hcsClient      HCSClient
-	mounter        Mounter
-	networkManager NetworkManager
-	imageStore     string
-	bundlePath     string
-	id             string
+	hcsClient  HCSClient
+	mounter    Mounter
+	imageStore string
+	bundlePath string
+	id         string
 }
 
 type Statistics struct {
@@ -57,21 +56,13 @@ type HCSClient interface {
 	IsPending(error) bool
 }
 
-//go:generate counterfeiter . NetworkManager
-type NetworkManager interface {
-	AttachEndpointToConfig(hcsshim.ContainerConfig) (hcsshim.ContainerConfig, error)
-	DeleteContainerEndpoints(hcs.Container) error
-	DeleteEndpointsById([]string) error
-}
-
-func NewManager(hcsClient HCSClient, mounter Mounter, networkManager NetworkManager, imageStore, bundlePath string) *Manager {
+func NewManager(hcsClient HCSClient, mounter Mounter, imageStore, bundlePath string) *Manager {
 	return &Manager{
-		hcsClient:      hcsClient,
-		mounter:        mounter,
-		networkManager: networkManager,
-		bundlePath:     bundlePath,
-		imageStore:     imageStore,
-		id:             filepath.Base(bundlePath),
+		hcsClient:  hcsClient,
+		mounter:    mounter,
+		bundlePath: bundlePath,
+		imageStore: imageStore,
+		id:         filepath.Base(bundlePath),
 	}
 }
 
@@ -134,11 +125,6 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		MappedDirectories: mappedDirs,
 	}
 
-	containerConfig, err = c.networkManager.AttachEndpointToConfig(containerConfig)
-	if err != nil {
-		return err
-	}
-
 	if spec.Windows != nil {
 		if spec.Windows.Resources != nil {
 			if spec.Windows.Resources.Memory != nil {
@@ -157,10 +143,6 @@ func (c *Manager) Create(spec *specs.Spec) error {
 
 	container, err := c.hcsClient.CreateContainer(c.id, &containerConfig)
 	if err != nil {
-		if deleteErr := c.networkManager.DeleteEndpointsById(containerConfig.EndpointList); deleteErr != nil {
-			logrus.Error(deleteErr.Error())
-		}
-
 		return err
 	}
 
@@ -318,10 +300,6 @@ func (c *Manager) containerPid(id string) (int, error) {
 }
 
 func (c *Manager) deleteContainer(container hcs.Container) error {
-	if err := c.networkManager.DeleteContainerEndpoints(container); err != nil {
-		logrus.Error(err.Error())
-	}
-
 	props, err := c.hcsClient.GetContainerProperties(c.id)
 	if err != nil {
 		return err

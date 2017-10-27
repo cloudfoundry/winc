@@ -1,7 +1,6 @@
 package netrules_test
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -19,127 +18,97 @@ var _ = Describe("Applier", func() {
 	const networkName = "my-network"
 
 	var (
-		netSh    *netrulesfakes.FakeNetShRunner
-		applier  *netrules.Applier
-		endpoint *hcsshim.HNSEndpoint
+		netSh         *netrulesfakes.FakeNetShRunner
+		portAllocator *netrulesfakes.FakePortAllocator
+		applier       *netrules.Applier
 	)
 
 	BeforeEach(func() {
-		endpoint = &hcsshim.HNSEndpoint{}
-
 		netSh = &netrulesfakes.FakeNetShRunner{}
-		applier = netrules.NewApplier(netSh, containerId, networkName)
+		portAllocator = &netrulesfakes.FakePortAllocator{}
+
+		applier = netrules.NewApplier(netSh, containerId, networkName, portAllocator)
 	})
 
 	Describe("In", func() {
-		var (
-			netInRule     netrules.NetIn
-			containerPort uint32
-			hostPort      uint32
-		)
+		var netInRule netrules.NetIn
 
 		BeforeEach(func() {
-			policyOne := hcsshim.NatPolicy{
-				Type:         "NAT",
-				Protocol:     "TCP",
-				InternalPort: 8080,
-				ExternalPort: 1234,
-			}
-			policyOneJSON, err := json.Marshal(policyOne)
-			Expect(err).NotTo(HaveOccurred())
-
-			policyTwo := hcsshim.NatPolicy{
-				Type:         "NAT",
-				Protocol:     "TCP",
-				InternalPort: 2222,
-				ExternalPort: 9876,
-			}
-			policyTwoJSON, err := json.Marshal(policyTwo)
-			Expect(err).NotTo(HaveOccurred())
-
-			endpoint.Policies = []json.RawMessage{policyOneJSON, policyTwoJSON}
-		})
-
-		JustBeforeEach(func() {
 			netInRule = netrules.NetIn{
-				ContainerPort: containerPort,
-				HostPort:      hostPort,
+				ContainerPort: 1000,
+				HostPort:      2000,
 			}
 		})
 
-		Context("the container port is 8080", func() {
-			BeforeEach(func() {
-				containerPort = 8080
-				hostPort = 0
-			})
+		It("returns the correct NAT policy", func() {
+			policy, err := applier.In(netInRule)
+			Expect(err).NotTo(HaveOccurred())
 
-			It("returns the associated mapping from the endpoint", func() {
-				portMapping, err := applier.In(netInRule, endpoint)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(portMapping).To(Equal(netrules.PortMapping{
-					ContainerPort: 8080,
-					HostPort:      1234,
-				}))
-			})
-
-			It("applies a urlacl to the specified port in the container", func() {
-				_, err := applier.In(netInRule, endpoint)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(netSh.RunContainerCallCount()).To(Equal(1))
-				expectedArgs := []string{"http", "add", "urlacl", "url=http://*:8080/", "user=Users"}
-				Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedArgs))
-			})
+			expectedPolicy := hcsshim.NatPolicy{
+				Type:         "NAT",
+				InternalPort: 1000,
+				ExternalPort: 2000,
+				Protocol:     "TCP",
+			}
+			Expect(policy).To(Equal(expectedPolicy))
 		})
 
-		Context("the container port is 2222", func() {
-			BeforeEach(func() {
-				containerPort = 2222
-				hostPort = 0
-			})
+		It("opens the port inside the container", func() {
+			_, err := applier.In(netInRule)
+			Expect(err).NotTo(HaveOccurred())
 
-			It("returns the associated mapping from the endpoint", func() {
-				portMapping, err := applier.In(netInRule, endpoint)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(portMapping).To(Equal(netrules.PortMapping{
-					ContainerPort: 2222,
-					HostPort:      9876,
-				}))
-			})
-
-			It("applies a urlacl to the specified port in the container", func() {
-				_, err := applier.In(netInRule, endpoint)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(netSh.RunContainerCallCount()).To(Equal(1))
-				expectedArgs := []string{"http", "add", "urlacl", "url=http://*:2222/", "user=Users"}
-				Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedArgs))
-			})
+			Expect(netSh.RunContainerCallCount()).To(Equal(1))
+			expectedArgs := []string{"http", "add", "urlacl", "url=http://*:1000/", "user=Users"}
+			Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedArgs))
 		})
 
-		Context("the container port is not 8080 or 2222", func() {
+		Context("opening the port fails", func() {
 			BeforeEach(func() {
-				containerPort = 1234
-				hostPort = 0
+				netSh.RunContainerReturns(errors.New("couldn't exec netsh"))
 			})
 
 			It("returns an error", func() {
-				_, err := applier.In(netInRule, endpoint)
-				Expect(err).To(MatchError(errors.New("invalid port mapping: host 0, container 1234")))
-				Expect(netSh.RunContainerCallCount()).To(Equal(0))
+				_, err := applier.In(netInRule)
+				Expect(err).To(MatchError("couldn't exec netsh"))
 			})
 		})
 
-		Context("the host port is not 0", func() {
+		Context("the host port is zero", func() {
 			BeforeEach(func() {
-				containerPort = 8080
-				hostPort = 1234
+				netInRule = netrules.NetIn{
+					ContainerPort: 1000,
+					HostPort:      0,
+				}
+				portAllocator.AllocatePortReturns(1234, nil)
 			})
 
-			It("returns an error", func() {
-				_, err := applier.In(netInRule, endpoint)
-				Expect(err).To(MatchError(errors.New("invalid port mapping: host 1234, container 8080")))
-				Expect(netSh.RunContainerCallCount()).To(Equal(0))
+			It("uses the port allocator to find an open host port", func() {
+				policy, err := applier.In(netInRule)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedPolicy := hcsshim.NatPolicy{
+					Type:         "NAT",
+					InternalPort: 1000,
+					ExternalPort: 1234,
+					Protocol:     "TCP",
+				}
+				Expect(policy).To(Equal(expectedPolicy))
+
+				Expect(portAllocator.AllocatePortCallCount()).To(Equal(1))
+				id, p := portAllocator.AllocatePortArgsForCall(0)
+				Expect(id).To(Equal(containerId))
+				Expect(p).To(Equal(0))
+			})
+
+			Context("when allocating a port fails", func() {
+				BeforeEach(func() {
+					portAllocator.AllocatePortReturns(0, errors.New("some-error"))
+				})
+
+				It("returns an error", func() {
+					_, err := applier.In(netInRule)
+					Expect(err).To(MatchError("some-error"))
+				})
 			})
 		})
 	})
@@ -148,6 +117,7 @@ var _ = Describe("Applier", func() {
 		var (
 			protocol   netrules.Protocol
 			netOutRule netrules.NetOut
+			endpoint   hcsshim.HNSEndpoint
 		)
 
 		BeforeEach(func() {
@@ -294,7 +264,7 @@ MTU  MediaSenseState   Bytes In  Bytes Out  Interface
 
 		Context("when run on a insider preview", func() {
 			BeforeEach(func() {
-				applier = netrules.NewApplier(netSh, containerId, "some-network-name")
+				applier = netrules.NewApplier(netSh, containerId, "some-network-name", portAllocator)
 
 				netSh.RunHostReturns([]byte(`
    MTU  MediaSenseState   Bytes In  Bytes Out  Interface
@@ -321,30 +291,80 @@ MTU  MediaSenseState   Bytes In  Bytes Out  Interface
 	})
 
 	Describe("Cleanup", func() {
-		It("removes the firewall rules applied to the container", func() {
+		It("removes the firewall rules applied to the container and de-allocates all the ports", func() {
 			Expect(applier.Cleanup()).To(Succeed())
 
+			Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+			Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
+
 			Expect(netSh.RunHostCallCount()).To(Equal(2))
-
-			expectedExistsArgs := []string{"advfirewall", "firewall", "show", "rule", `name="containerabc"`}
-			Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedExistsArgs))
-
-			expectedDeleteArgs := []string{"advfirewall", "firewall", "delete", "rule", `name="containerabc"`}
-			Expect(netSh.RunHostArgsForCall(1)).To(Equal(expectedDeleteArgs))
+			Expect(netSh.RunHostArgsForCall(0)).To(Equal([]string{"advfirewall", "firewall", "show", "rule", `name="containerabc"`}))
+			Expect(netSh.RunHostArgsForCall(1)).To(Equal([]string{"advfirewall", "firewall", "delete", "rule", `name="containerabc"`}))
 		})
 
 		Context("there are no firewall rules applied to the container", func() {
 			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(0, []byte{}, errors.New("firewall rule not found"))
+				netSh.RunHostReturnsOnCall(0, nil, errors.New("firewall rule not found"))
 			})
 
 			It("does not error", func() {
 				Expect(applier.Cleanup()).To(Succeed())
 
+				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
 				Expect(netSh.RunHostCallCount()).To(Equal(1))
+			})
+		})
 
-				expectedExistsArgs := []string{"advfirewall", "firewall", "show", "rule", `name="containerabc"`}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedExistsArgs))
+		Context("deleting the firewall rule fails", func() {
+			BeforeEach(func() {
+				netSh.RunHostReturnsOnCall(1, nil, errors.New("deleting firewall rule failed"))
+			})
+
+			It("releases the ports and returns an error", func() {
+				Expect(applier.Cleanup()).To(MatchError("deleting firewall rule failed"))
+
+				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+				Expect(netSh.RunHostCallCount()).To(Equal(2))
+			})
+		})
+
+		Context("releasing ports fails", func() {
+			BeforeEach(func() {
+				portAllocator.ReleaseAllPortsReturns(errors.New("releasing ports failed"))
+			})
+
+			It("still removes firewall rules but returns an error", func() {
+				Expect(applier.Cleanup()).To(MatchError("releasing ports failed"))
+
+				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+				Expect(netSh.RunHostCallCount()).To(Equal(2))
+			})
+
+			Context("there are no firewall rules applied to the container", func() {
+				BeforeEach(func() {
+					netSh.RunHostReturnsOnCall(0, nil, errors.New("firewall rule not found"))
+				})
+
+				It("returns the port release error", func() {
+					Expect(applier.Cleanup()).To(MatchError("releasing ports failed"))
+
+					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+					Expect(netSh.RunHostCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("deleting firewall rule also fails", func() {
+				BeforeEach(func() {
+					netSh.RunHostReturnsOnCall(1, nil, errors.New("deleting firewall rule failed"))
+				})
+
+				It("returns a combined error", func() {
+					err := applier.Cleanup()
+					Expect(err).To(MatchError("releasing ports failed, deleting firewall rule failed"))
+
+					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
+					Expect(netSh.RunHostCallCount()).To(Equal(2))
+				})
 			})
 		})
 	})

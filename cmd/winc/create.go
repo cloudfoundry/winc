@@ -52,7 +52,6 @@ your host.`,
 		imageStore := context.GlobalString("image-store")
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
-		configFile := context.GlobalString("config-file")
 
 		logger := logrus.WithFields(logrus.Fields{
 			"bundle":      bundlePath,
@@ -75,12 +74,7 @@ your host.`,
 			return err
 		}
 
-		networkConfig, err := parseConfig(configFile)
-		if err != nil {
-			return err
-		}
-
-		cm, err := wireContainerManager(imageStore, bundlePath, containerId, networkConfig)
+		cm, err := wireContainerManager(imageStore, bundlePath, containerId)
 		if err != nil {
 			return err
 		}

@@ -30,7 +30,7 @@ var _ = Describe("Stats", func() {
 
 		hcsClient = &containerfakes.FakeHCSClient{}
 		mounter = &containerfakes.FakeMounter{}
-		containerManager = container.NewManager(hcsClient, mounter, nil, "", bundlePath)
+		containerManager = container.NewManager(hcsClient, mounter, "", bundlePath)
 		fakeContainer = &hcsfakes.FakeContainer{}
 		hcsClient.OpenContainerReturns(fakeContainer, nil)
 	})

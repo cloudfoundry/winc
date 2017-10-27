@@ -9,11 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -66,38 +64,9 @@ var _ = Describe("Create", func() {
 			Expect(ps.FindProcess(getContainerState(containerId).Pid)).ToNot(BeNil())
 		})
 
-		It("attaches a network endpoint with a port mapping", func() {
+		It("does not attach a network endpoint", func() {
 			endpoints := allEndpoints(containerId)
-			Expect(len(endpoints)).To(Equal(1))
-
-			endpoint, err := hcsshim.GetHNSEndpointByID(endpoints[0])
-			Expect(err).To(Succeed())
-			Expect(endpoint.Name).To(Equal(containerId))
-
-			natPolicies := []hcsshim.NatPolicy{}
-			for _, pol := range endpoint.Policies {
-				natPolicy := hcsshim.NatPolicy{}
-
-				err := json.Unmarshal(pol, &natPolicy)
-				Expect(err).To(Succeed())
-				if natPolicy.Type != "NAT" {
-					continue
-				}
-
-				natPolicies = append(natPolicies, natPolicy)
-			}
-
-			Expect(len(natPolicies)).To(Equal(2))
-			sort.Slice(natPolicies, func(i, j int) bool { return natPolicies[i].InternalPort < natPolicies[j].InternalPort })
-			Expect(natPolicies[0].InternalPort).To(Equal(uint16(2222)))
-			Expect(natPolicies[0].ExternalPort).To(BeNumerically(">=", 40000))
-			Expect(natPolicies[0].Protocol).To(Equal("TCP"))
-
-			Expect(natPolicies[1].InternalPort).To(Equal(uint16(8080)))
-			Expect(natPolicies[1].ExternalPort).To(BeNumerically(">=", 40000))
-			Expect(natPolicies[1].Protocol).To(Equal("TCP"))
-
-			Expect(natPolicies[0].ExternalPort).NotTo(Equal(natPolicies[1].ExternalPort))
+			Expect(len(endpoints)).To(Equal(0))
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {

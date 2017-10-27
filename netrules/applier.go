@@ -1,7 +1,6 @@
 package netrules
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -16,50 +15,52 @@ type NetShRunner interface {
 	RunHost([]string) ([]byte, error)
 }
 
+//go:generate counterfeiter . PortAllocator
+type PortAllocator interface {
+	AllocatePort(handle string, port int) (int, error)
+	ReleaseAllPorts(handle string) error
+}
+
 type Applier struct {
-	netSh       NetShRunner
-	id          string
-	networkName string
+	netSh         NetShRunner
+	id            string
+	networkName   string
+	portAllocator PortAllocator
 }
 
-func NewApplier(netSh NetShRunner, containerId string, networkName string) *Applier {
+func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator) *Applier {
 	return &Applier{
-		netSh:       netSh,
-		id:          containerId,
-		networkName: networkName,
+		netSh:         netSh,
+		id:            containerId,
+		networkName:   networkName,
+		portAllocator: portAllocator,
 	}
 }
 
-func (a *Applier) In(rule NetIn, endpoint *hcsshim.HNSEndpoint) (PortMapping, error) {
-	portMapping := PortMapping{}
+func (a *Applier) In(rule NetIn) (hcsshim.NatPolicy, error) {
+	externalPort := uint16(rule.HostPort)
 
-	if (rule.ContainerPort != 8080 && rule.ContainerPort != 2222) || rule.HostPort != 0 {
-		return portMapping, fmt.Errorf("invalid port mapping: host %d, container %d", rule.HostPort, rule.ContainerPort)
-	}
-
-	for _, pol := range endpoint.Policies {
-		natPolicy := hcsshim.NatPolicy{}
-		if err := json.Unmarshal(pol, &natPolicy); err != nil {
-			return portMapping, err
+	if externalPort == 0 {
+		allocatedPort, err := a.portAllocator.AllocatePort(a.id, 0)
+		if err != nil {
+			return hcsshim.NatPolicy{}, err
 		}
-		if natPolicy.Type == "NAT" && uint32(natPolicy.InternalPort) == rule.ContainerPort {
-			portMapping = PortMapping{
-				ContainerPort: uint32(natPolicy.InternalPort),
-				HostPort:      uint32(natPolicy.ExternalPort),
-			}
-
-			break
-		}
+		externalPort = uint16(allocatedPort)
 	}
 
-	if err := a.openPort(portMapping.ContainerPort); err != nil {
-		return portMapping, err
+	if err := a.openPort(rule.ContainerPort); err != nil {
+		return hcsshim.NatPolicy{}, err
 	}
 
-	return portMapping, nil
+	return hcsshim.NatPolicy{
+		Type:         "NAT",
+		Protocol:     "TCP",
+		InternalPort: uint16(rule.ContainerPort),
+		ExternalPort: externalPort,
+	}, nil
 }
 
-func (a *Applier) Out(rule NetOut, endpoint *hcsshim.HNSEndpoint) error {
+func (a *Applier) Out(rule NetOut, endpoint hcsshim.HNSEndpoint) error {
 	netShArgs := []string{
 		"advfirewall", "firewall", "add", "rule",
 		fmt.Sprintf(`name="%s"`, a.id),
@@ -123,16 +124,28 @@ func (a *Applier) openPort(port uint32) error {
 }
 
 func (a *Applier) Cleanup() error {
+	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.id)
+
 	existsArgs := []string{"advfirewall", "firewall", "show", "rule", fmt.Sprintf(`name="%s"`, a.id)}
 	_, err := a.netSh.RunHost(existsArgs)
 	if err != nil {
-		return nil
+		return portReleaseErr
 	}
 
 	deleteArgs := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name="%s"`, a.id)}
+	_, deleteErr := a.netSh.RunHost(deleteArgs)
 
-	_, err = a.netSh.RunHost(deleteArgs)
-	return err
+	if portReleaseErr != nil && deleteErr != nil {
+		return fmt.Errorf("%s, %s", portReleaseErr.Error(), deleteErr.Error())
+	}
+	if portReleaseErr != nil {
+		return portReleaseErr
+	}
+	if deleteErr != nil {
+		return deleteErr
+	}
+
+	return nil
 }
 
 func (a *Applier) getHostMTU() (int, error) {

@@ -110,3 +110,11 @@ func (c *Client) GetHNSEndpointByName(name string) (*hcsshim.HNSEndpoint, error)
 func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 	return hcsshim.GetHNSNetworkByName(name)
 }
+
+func (c *Client) HotAttachEndpoint(containerID string, endpointID string) error {
+	return hcsshim.HotAttachEndpoint(containerID, endpointID)
+}
+
+func (c *Client) HotDetachEndpoint(containerID string, endpointID string) error {
+	return hcsshim.HotDetachEndpoint(containerID, endpointID)
+}

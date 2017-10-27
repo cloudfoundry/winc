@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
+	"strconv"
 	"strings"
 
 	"code.cloudfoundry.org/winc/netrules"
@@ -17,17 +18,17 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("up", func() {
 	var (
-		config        []byte
-		containerId   string
-		bundleSpec    specs.Spec
-		configFile    string
-		networkConfig network.Config
+		config          []byte
+		containerId     string
+		bundleSpec      specs.Spec
+		configFile      string
+		networkConfig   network.Config
+		containerExists bool
 	)
 
 	BeforeEach(func() {
@@ -38,8 +39,9 @@ var _ = Describe("up", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
-		output, err := exec.Command(wincBin, "--config-file", networkConfigFile, "create", "-b", bundlePath, containerId).CombinedOutput()
+		output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
+		containerExists = true
 
 		networkConfig = network.Config{
 			SubnetRange:    subnetRange,
@@ -59,15 +61,71 @@ var _ = Describe("up", func() {
 	})
 
 	AfterEach(func() {
-		output, err := exec.Command(wincBin, "delete", containerId).CombinedOutput()
+		output, err := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "down", "--handle", containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
+		Expect(endpointExists(containerId)).To(BeFalse())
+
+		if containerExists {
+			output, err = exec.Command(wincBin, "delete", containerId).CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
+		}
+
 		output, err = exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).CombinedOutput()
 		Expect(err).ToNot(HaveOccurred(), string(output))
+
 		Expect(os.RemoveAll(filepath.Dir(configFile))).To(Succeed())
 	})
 
-	// note: using config.json from BeforeEach in winc_network_suite_test.go
+	Context("network down", func() {
+		JustBeforeEach(func() {
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {}}`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
+			Expect(len(allEndpoints(containerId))).To(Equal(1))
+		})
+
+		It("deletes the endpoint", func() {
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "down", "--handle", containerId)
+			output, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
+			Expect(len(allEndpoints(containerId))).To(Equal(0))
+			Expect(endpointExists(containerId)).To(BeFalse())
+		})
+
+		Context("when the endpoint does not exist", func() {
+			It("does nothing", func() {
+				cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "down", "--handle", "some-nonexistant-id")
+				output, err := cmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
+			})
+		})
+
+		Context("when the container is deleted before the endpoint", func() {
+			JustBeforeEach(func() {
+				output, err := exec.Command(wincBin, "delete", containerId).CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
+			})
+
+			It("deletes the endpoint", func() {
+				Expect(endpointExists(containerId)).To(BeTrue())
+				cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "down", "--handle", containerId)
+				output, err := cmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
+				Expect(endpointExists(containerId)).To(BeFalse())
+				containerExists = false
+			})
+		})
+	})
+
 	Context("the config file contains DNSServers", func() {
+		BeforeEach(func() {
+			cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+		})
+
 		It("uses those IP addresses as DNS servers", func() {
 			cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`)
 			output, err := cmd.CombinedOutput()
@@ -118,33 +176,73 @@ var _ = Describe("up", func() {
 		})
 	})
 
-	Context("stdin contains a port mapping request", func() {
-		It("prints the correct port mapping for the container", func() {
-			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
-			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
-			output, err := cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred(), string(output))
+	Context("stdin contains a net in rule", func() {
+		var (
+			hostPort1 int
+			hostPort2 int
+			hostIp    string
+			port1     int
+			port2     int
+			upOutput  network.UpOutputs
+		)
 
-			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[{\\"HostPort\\":\d+,\\"ContainerPort\\":8080}\]"}}`
-			Expect(string(output)).To(MatchRegexp(regex))
+		type portMapping struct {
+			HostPort      int
+			ContainerPort int
+		}
+
+		JustBeforeEach(func() {
+			port1 = 12345
+			port2 = 9876
+
+			pid := getContainerState(containerId).Pid
+			Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
+
+			cmd := exec.Command(wincBin, "exec", "-d", containerId, "c:\\server.exe", strconv.Itoa(port1))
+			Expect(cmd.Run()).To(Succeed())
+
+			cmd = exec.Command(wincBin, "exec", "-d", containerId, "c:\\server.exe", strconv.Itoa(port2))
+			Expect(cmd.Run()).To(Succeed())
+
+			hostPort2 = randomPort()
 		})
 
-		It("outputs the host's public IP as the container IP", func() {
+		It("generates the correct port mappings and binds them to the container", func() {
 			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
-			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+			cmd.Stdin = strings.NewReader(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, port1, hostPort2, port2))
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
+			Expect(json.Unmarshal(output, &upOutput)).To(Succeed())
 
-			regex := regexp.MustCompile(`"garden\.network\.container-ip":"(\d+\.\d+\.\d+\.\d+)"`)
-			matches := regex.FindStringSubmatch(string(output))
-			Expect(len(matches)).To(Equal(2))
+			mappedPorts := []portMapping{}
+			Expect(json.Unmarshal([]byte(upOutput.Properties.MappedPorts), &mappedPorts)).To(Succeed())
 
-			cmd = exec.Command("powershell", "-Command", "Get-NetIPAddress", matches[1])
-			output, err = cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred(), string(output))
-			Expect(string(output)).NotTo(ContainSubstring("Loopback"))
-			Expect(string(output)).NotTo(ContainSubstring("HNS Internal NIC"))
-			Expect(string(output)).To(MatchRegexp("AddressFamily.*IPv4"))
+			Expect(len(mappedPorts)).To(Equal(2))
+
+			Expect(mappedPorts[0].ContainerPort).To(Equal(port1))
+			Expect(mappedPorts[0].HostPort).NotTo(Equal(0))
+
+			Expect(mappedPorts[1].ContainerPort).To(Equal(port2))
+			Expect(mappedPorts[1].HostPort).To(Equal(hostPort2))
+
+			hostPort1 = mappedPorts[0].HostPort
+
+			hostIp = upOutput.Properties.ContainerIP
+			resp, err := http.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			data, err := ioutil.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", port1)))
+
+			resp2, err := http.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort2))
+			Expect(err).NotTo(HaveOccurred())
+			defer resp2.Body.Close()
+
+			data, err = ioutil.ReadAll(resp2.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", port2)))
 		})
 
 		It("creates the correct urlacl in the container", func() {
@@ -157,29 +255,19 @@ var _ = Describe("up", func() {
 			Expect(err).ToNot(HaveOccurred(), string(output))
 			Expect(string(output)).To(ContainSubstring("BUILTIN\\Users"))
 		})
-	})
 
-	Context("stdin does not contain a port mapping request", func() {
-		It("prints an empty list of mapped ports", func() {
-			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
-			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} }`)
-			output, err := cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred(), string(output))
+		Context("stdin does not contain a port mapping request", func() {
+			It("prints an empty list of mapped ports", func() {
+				cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
+				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} }`)
+				output, err := cmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
+				Expect(json.Unmarshal(output, &upOutput)).To(Succeed())
+				Expect(upOutput.Properties.MappedPorts).To(Equal("[]"))
 
-			regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
-			Expect(string(output)).To(MatchRegexp(regex))
-		})
-	})
-
-	Context("stdin contains an invalid port mapping request", func() {
-		It("errors", func() {
-			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
-			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 1234}, {"host_port": 0, "container_port": 2222}]}`)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).To(Succeed())
-
-			Eventually(session).Should(gexec.Exit(1))
-			Expect(string(session.Err.Contents())).To(ContainSubstring("invalid port mapping"))
+				regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
+				Expect(string(output)).To(MatchRegexp(regex))
+			})
 		})
 	})
 
@@ -193,7 +281,6 @@ var _ = Describe("up", func() {
 		var containerIp string
 
 		JustBeforeEach(func() {
-			containerIp = getContainerIp(containerId).String()
 			netOutRule := netrules.NetOut{
 				Protocol: netrules.ProtocolTCP,
 				Networks: []netrules.IPRange{
@@ -216,6 +303,8 @@ var _ = Describe("up", func() {
 			cmd.Stdin = strings.NewReader(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": [%s]}`, string(netOutRuleStr)))
 			output, err := cmd.CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
+
+			containerIp = getContainerIp(containerId).String()
 		})
 
 		AfterEach(func() {
@@ -263,4 +352,32 @@ func getContainerIp(containerId string) net.IP {
 	Expect(err).ToNot(HaveOccurred())
 
 	return endpoint.IPAddress
+}
+
+func randomPort() int {
+	l, err := net.Listen("tcp", ":0")
+	Expect(err).NotTo(HaveOccurred())
+	defer l.Close()
+	split := strings.Split(l.Addr().String(), ":")
+	port, err := strconv.Atoi(split[len(split)-1])
+	Expect(err).NotTo(HaveOccurred())
+	return port
+}
+
+type portMapping struct {
+	HostPort      int
+	ContainerPort int
+}
+
+func endpointExists(endpointName string) bool {
+	_, err := hcsshim.GetHNSEndpointByName(endpointName)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("Endpoint %s not found", endpointName) {
+			return false
+		}
+
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	return true
 }

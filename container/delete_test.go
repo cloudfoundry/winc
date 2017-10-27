@@ -22,7 +22,6 @@ var _ = Describe("Delete", func() {
 		hcsClient        *containerfakes.FakeHCSClient
 		mounter          *containerfakes.FakeMounter
 		fakeContainer    *hcsfakes.FakeContainer
-		networkManager   *containerfakes.FakeNetworkManager
 		containerManager *container.Manager
 	)
 
@@ -36,8 +35,7 @@ var _ = Describe("Delete", func() {
 		hcsClient = &containerfakes.FakeHCSClient{}
 		mounter = &containerfakes.FakeMounter{}
 		fakeContainer = &hcsfakes.FakeContainer{}
-		networkManager = &containerfakes.FakeNetworkManager{}
-		containerManager = container.NewManager(hcsClient, mounter, networkManager, "", containerId)
+		containerManager = container.NewManager(hcsClient, mounter, "", containerId)
 	})
 
 	AfterEach(func() {
@@ -63,10 +61,6 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
-			Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-			container := networkManager.DeleteContainerEndpointsArgsForCall(0)
-			Expect(container).To(Equal(fakeContainer))
-
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 
@@ -83,10 +77,6 @@ var _ = Describe("Delete", func() {
 
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-
-				Expect(networkManager.DeleteContainerEndpointsCallCount()).To(Equal(1))
-				container := networkManager.DeleteContainerEndpointsArgsForCall(0)
-				Expect(container).To(Equal(fakeContainer))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})

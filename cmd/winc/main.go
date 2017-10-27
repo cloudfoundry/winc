@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,10 +10,6 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/lib/filelock"
-	"code.cloudfoundry.org/winc/lib/serial"
-	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/port_allocator"
 	"code.cloudfoundry.org/winc/volume"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -23,8 +18,7 @@ import (
 )
 
 const (
-	NetworkName = "winc-nat"
-	usage       = `Open Container Initiative runtime for Windows
+	usage = `Open Container Initiative runtime for Windows
 
 winc is a command line client for running applications on Windows packaged
 according to the Open Container Initiative (OCI) format and is a compliant
@@ -69,10 +63,6 @@ func main() {
 			Name:  "image-store",
 			Value: "C:\\run\\winc",
 			Usage: "directory for storage of container state",
-		},
-		cli.StringFlag{
-			Name:  "config-file",
-			Usage: "config file",
 		},
 	}
 
@@ -165,27 +155,7 @@ func fatal(err error) {
 	os.Exit(1)
 }
 
-func parseConfig(configFile string) (network.Config, error) {
-	var config network.Config
-	if configFile != "" {
-		content, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			return config, err
-		}
-
-		if err := json.Unmarshal(content, &config); err != nil {
-			return config, err
-		}
-	}
-
-	if config.NetworkName == "" {
-		config.NetworkName = NetworkName
-	}
-
-	return config, nil
-}
-
-func wireContainerManager(imageStore, bundlePath, containerId string, networkConfig network.Config) (*container.Manager, error) {
+func wireContainerManager(imageStore, bundlePath, containerId string) (*container.Manager, error) {
 	client := hcs.Client{}
 
 	if bundlePath == "" {
@@ -200,30 +170,5 @@ func wireContainerManager(imageStore, bundlePath, containerId string, networkCon
 		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
-	endpointManager := wireEndpointManager(networkConfig, containerId)
-	return container.NewManager(&client, &volume.Mounter{}, endpointManager, imageStore, bundlePath), nil
-}
-
-func wireEndpointManager(config network.Config, handle string) *network.EndpointManager {
-	hcsClient := &hcs.Client{}
-
-	tracker := &port_allocator.Tracker{
-		StartPort: 40000,
-		Capacity:  5000,
-	}
-
-	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
-
-	portAllocator := &port_allocator.PortAllocator{
-		Tracker:    tracker,
-		Serializer: &serial.Serial{},
-		Locker:     locker,
-	}
-
-	return network.NewEndpointManager(
-		hcsClient,
-		portAllocator,
-		handle,
-		config.NetworkName,
-	)
+	return container.NewManager(&client, &volume.Mounter{}, imageStore, bundlePath), nil
 }

@@ -7,10 +7,14 @@ import (
 	"io/ioutil"
 	"os"
 
+	"code.cloudfoundry.org/winc/endpoint"
 	"code.cloudfoundry.org/winc/hcs"
+	"code.cloudfoundry.org/winc/lib/filelock"
+	"code.cloudfoundry.org/winc/lib/serial"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/port_allocator"
 )
 
 func main() {
@@ -114,11 +118,27 @@ func parseConfig(configFile string) (network.Config, error) {
 func wireNetworkManager(config network.Config, handle string) *network.NetworkManager {
 	hcsClient := &hcs.Client{}
 	runner := netsh.NewRunner(hcsClient, handle)
-	applier := netrules.NewApplier(runner, handle, config.NetworkName)
+
+	tracker := &port_allocator.Tracker{
+		StartPort: 40000,
+		Capacity:  5000,
+	}
+
+	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
+
+	portAllocator := &port_allocator.PortAllocator{
+		Tracker:    tracker,
+		Serializer: &serial.Serial{},
+		Locker:     locker,
+	}
+
+	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator)
+	endpointManager := endpoint.NewEndpointManager(hcsClient, handle, config.NetworkName)
 
 	return network.NewNetworkManager(
 		hcsClient,
 		applier,
+		endpointManager,
 		handle,
 		config,
 	)

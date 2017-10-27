@@ -10,25 +10,24 @@ import (
 )
 
 type FakeNetRuleApplier struct {
-	InStub        func(netrules.NetIn, *hcsshim.HNSEndpoint) (netrules.PortMapping, error)
+	InStub        func(netrules.NetIn) (hcsshim.NatPolicy, error)
 	inMutex       sync.RWMutex
 	inArgsForCall []struct {
 		arg1 netrules.NetIn
-		arg2 *hcsshim.HNSEndpoint
 	}
 	inReturns struct {
-		result1 netrules.PortMapping
+		result1 hcsshim.NatPolicy
 		result2 error
 	}
 	inReturnsOnCall map[int]struct {
-		result1 netrules.PortMapping
+		result1 hcsshim.NatPolicy
 		result2 error
 	}
-	OutStub        func(netrules.NetOut, *hcsshim.HNSEndpoint) error
+	OutStub        func(netrules.NetOut, hcsshim.HNSEndpoint) error
 	outMutex       sync.RWMutex
 	outArgsForCall []struct {
 		arg1 netrules.NetOut
-		arg2 *hcsshim.HNSEndpoint
+		arg2 hcsshim.HNSEndpoint
 	}
 	outReturns struct {
 		result1 error
@@ -61,17 +60,16 @@ type FakeNetRuleApplier struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNetRuleApplier) In(arg1 netrules.NetIn, arg2 *hcsshim.HNSEndpoint) (netrules.PortMapping, error) {
+func (fake *FakeNetRuleApplier) In(arg1 netrules.NetIn) (hcsshim.NatPolicy, error) {
 	fake.inMutex.Lock()
 	ret, specificReturn := fake.inReturnsOnCall[len(fake.inArgsForCall)]
 	fake.inArgsForCall = append(fake.inArgsForCall, struct {
 		arg1 netrules.NetIn
-		arg2 *hcsshim.HNSEndpoint
-	}{arg1, arg2})
-	fake.recordInvocation("In", []interface{}{arg1, arg2})
+	}{arg1})
+	fake.recordInvocation("In", []interface{}{arg1})
 	fake.inMutex.Unlock()
 	if fake.InStub != nil {
-		return fake.InStub(arg1, arg2)
+		return fake.InStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -85,40 +83,40 @@ func (fake *FakeNetRuleApplier) InCallCount() int {
 	return len(fake.inArgsForCall)
 }
 
-func (fake *FakeNetRuleApplier) InArgsForCall(i int) (netrules.NetIn, *hcsshim.HNSEndpoint) {
+func (fake *FakeNetRuleApplier) InArgsForCall(i int) netrules.NetIn {
 	fake.inMutex.RLock()
 	defer fake.inMutex.RUnlock()
-	return fake.inArgsForCall[i].arg1, fake.inArgsForCall[i].arg2
+	return fake.inArgsForCall[i].arg1
 }
 
-func (fake *FakeNetRuleApplier) InReturns(result1 netrules.PortMapping, result2 error) {
+func (fake *FakeNetRuleApplier) InReturns(result1 hcsshim.NatPolicy, result2 error) {
 	fake.InStub = nil
 	fake.inReturns = struct {
-		result1 netrules.PortMapping
+		result1 hcsshim.NatPolicy
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeNetRuleApplier) InReturnsOnCall(i int, result1 netrules.PortMapping, result2 error) {
+func (fake *FakeNetRuleApplier) InReturnsOnCall(i int, result1 hcsshim.NatPolicy, result2 error) {
 	fake.InStub = nil
 	if fake.inReturnsOnCall == nil {
 		fake.inReturnsOnCall = make(map[int]struct {
-			result1 netrules.PortMapping
+			result1 hcsshim.NatPolicy
 			result2 error
 		})
 	}
 	fake.inReturnsOnCall[i] = struct {
-		result1 netrules.PortMapping
+		result1 hcsshim.NatPolicy
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeNetRuleApplier) Out(arg1 netrules.NetOut, arg2 *hcsshim.HNSEndpoint) error {
+func (fake *FakeNetRuleApplier) Out(arg1 netrules.NetOut, arg2 hcsshim.HNSEndpoint) error {
 	fake.outMutex.Lock()
 	ret, specificReturn := fake.outReturnsOnCall[len(fake.outArgsForCall)]
 	fake.outArgsForCall = append(fake.outArgsForCall, struct {
 		arg1 netrules.NetOut
-		arg2 *hcsshim.HNSEndpoint
+		arg2 hcsshim.HNSEndpoint
 	}{arg1, arg2})
 	fake.recordInvocation("Out", []interface{}{arg1, arg2})
 	fake.outMutex.Unlock()
@@ -137,7 +135,7 @@ func (fake *FakeNetRuleApplier) OutCallCount() int {
 	return len(fake.outArgsForCall)
 }
 
-func (fake *FakeNetRuleApplier) OutArgsForCall(i int) (netrules.NetOut, *hcsshim.HNSEndpoint) {
+func (fake *FakeNetRuleApplier) OutArgsForCall(i int) (netrules.NetOut, hcsshim.HNSEndpoint) {
 	fake.outMutex.RLock()
 	defer fake.outMutex.RUnlock()
 	return fake.outArgsForCall[i].arg1, fake.outArgsForCall[i].arg2

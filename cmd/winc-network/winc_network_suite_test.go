@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -33,6 +34,7 @@ var (
 	wincBin           string
 	wincNetworkBin    string
 	wincImageBin      string
+	serverBin         string
 	rootfsPath        string
 	bundlePath        string
 	subnetRange       string
@@ -77,6 +79,9 @@ var _ = BeforeSuite(func() {
 		filepath.Join(wincImageDir, "quota.o"),
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
+
+	serverBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network/fixtures/server")
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
@@ -166,4 +171,57 @@ func randomValidSubnetAddress() (string, string) {
 	gatewayAddress := fmt.Sprintf("172.0.%d.1", octet1)
 	subnet := fmt.Sprintf("172.0.%d.0/30", octet1)
 	return subnet, gatewayAddress
+}
+
+func getContainerState(containerId string) specs.State {
+	stdOut, _, err := execute(exec.Command(wincBin, "state", containerId))
+	Expect(err).ToNot(HaveOccurred())
+
+	var state specs.State
+	Expect(json.Unmarshal(stdOut.Bytes(), &state)).To(Succeed())
+	return state
+}
+
+func copyFile(dst, src string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	cerr := out.Close()
+	if err != nil {
+		return err
+	}
+	return cerr
+}
+
+func execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
+	stdOut := new(bytes.Buffer)
+	stdErr := new(bytes.Buffer)
+	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
+	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
+	err := c.Run()
+
+	return stdOut, stdErr, err
+}
+
+func allEndpoints(containerID string) []string {
+	container, err := hcsshim.OpenContainer(containerID)
+	Expect(err).To(Succeed())
+
+	stats, err := container.Statistics()
+	Expect(err).To(Succeed())
+
+	var endpointIDs []string
+	for _, network := range stats.Network {
+		endpointIDs = append(endpointIDs, network.EndpointId)
+	}
+
+	return endpointIDs
 }
