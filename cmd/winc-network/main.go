@@ -133,7 +133,7 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 	}
 
 	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator)
-	endpointManager := endpoint.NewEndpointManager(hcsClient, handle, config.NetworkName)
+	endpointManager := endpoint.NewEndpointManager(hcsClient, handle, config)
 
 	return network.NewNetworkManager(
 		hcsClient,

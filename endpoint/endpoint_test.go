@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/winc/endpoint"
 	"code.cloudfoundry.org/winc/endpoint/endpointfakes"
+	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,8 +28,12 @@ var _ = Describe("EndpointManager", func() {
 
 	BeforeEach(func() {
 		hcsClient = &endpointfakes.FakeHCSClient{}
+		config := network.Config{
+			NetworkName: networkName,
+			DNSServers:  []string{"1.1.1.1", "2.2.2.2"},
+		}
 
-		endpointManager = endpoint.NewEndpointManager(hcsClient, containerId, networkName)
+		endpointManager = endpoint.NewEndpointManager(hcsClient, containerId, config)
 	})
 
 	Describe("Create", func() {
@@ -55,6 +60,7 @@ var _ = Describe("EndpointManager", func() {
 			Expect(endpointToCreate.VirtualNetwork).To(Equal(networkId))
 			Expect(endpointToCreate.Name).To(Equal(containerId))
 			Expect(len(endpointToCreate.Policies)).To(Equal(2))
+			Expect(endpointToCreate.DNSServerList).To(Equal("1.1.1.1,2.2.2.2"))
 
 			requestedPortMappings := []hcsshim.NatPolicy{}
 			for _, pol := range endpointToCreate.Policies {

@@ -3,7 +3,9 @@ package endpoint
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -21,19 +23,19 @@ type HCSClient interface {
 type EndpointManager struct {
 	hcsClient   HCSClient
 	containerId string
-	networkName string
+	config      network.Config
 }
 
-func NewEndpointManager(hcsClient HCSClient, containerId string, networkName string) *EndpointManager {
+func NewEndpointManager(hcsClient HCSClient, containerId string, config network.Config) *EndpointManager {
 	return &EndpointManager{
 		hcsClient:   hcsClient,
 		containerId: containerId,
-		networkName: networkName,
+		config:      config,
 	}
 }
 
 func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEndpoint, error) {
-	network, err := e.hcsClient.GetHNSNetworkByName(e.networkName)
+	network, err := e.hcsClient.GetHNSNetworkByName(e.config.NetworkName)
 	if err != nil {
 		return hcsshim.HNSEndpoint{}, err
 	}
@@ -51,6 +53,10 @@ func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEn
 		VirtualNetwork: network.Id,
 		Name:           e.containerId,
 		Policies:       policies,
+	}
+
+	if len(e.config.DNSServers) > 0 {
+		endpoint.DNSServerList = strings.Join(e.config.DNSServers, ",")
 	}
 
 	createdEndpoint, err := e.createEndpoint(endpoint)

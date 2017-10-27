@@ -117,15 +117,17 @@ var _ = Describe("up", func() {
 
 	Context("the config file contains DNSServers", func() {
 		BeforeEach(func() {
-			cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
-			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
-			output, err := cmd.CombinedOutput()
-			Expect(err).NotTo(HaveOccurred(), string(output))
+			networkConfig.DNSServers = []string{"1.1.1.1", "2.2.2.2"}
 		})
 
 		It("uses those IP addresses as DNS servers", func() {
-			cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`)
+			cmd := exec.Command(wincNetworkBin, "--configFile", configFile, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
 			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+
+			cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`)
+			output, err = cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output))
 			Expect(strings.TrimSpace(string(output))).To(Equal("1.1.1.1,2.2.2.2"))
 		})

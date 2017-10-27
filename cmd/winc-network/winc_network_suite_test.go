@@ -99,7 +99,6 @@ var _ = BeforeEach(func() {
 		SubnetRange:    subnetRange,
 		NetworkName:    gatewayAddress,
 		GatewayAddress: gatewayAddress,
-		DNSServers:     []string{"1.1.1.1", "2.2.2.2"},
 	}
 
 	content, err := json.Marshal(conf)

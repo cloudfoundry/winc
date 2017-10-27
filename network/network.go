@@ -96,10 +96,6 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		Subnets: subnets,
 	}
 
-	if len(n.config.DNSServers) > 0 {
-		network.DNSServerList = strings.Join(n.config.DNSServers, ",")
-	}
-
 	_, err = n.hcsClient.CreateNetwork(network)
 	return err
 }
