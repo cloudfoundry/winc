@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"code.cloudfoundry.org/winc/network"
-
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,21 +22,17 @@ import (
 )
 
 const (
-	defaultTimeout     = time.Second * 10
-	defaultInterval    = time.Millisecond * 200
-	maxStandardIPOctet = 256
+	defaultTimeout  = time.Second * 10
+	defaultInterval = time.Millisecond * 200
 )
 
 var (
-	wincBin           string
-	wincNetworkBin    string
-	wincImageBin      string
-	serverBin         string
-	rootfsPath        string
-	bundlePath        string
-	subnetRange       string
-	gatewayAddress    string
-	networkConfigFile string
+	wincBin        string
+	wincNetworkBin string
+	wincImageBin   string
+	serverBin      string
+	rootfsPath     string
+	bundlePath     string
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -51,14 +45,11 @@ func TestWincNetwork(t *testing.T) {
 var _ = BeforeSuite(func() {
 	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
 
-	var (
-		present bool
-		err     error
-	)
-
+	var present bool
 	rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 
+	var err error
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 	Expect(err).ToNot(HaveOccurred())
 
@@ -91,38 +82,10 @@ var _ = BeforeEach(func() {
 	var err error
 	bundlePath, err = ioutil.TempDir("", "winccontainer")
 	Expect(err).NotTo(HaveOccurred())
-
-	subnetRange, gatewayAddress = randomSubnetAddress()
-
-	conf := network.Config{
-		SubnetRange:    subnetRange,
-		NetworkName:    gatewayAddress,
-		GatewayAddress: gatewayAddress,
-	}
-
-	content, err := json.Marshal(conf)
-	Expect(err).NotTo(HaveOccurred())
-
-	networkConfig, err := ioutil.TempFile("", "winc-network-config")
-	Expect(err).NotTo(HaveOccurred())
-	networkConfigFile = networkConfig.Name()
-
-	_, err = networkConfig.Write(content)
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(networkConfig.Close()).To(Succeed())
-
-	output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", networkConfigFile).CombinedOutput()
-	Expect(err).ToNot(HaveOccurred(), string(output))
 })
 
 var _ = AfterEach(func() {
 	Expect(os.RemoveAll(bundlePath)).To(Succeed())
-
-	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
-	Expect(err).ToNot(HaveOccurred(), string(output))
-
-	Expect(os.Remove(networkConfigFile)).To(Succeed())
 })
 
 func createSandbox(storePath, rootfsPath, containerId string) specs.Spec {
@@ -151,24 +114,6 @@ func runtimeSpecGenerator(baseSpec specs.Spec, containerId string) specs.Spec {
 			LayerFolders: baseSpec.Windows.LayerFolders,
 		},
 	}
-}
-
-func randomSubnetAddress() (string, string) {
-	for {
-		subnet, gateway := randomValidSubnetAddress()
-		_, err := hcsshim.GetHNSNetworkByName(subnet)
-		if err != nil {
-			Expect(err).To(MatchError(ContainSubstring("Network " + subnet + " not found")))
-			return subnet, gateway
-		}
-	}
-}
-
-func randomValidSubnetAddress() (string, string) {
-	octet1 := rand.Intn(maxStandardIPOctet)
-	gatewayAddress := fmt.Sprintf("172.0.%d.1", octet1)
-	subnet := fmt.Sprintf("172.0.%d.0/30", octet1)
-	return subnet, gatewayAddress
 }
 
 func getContainerState(containerId string) specs.State {
