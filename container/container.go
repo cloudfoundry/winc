@@ -66,10 +66,10 @@ func NewManager(hcsClient HCSClient, mounter Mounter, imageStore, bundlePath str
 	}
 }
 
-func (c *Manager) Create(spec *specs.Spec) error {
-	_, err := c.hcsClient.GetContainerProperties(c.id)
+func (m *Manager) Create(spec *specs.Spec) error {
+	_, err := m.hcsClient.GetContainerProperties(m.id)
 	if err == nil {
-		return &AlreadyExistsError{Id: c.id}
+		return &AlreadyExistsError{Id: m.id}
 	}
 	if _, ok := err.(*hcs.NotFoundError); !ok {
 		return err
@@ -77,13 +77,13 @@ func (c *Manager) Create(spec *specs.Spec) error {
 
 	volumePath := spec.Root.Path
 	if volumePath == "" {
-		return &MissingVolumePathError{Id: c.id}
+		return &MissingVolumePathError{Id: m.id}
 	}
 
 	layerInfos := []hcsshim.Layer{}
 	for _, layerPath := range spec.Windows.LayerFolders {
 		layerId := filepath.Base(layerPath)
-		layerGuid, err := c.hcsClient.NameToGuid(layerId)
+		layerGuid, err := m.hcsClient.NameToGuid(layerId)
 		if err != nil {
 			return err
 		}
@@ -112,11 +112,11 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		})
 	}
 
-	sandboxDir := filepath.Join(c.imageStore, c.id)
+	sandboxDir := filepath.Join(m.imageStore, m.id)
 
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
-		Name:              c.bundlePath,
+		Name:              m.bundlePath,
 		HostName:          spec.Hostname,
 		VolumePath:        volumePath,
 		Owner:             "winc",
@@ -141,28 +141,28 @@ func (c *Manager) Create(spec *specs.Spec) error {
 		}
 	}
 
-	container, err := c.hcsClient.CreateContainer(c.id, &containerConfig)
+	container, err := m.hcsClient.CreateContainer(m.id, &containerConfig)
 	if err != nil {
 		return err
 	}
 
 	if err := container.Start(); err != nil {
-		if deleteErr := c.deleteContainer(container); deleteErr != nil {
+		if deleteErr := m.deleteContainer(container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 		return err
 	}
 
-	pid, err := c.containerPid(c.id)
+	pid, err := m.containerPid(m.id)
 	if err != nil {
-		if deleteErr := c.deleteContainer(container); deleteErr != nil {
+		if deleteErr := m.deleteContainer(container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 		return err
 	}
 
-	if err := c.mounter.Mount(pid, volumePath); err != nil {
-		if deleteErr := c.deleteContainer(container); deleteErr != nil {
+	if err := m.mounter.Mount(pid, volumePath); err != nil {
+		if deleteErr := m.deleteContainer(container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 		return err
@@ -171,23 +171,23 @@ func (c *Manager) Create(spec *specs.Spec) error {
 	return nil
 }
 
-func (c *Manager) Delete() error {
-	pid, err := c.containerPid(c.id)
+func (m *Manager) Delete() error {
+	pid, err := m.containerPid(m.id)
 	if err != nil {
 		return err
 	}
 
-	unmountErr := c.mounter.Unmount(pid)
+	unmountErr := m.mounter.Unmount(pid)
 	if unmountErr != nil {
 		logrus.Error(unmountErr.Error())
 	}
 
-	container, err := c.hcsClient.OpenContainer(c.id)
+	container, err := m.hcsClient.OpenContainer(m.id)
 	if err != nil {
 		return err
 	}
 
-	err = c.deleteContainer(container)
+	err = m.deleteContainer(container)
 	if err != nil {
 		return err
 	}
@@ -195,8 +195,8 @@ func (c *Manager) Delete() error {
 	return unmountErr
 }
 
-func (c *Manager) State() (*specs.State, error) {
-	cp, err := c.hcsClient.GetContainerProperties(c.id)
+func (m *Manager) State() (*specs.State, error) {
+	cp, err := m.hcsClient.GetContainerProperties(m.id)
 	if err != nil {
 		return nil, err
 	}
@@ -208,22 +208,22 @@ func (c *Manager) State() (*specs.State, error) {
 		status = "created"
 	}
 
-	pid, err := c.containerPid(c.id)
+	pid, err := m.containerPid(m.id)
 	if err != nil {
 		return nil, err
 	}
 
 	return &specs.State{
 		Version: specs.Version,
-		ID:      c.id,
+		ID:      m.id,
 		Status:  status,
-		Bundle:  c.bundlePath,
+		Bundle:  m.bundlePath,
 		Pid:     pid,
 	}, nil
 }
 
-func (c *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {
-	container, err := c.hcsClient.OpenContainer(c.id)
+func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {
+	container, err := m.hcsClient.OpenContainer(m.id)
 	if err != nil {
 		return nil, err
 	}
@@ -249,16 +249,16 @@ func (c *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.
 		if len(processSpec.Args) != 0 {
 			command = processSpec.Args[0]
 		}
-		return nil, &CouldNotCreateProcessError{Id: c.id, Command: command}
+		return nil, &CouldNotCreateProcessError{Id: m.id, Command: command}
 	}
 
 	return p, nil
 }
 
-func (c *Manager) Stats() (Statistics, error) {
+func (m *Manager) Stats() (Statistics, error) {
 	var stats Statistics
 
-	container, err := c.hcsClient.OpenContainer(c.id)
+	container, err := m.hcsClient.OpenContainer(m.id)
 	if err != nil {
 		return stats, err
 	}
@@ -276,8 +276,8 @@ func (c *Manager) Stats() (Statistics, error) {
 	return stats, nil
 }
 
-func (c *Manager) containerPid(id string) (int, error) {
-	container, err := c.hcsClient.OpenContainer(id)
+func (m *Manager) containerPid(id string) (int, error) {
+	container, err := m.hcsClient.OpenContainer(id)
 	if err != nil {
 		return -1, err
 	}
@@ -299,8 +299,8 @@ func (c *Manager) containerPid(id string) (int, error) {
 	return int(process.ProcessId), nil
 }
 
-func (c *Manager) deleteContainer(container hcs.Container) error {
-	props, err := c.hcsClient.GetContainerProperties(c.id)
+func (m *Manager) deleteContainer(container hcs.Container) error {
+	props, err := m.hcsClient.GetContainerProperties(m.id)
 	if err != nil {
 		return err
 	}
@@ -310,8 +310,8 @@ func (c *Manager) deleteContainer(container hcs.Container) error {
 			return err
 		}
 	} else {
-		if err := c.shutdownContainer(container); err != nil {
-			if err := c.terminateContainer(container); err != nil {
+		if err := m.shutdownContainer(container); err != nil {
+			if err := m.terminateContainer(container); err != nil {
 				return err
 			}
 		}
@@ -320,9 +320,9 @@ func (c *Manager) deleteContainer(container hcs.Container) error {
 	return nil
 }
 
-func (c *Manager) shutdownContainer(container hcs.Container) error {
+func (m *Manager) shutdownContainer(container hcs.Container) error {
 	if err := container.Shutdown(); err != nil {
-		if c.hcsClient.IsPending(err) {
+		if m.hcsClient.IsPending(err) {
 			if err := container.WaitTimeout(destroyTimeout); err != nil {
 				logrus.Error("hcsContainer.WaitTimeout error after Shutdown", err)
 				return err
@@ -336,9 +336,9 @@ func (c *Manager) shutdownContainer(container hcs.Container) error {
 	return nil
 }
 
-func (c *Manager) terminateContainer(container hcs.Container) error {
+func (m *Manager) terminateContainer(container hcs.Container) error {
 	if err := container.Terminate(); err != nil {
-		if c.hcsClient.IsPending(err) {
+		if m.hcsClient.IsPending(err) {
 			if err := container.WaitTimeout(destroyTimeout); err != nil {
 				logrus.Error("hcsContainer.WaitTimeout error after Terminate", err)
 				return err

@@ -23,7 +23,7 @@ type PortAllocator interface {
 
 type Applier struct {
 	netSh         NetShRunner
-	id            string
+	containerId   string
 	networkName   string
 	portAllocator PortAllocator
 }
@@ -31,7 +31,7 @@ type Applier struct {
 func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator) *Applier {
 	return &Applier{
 		netSh:         netSh,
-		id:            containerId,
+		containerId:   containerId,
 		networkName:   networkName,
 		portAllocator: portAllocator,
 	}
@@ -41,7 +41,7 @@ func (a *Applier) In(rule NetIn) (hcsshim.NatPolicy, error) {
 	externalPort := uint16(rule.HostPort)
 
 	if externalPort == 0 {
-		allocatedPort, err := a.portAllocator.AllocatePort(a.id, 0)
+		allocatedPort, err := a.portAllocator.AllocatePort(a.containerId, 0)
 		if err != nil {
 			return hcsshim.NatPolicy{}, err
 		}
@@ -63,7 +63,7 @@ func (a *Applier) In(rule NetIn) (hcsshim.NatPolicy, error) {
 func (a *Applier) Out(rule NetOut, endpoint hcsshim.HNSEndpoint) error {
 	netShArgs := []string{
 		"advfirewall", "firewall", "add", "rule",
-		fmt.Sprintf(`name="%s"`, a.id),
+		fmt.Sprintf(`name="%s"`, a.containerId),
 		"dir=out",
 		"action=allow",
 		fmt.Sprintf("localip=%s", endpoint.IPAddress.String()),
@@ -124,15 +124,15 @@ func (a *Applier) openPort(port uint32) error {
 }
 
 func (a *Applier) Cleanup() error {
-	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.id)
+	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.containerId)
 
-	existsArgs := []string{"advfirewall", "firewall", "show", "rule", fmt.Sprintf(`name="%s"`, a.id)}
+	existsArgs := []string{"advfirewall", "firewall", "show", "rule", fmt.Sprintf(`name="%s"`, a.containerId)}
 	_, err := a.netSh.RunHost(existsArgs)
 	if err != nil {
 		return portReleaseErr
 	}
 
-	deleteArgs := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name="%s"`, a.id)}
+	deleteArgs := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name="%s"`, a.containerId)}
 	_, deleteErr := a.netSh.RunHost(deleteArgs)
 
 	if portReleaseErr != nil && deleteErr != nil {
