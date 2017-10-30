@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/blang/semver"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/sirupsen/logrus"
@@ -40,12 +41,8 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 		return nil, &BundleConfigInvalidJSONError{BundlePath: bundlePath}
 	}
 
-	validator, err := validate.NewValidatorFromPath(bundlePath, true, "windows")
-	if err != nil {
-		return nil, err
-	}
-
-	msgs := checkAll(validator)
+	validator := validate.NewValidator(&spec, bundlePath, true, "windows")
+	msgs := checkAll(spec, validator)
 	if len(msgs) != 0 {
 		for _, m := range msgs {
 			logger.WithField("bundleConfigError", m).Error(fmt.Sprintf("error in bundle %s", SpecConfig))
@@ -56,11 +53,11 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 	return &spec, nil
 }
 
-func checkAll(v validate.Validator) []string {
+func checkAll(spec specs.Spec, v validate.Validator) []string {
 	msgs := []string{}
 	msgs = append(msgs, v.CheckPlatform()...)
 	msgs = append(msgs, v.CheckMandatoryFields()...)
-	msgs = append(msgs, v.CheckSemVer()...)
+	msgs = append(msgs, checkSemVer(spec.Version)...)
 	return msgs
 }
 
@@ -142,4 +139,18 @@ func envValid(env string) bool {
 		}
 	}
 	return true
+}
+
+func checkSemVer(version string) []string {
+	logrus.Debugf("check semver")
+
+	parsedVersion, err := semver.Parse(version)
+	if err != nil {
+		return []string{fmt.Sprintf("%q is not a valid SemVer: %s", version, err.Error())}
+	}
+	if parsedVersion.Major != uint64(specs.VersionMajor) {
+		return []string{fmt.Sprintf("validate currently only handles version %d.*, but the supplied configuration targets %s", specs.VersionMajor, version)}
+	}
+
+	return []string{}
 }

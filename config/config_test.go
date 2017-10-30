@@ -19,17 +19,14 @@ import (
 
 var _ = Describe("Config", func() {
 	var (
-		logger      *logrus.Entry
-		containerId string
-		bundlePath  string
+		logger     *logrus.Entry
+		bundlePath string
 	)
 
 	BeforeEach(func() {
 		var err error
 		bundlePath, err = ioutil.TempDir("", "config.test")
 		Expect(err).NotTo(HaveOccurred())
-
-		containerId = filepath.Base(bundlePath)
 		logger = logrus.WithField("suite", "config")
 	})
 
@@ -38,15 +35,6 @@ var _ = Describe("Config", func() {
 	})
 
 	Context("Bundle", func() {
-		var (
-			spec *specs.Spec
-			err  error
-		)
-
-		JustBeforeEach(func() {
-			spec, err = config.ValidateBundle(logger, bundlePath)
-		})
-
 		Context("given a valid bundle", func() {
 			var (
 				expectedSpec specs.Spec
@@ -66,15 +54,30 @@ var _ = Describe("Config", func() {
 						LayerFolders: []string{"a layer", "another layer"},
 					},
 				}
+			})
 
+			JustBeforeEach(func() {
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 			})
 
 			It("validates the bundle and returns the expected runtime spec", func() {
+				spec, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(spec).To(Equal(&expectedSpec))
+			})
+
+			Context("when the config.json spec version is not exact but the major version matches the expected version", func() {
+				BeforeEach(func() {
+					expectedSpec.Version = fmt.Sprintf("%d.%d.%d%s", specs.VersionMajor, specs.VersionMinor+1, specs.VersionPatch, specs.VersionDev)
+				})
+
+				It("does not error", func() {
+					spec, err := config.ValidateBundle(logger, bundlePath)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(spec).To(Equal(&expectedSpec))
+				})
 			})
 		})
 
@@ -82,7 +85,9 @@ var _ = Describe("Config", func() {
 			BeforeEach(func() {
 				Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			})
+
 			It("errors", func() {
+				spec, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).To(MatchError(&config.MissingBundleError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
@@ -90,6 +95,7 @@ var _ = Describe("Config", func() {
 
 		Context("when the bundle directory does not contain a config.json", func() {
 			It("errors", func() {
+				spec, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).To(MatchError(&config.MissingBundleConfigError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
@@ -108,6 +114,7 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
+				spec, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).To(MatchError(&config.BundleConfigInvalidEncodingError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
@@ -120,6 +127,7 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
+				spec, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).To(MatchError(&config.BundleConfigInvalidJSONError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
@@ -154,26 +162,47 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
+				spec, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).To(MatchError(&config.BundleConfigValidationError{BundlePath: bundlePath}))
 				Expect(spec).To(BeNil())
 			})
 
 			It("logs the invalid fields", func() {
+				_, err := config.ValidateBundle(logger, bundlePath)
+				Expect(err).To(HaveOccurred())
 				logOutputStr := logOutput.String()
 				Expect(logOutputStr).To(ContainSubstring("'Spec.Version' should not be empty."))
 			})
 
-			Context("when the config.json spec version does not match the expected version", func() {
+			Context("when the config.json spec version has a different major version than the expected version", func() {
 				BeforeEach(func() {
-					invalidSpec.Version = specs.Version + "1"
+					invalidSpec.Version = fmt.Sprintf("%d.%d.%d%s", specs.VersionMajor+1, specs.VersionMinor, specs.VersionPatch, specs.VersionDev)
 					config, err := json.Marshal(&invalidSpec)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 				})
 
 				It("errors", func() {
+					_, err := config.ValidateBundle(logger, bundlePath)
+					Expect(err).To(HaveOccurred())
 					logOutputStr := logOutput.String()
-					Expect(logOutputStr).To(ContainSubstring(fmt.Sprintf("validate currently only handles version %s, but the supplied configuration targets %s1", specs.Version, specs.Version)))
+					Expect(logOutputStr).To(ContainSubstring(fmt.Sprintf("validate currently only handles version %d.*, but the supplied configuration targets %s", specs.VersionMajor, invalidSpec.Version)))
+				})
+			})
+
+			Context("when the config.json spec version is not a valid SemVer", func() {
+				BeforeEach(func() {
+					invalidSpec.Version = "not-a-semver"
+					config, err := json.Marshal(&invalidSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+				})
+
+				It("errors", func() {
+					_, err := config.ValidateBundle(logger, bundlePath)
+					Expect(err).To(HaveOccurred())
+					logOutputStr := logOutput.String()
+					Expect(logOutputStr).To(ContainSubstring(fmt.Sprintf(`\"%s\" is not a valid SemVer`, invalidSpec.Version)))
 				})
 			})
 		})
