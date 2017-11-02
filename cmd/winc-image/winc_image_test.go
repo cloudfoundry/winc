@@ -58,6 +58,75 @@ var _ = Describe("WincImage", func() {
 		Expect(filepath.Join(driverInfo.HomeDir, containerId)).NotTo(BeADirectory())
 	})
 
+	Context("when provided --log <log-file>", func() {
+		var (
+			logFile string
+			tempDir string
+		)
+
+		BeforeEach(func() {
+			var err error
+			tempDir, err = ioutil.TempDir("", "log-dir")
+			Expect(err).NotTo(HaveOccurred())
+
+			logFile = filepath.Join(tempDir, "winc-image.log")
+		})
+
+		AfterEach(func() {
+			_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+			Expect(err).To(Succeed())
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
+		})
+
+		Context("when the provided log file path does not exist", func() {
+			BeforeEach(func() {
+				logFile = filepath.Join(tempDir, "some-dir", "winc-image.log")
+			})
+
+			It("creates the full path", func() {
+				_, _, err := execute(wincImageBin, "--log", logFile, "--store", storePath, "create", rootfsPath, containerId)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(logFile).To(BeAnExistingFile())
+			})
+		})
+
+		Context("when it runs successfully", func() {
+			It("does not log to the specified file", func() {
+				_, _, err := execute(wincImageBin, "--log", logFile, "--store", storePath, "create", rootfsPath, containerId)
+				Expect(err).NotTo(HaveOccurred())
+
+				contents, err := ioutil.ReadFile(logFile)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(string(contents)).To(BeEmpty())
+			})
+
+			Context("when provided --debug", func() {
+				It("outputs debug level logs", func() {
+					_, _, err := execute(wincImageBin, "--log", logFile, "--debug", "--store", storePath, "create", rootfsPath, containerId)
+					Expect(err).NotTo(HaveOccurred())
+
+					contents, err := ioutil.ReadFile(logFile)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(string(contents)).NotTo(BeEmpty())
+				})
+			})
+		})
+
+		Context("when it errors", func() {
+			It("logs errors to the specified file", func() {
+				execute(wincImageBin, "--log", logFile, "--store", storePath, "create", "garbage-something", containerId)
+
+				contents, err := ioutil.ReadFile(logFile)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(string(contents)).NotTo(BeEmpty())
+			})
+		})
+	})
+
 	Context("when using unix style rootfsPath", func() {
 		var (
 			tempRootfs string
@@ -186,10 +255,25 @@ var _ = Describe("WincImage", func() {
 	})
 
 	Context("deleting when provided a nonexistent containerId", func() {
+		var logFile string
+
+		BeforeEach(func() {
+			logF, err := ioutil.TempFile("", "winc-image.log")
+			Expect(err).NotTo(HaveOccurred())
+			logFile = logF.Name()
+			logF.Close()
+		})
+
+		AfterEach(func() {
+			Expect(os.Remove(logFile)).To(Succeed())
+		})
+
 		It("logs a warning", func() {
-			stdOut, _, err := execute(wincImageBin, "delete", "some-bad-container-id")
+			_, _, err := execute(wincImageBin, "--log", logFile, "delete", "some-bad-container-id")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(stdOut.String()).To(ContainSubstring("Layer `some-bad-container-id` not found. Skipping delete."))
+
+			contents, err := ioutil.ReadFile(logFile)
+			Expect(string(contents)).To(ContainSubstring("Layer `some-bad-container-id` not found. Skipping delete."))
 		})
 	})
 
