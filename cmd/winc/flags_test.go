@@ -80,18 +80,23 @@ var _ = Describe("Flags", func() {
 	})
 
 	Context("when passed '--log'", func() {
-		var logFile string
+		var (
+			logFile string
+			tempDir string
+		)
 
 		BeforeEach(func() {
-			f, err := ioutil.TempFile("", "winc.log")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(f.Close()).To(Succeed())
-			logFile = f.Name()
+			var err error
+			tempDir, err = ioutil.TempDir("", "log-dir")
+			Expect(err).NotTo(HaveOccurred())
+
+			logFile = filepath.Join(tempDir, "winc.log")
+
 			args = []string{"--log", logFile}
 		})
 
 		AfterEach(func() {
-			Expect(os.RemoveAll(logFile)).To(Succeed())
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
 		})
 
 		It("accepts the flag and prints the --log flag usage", func() {
@@ -121,6 +126,17 @@ var _ = Describe("Flags", func() {
 				Expect(log).To(BeEmpty())
 
 				Expect(session.Out.Contents()).To(BeEmpty())
+			})
+
+			Context("when the log file path does not exist", func() {
+				BeforeEach(func() {
+					logFile = filepath.Join(tempDir, "something", "winc.log")
+					args = []string{"--log", logFile, "create", containerId, "-b", bundlePath}
+				})
+
+				It("creates it", func() {
+					Expect(logFile).To(BeAnExistingFile())
+				})
 			})
 
 			Context("when the --debug flag is set", func() {

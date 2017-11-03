@@ -87,6 +87,10 @@ func main() {
 		if logFile == "" || logFile == os.DevNull {
 			logWriter = ioutil.Discard
 		} else {
+			if err := os.MkdirAll(filepath.Dir(logFile), 0666); err != nil {
+				return err
+			}
+
 			f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
 			if err != nil {
 				return err
