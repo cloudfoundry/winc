@@ -57,6 +57,9 @@ var _ = Describe("NetworkManager", func() {
 			net := hcsClient.CreateNetworkArgsForCall(0)
 			Expect(net.Name).To(Equal("unit-test-name"))
 			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
+
+			Expect(netRuleApplier.NatMTUCallCount()).To(Equal(1))
+			Expect(netRuleApplier.NatMTUArgsForCall(0)).To(Equal(1434))
 		})
 
 		Context("the network already exists with the correct values", func() {
@@ -121,6 +124,17 @@ var _ = Describe("NetworkManager", func() {
 		Context("CreateNetwork returns an error", func() {
 			BeforeEach(func() {
 				hcsClient.CreateNetworkReturns(nil, errors.New("couldn't create HNS network"))
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("NatMTU returns an error", func() {
+			BeforeEach(func() {
+				netRuleApplier.NatMTUReturns(errors.New("couldn't set MTU on NAT network"))
 			})
 
 			It("returns an error", func() {
@@ -228,9 +242,8 @@ var _ = Describe("NetworkManager", func() {
 			Expect(rule).To(Equal(netrules.NetOut{Protocol: 8}))
 			Expect(ep).To(Equal(createdEndpoint))
 
-			Expect(netRuleApplier.MTUCallCount()).To(Equal(1))
-			id, mtu := netRuleApplier.MTUArgsForCall(0)
-			Expect(id).To(Equal(containerId))
+			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
+			mtu := netRuleApplier.ContainerMTUArgsForCall(0)
 			Expect(mtu).To(Equal(1434))
 		})
 
@@ -273,7 +286,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("MTU fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.MTUReturns(errors.New("couldn't set MTU"))
+				netRuleApplier.ContainerMTUReturns(errors.New("couldn't set MTU"))
 			})
 
 			It("cleans up allocated ports, firewall rules and deletes the endpoint", func() {

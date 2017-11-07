@@ -15,7 +15,8 @@ import (
 type NetRuleApplier interface {
 	In(netrules.NetIn) (hcsshim.NatPolicy, error)
 	Out(netrules.NetOut, hcsshim.HNSEndpoint) error
-	MTU(string, int) error
+	NatMTU(int) error
+	ContainerMTU(int) error
 	Cleanup() error
 }
 
@@ -97,7 +98,11 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 	}
 
 	_, err = n.hcsClient.CreateNetwork(network)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return n.applier.NatMTU(n.config.MTU)
 }
 
 func subnetsMatch(a, b hcsshim.Subnet) bool {
@@ -155,7 +160,7 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		}
 	}
 
-	if err := n.applier.MTU(n.containerId, n.config.MTU); err != nil {
+	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
 		return outputs, err
 	}
 

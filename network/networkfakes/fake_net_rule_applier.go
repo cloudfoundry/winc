@@ -35,16 +35,26 @@ type FakeNetRuleApplier struct {
 	outReturnsOnCall map[int]struct {
 		result1 error
 	}
-	MTUStub        func(string, int) error
-	mTUMutex       sync.RWMutex
-	mTUArgsForCall []struct {
-		arg1 string
-		arg2 int
+	NatMTUStub        func(int) error
+	natMTUMutex       sync.RWMutex
+	natMTUArgsForCall []struct {
+		arg1 int
 	}
-	mTUReturns struct {
+	natMTUReturns struct {
 		result1 error
 	}
-	mTUReturnsOnCall map[int]struct {
+	natMTUReturnsOnCall map[int]struct {
+		result1 error
+	}
+	ContainerMTUStub        func(int) error
+	containerMTUMutex       sync.RWMutex
+	containerMTUArgsForCall []struct {
+		arg1 int
+	}
+	containerMTUReturns struct {
+		result1 error
+	}
+	containerMTUReturnsOnCall map[int]struct {
 		result1 error
 	}
 	CleanupStub        func() error
@@ -160,51 +170,98 @@ func (fake *FakeNetRuleApplier) OutReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeNetRuleApplier) MTU(arg1 string, arg2 int) error {
-	fake.mTUMutex.Lock()
-	ret, specificReturn := fake.mTUReturnsOnCall[len(fake.mTUArgsForCall)]
-	fake.mTUArgsForCall = append(fake.mTUArgsForCall, struct {
-		arg1 string
-		arg2 int
-	}{arg1, arg2})
-	fake.recordInvocation("MTU", []interface{}{arg1, arg2})
-	fake.mTUMutex.Unlock()
-	if fake.MTUStub != nil {
-		return fake.MTUStub(arg1, arg2)
+func (fake *FakeNetRuleApplier) NatMTU(arg1 int) error {
+	fake.natMTUMutex.Lock()
+	ret, specificReturn := fake.natMTUReturnsOnCall[len(fake.natMTUArgsForCall)]
+	fake.natMTUArgsForCall = append(fake.natMTUArgsForCall, struct {
+		arg1 int
+	}{arg1})
+	fake.recordInvocation("NatMTU", []interface{}{arg1})
+	fake.natMTUMutex.Unlock()
+	if fake.NatMTUStub != nil {
+		return fake.NatMTUStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.mTUReturns.result1
+	return fake.natMTUReturns.result1
 }
 
-func (fake *FakeNetRuleApplier) MTUCallCount() int {
-	fake.mTUMutex.RLock()
-	defer fake.mTUMutex.RUnlock()
-	return len(fake.mTUArgsForCall)
+func (fake *FakeNetRuleApplier) NatMTUCallCount() int {
+	fake.natMTUMutex.RLock()
+	defer fake.natMTUMutex.RUnlock()
+	return len(fake.natMTUArgsForCall)
 }
 
-func (fake *FakeNetRuleApplier) MTUArgsForCall(i int) (string, int) {
-	fake.mTUMutex.RLock()
-	defer fake.mTUMutex.RUnlock()
-	return fake.mTUArgsForCall[i].arg1, fake.mTUArgsForCall[i].arg2
+func (fake *FakeNetRuleApplier) NatMTUArgsForCall(i int) int {
+	fake.natMTUMutex.RLock()
+	defer fake.natMTUMutex.RUnlock()
+	return fake.natMTUArgsForCall[i].arg1
 }
 
-func (fake *FakeNetRuleApplier) MTUReturns(result1 error) {
-	fake.MTUStub = nil
-	fake.mTUReturns = struct {
+func (fake *FakeNetRuleApplier) NatMTUReturns(result1 error) {
+	fake.NatMTUStub = nil
+	fake.natMTUReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *FakeNetRuleApplier) MTUReturnsOnCall(i int, result1 error) {
-	fake.MTUStub = nil
-	if fake.mTUReturnsOnCall == nil {
-		fake.mTUReturnsOnCall = make(map[int]struct {
+func (fake *FakeNetRuleApplier) NatMTUReturnsOnCall(i int, result1 error) {
+	fake.NatMTUStub = nil
+	if fake.natMTUReturnsOnCall == nil {
+		fake.natMTUReturnsOnCall = make(map[int]struct {
 			result1 error
 		})
 	}
-	fake.mTUReturnsOnCall[i] = struct {
+	fake.natMTUReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeNetRuleApplier) ContainerMTU(arg1 int) error {
+	fake.containerMTUMutex.Lock()
+	ret, specificReturn := fake.containerMTUReturnsOnCall[len(fake.containerMTUArgsForCall)]
+	fake.containerMTUArgsForCall = append(fake.containerMTUArgsForCall, struct {
+		arg1 int
+	}{arg1})
+	fake.recordInvocation("ContainerMTU", []interface{}{arg1})
+	fake.containerMTUMutex.Unlock()
+	if fake.ContainerMTUStub != nil {
+		return fake.ContainerMTUStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.containerMTUReturns.result1
+}
+
+func (fake *FakeNetRuleApplier) ContainerMTUCallCount() int {
+	fake.containerMTUMutex.RLock()
+	defer fake.containerMTUMutex.RUnlock()
+	return len(fake.containerMTUArgsForCall)
+}
+
+func (fake *FakeNetRuleApplier) ContainerMTUArgsForCall(i int) int {
+	fake.containerMTUMutex.RLock()
+	defer fake.containerMTUMutex.RUnlock()
+	return fake.containerMTUArgsForCall[i].arg1
+}
+
+func (fake *FakeNetRuleApplier) ContainerMTUReturns(result1 error) {
+	fake.ContainerMTUStub = nil
+	fake.containerMTUReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeNetRuleApplier) ContainerMTUReturnsOnCall(i int, result1 error) {
+	fake.ContainerMTUStub = nil
+	if fake.containerMTUReturnsOnCall == nil {
+		fake.containerMTUReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.containerMTUReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -256,8 +313,10 @@ func (fake *FakeNetRuleApplier) Invocations() map[string][][]interface{} {
 	defer fake.inMutex.RUnlock()
 	fake.outMutex.RLock()
 	defer fake.outMutex.RUnlock()
-	fake.mTUMutex.RLock()
-	defer fake.mTUMutex.RUnlock()
+	fake.natMTUMutex.RLock()
+	defer fake.natMTUMutex.RUnlock()
+	fake.containerMTUMutex.RLock()
+	defer fake.containerMTUMutex.RUnlock()
 	fake.cleanupMutex.RLock()
 	defer fake.cleanupMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

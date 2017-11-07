@@ -1,7 +1,6 @@
 package netrules
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -99,23 +98,65 @@ func (a *Applier) Out(rule NetOut, endpoint hcsshim.HNSEndpoint) error {
 	return err
 }
 
-func (a *Applier) MTU(containerId string, mtu int) error {
+func (a *Applier) ContainerMTU(mtu int) error {
+	mtu, err := a.validateMTU(mtu, fmt.Sprintf("vEthernet (%s)", a.networkName))
+	if err != nil {
+		return err
+	}
+
+	interfaceId := fmt.Sprintf(`"vEthernet (%s)"`, a.containerId)
+	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
+
+	return a.netSh.RunContainer(args)
+}
+
+func (a *Applier) NatMTU(mtu int) error {
+	mtu, err := a.validateMTU(mtu, "Ethernet")
+	if err != nil {
+		return err
+	}
+
+	interfaceId := fmt.Sprintf(`vEthernet (%s)`, a.networkName)
+	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
+
+	_, err = a.netSh.RunHost(args)
+	return err
+}
+
+func (a *Applier) validateMTU(mtu int, defaultInterface string) (int, error) {
 	var err error
 	if mtu == 0 {
-		mtu, err = a.getHostMTU()
+		mtu, err = a.getInterfaceMTU(defaultInterface)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 
 	if mtu > 1500 {
-		return fmt.Errorf("invalid mtu specified: %d", mtu)
+		return 0, fmt.Errorf("invalid mtu specified: %d", mtu)
 	}
 
-	interfaceId := fmt.Sprintf(`"vEthernet (%s)"`, containerId)
-	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
+	return mtu, nil
+}
 
-	return a.netSh.RunContainer(args)
+func (a *Applier) getInterfaceMTU(interfaceId string) (int, error) {
+	output, err := a.netSh.RunHost([]string{"interface", "ipv4", "show", "subinterface", "interface=" + interfaceId})
+	if err != nil {
+		return 0, err
+	}
+
+	mtuRegex := regexp.MustCompile("\\d+")
+	mtuBytes := mtuRegex.Find(output)
+	if mtuBytes == nil {
+		return 0, fmt.Errorf("could not obtain MTU for interface %s", interfaceId)
+	}
+
+	natMTU, err := strconv.Atoi(string(mtuBytes))
+	if err != nil {
+		return 0, fmt.Errorf("could not obtain MTU for interface %s", interfaceId)
+	}
+
+	return natMTU, nil
 }
 
 func (a *Applier) openPort(port uint32) error {
@@ -146,25 +187,4 @@ func (a *Applier) Cleanup() error {
 	}
 
 	return nil
-}
-
-func (a *Applier) getHostMTU() (int, error) {
-	interfaceId := fmt.Sprintf("vEthernet (%s)", a.networkName)
-	output, err := a.netSh.RunHost([]string{"interface", "ipv4", "show", "subinterface", "interface=" + interfaceId})
-	if err != nil {
-		return 0, err
-	}
-
-	mtuRegex := regexp.MustCompile("\\d+")
-	mtuBytes := mtuRegex.Find(output)
-	if mtuBytes == nil {
-		return 0, errors.New("could not obtain host MTU")
-	}
-
-	hostMTU, err := strconv.Atoi(string(mtuBytes))
-	if err != nil {
-		return 0, errors.New("could not obtain host MTU")
-	}
-
-	return hostMTU, nil
 }

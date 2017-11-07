@@ -42,6 +42,88 @@ var _ = Describe("networking", func() {
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 
+	Describe("Create", func() {
+		BeforeEach(func() {
+			subnetRange, gatewayAddress = randomSubnetAddress()
+			networkConfig = network.Config{
+				SubnetRange:    subnetRange,
+				GatewayAddress: gatewayAddress,
+				NetworkName:    gatewayAddress,
+			}
+		})
+
+		AfterEach(func() {
+			deleteNetwork()
+		})
+
+		It("creates the network with the correct name", func() {
+			createNetwork(networkConfig)
+
+			psCommand := fmt.Sprintf(`(Get-NetAdapter -name "vEthernet (%s)").InterfaceAlias`, networkConfig.NetworkName)
+			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			Expect(strings.TrimSpace(string(output))).To(Equal(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName)))
+		})
+
+		It("creates the network with the correct subnet range", func() {
+			createNetwork(networkConfig)
+
+			psCommand := fmt.Sprintf(`(get-netipconfiguration -interfacealias "vEthernet (%s)").IPv4Address.IPAddress`, networkConfig.NetworkName)
+			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			ipAddress := strings.TrimSuffix(strings.TrimSpace(string(output)), "1") + "0"
+
+			psCommand = fmt.Sprintf(`(get-netipconfiguration -interfacealias "vEthernet (%s)").IPv4Address.PrefixLength`, networkConfig.NetworkName)
+			output, err = exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			prefixLength := strings.TrimSpace(string(output))
+
+			Expect(fmt.Sprintf("%s/%s", ipAddress, prefixLength)).To(Equal(networkConfig.SubnetRange))
+		})
+
+		It("creates the network with the correct gateway address", func() {
+			createNetwork(networkConfig)
+
+			psCommand := fmt.Sprintf(`(get-netipconfiguration -interfacealias "vEthernet (%s)").IPv4Address.IPAddress`, networkConfig.NetworkName)
+			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			Expect(strings.TrimSpace(string(output))).To(Equal(networkConfig.GatewayAddress))
+		})
+
+		It("creates the network with mtu matching that of the host", func() {
+			psCommand := `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias Ethernet).NlMtu`
+			output, err := exec.Command("powershell.exe", "-Command", psCommand).CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
+			physicalMTU := strings.TrimSpace(string(output))
+
+			createNetwork(networkConfig)
+
+			psCommand = fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, networkConfig.NetworkName)
+			output, err = exec.Command("powershell.exe", "-Command", psCommand).CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
+			virtualMTU := strings.TrimSpace(string(output))
+
+			Expect(virtualMTU).To(Equal(physicalMTU))
+		})
+
+		Context("mtu is set in the config", func() {
+			BeforeEach(func() {
+				networkConfig.MTU = 1234
+			})
+
+			It("creates the network with the configured mtu", func() {
+				createNetwork(networkConfig)
+
+				psCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, networkConfig.NetworkName)
+				output, err := exec.Command("powershell.exe", "-Command", psCommand).CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
+				virtualMTU := strings.TrimSpace(string(output))
+
+				Expect(virtualMTU).To(Equal(strconv.Itoa(networkConfig.MTU)))
+			})
+		})
+	})
+
 	Describe("Up", func() {
 		Context("default network config", func() {
 			BeforeEach(func() {
@@ -430,6 +512,11 @@ func createNetwork(config network.Config, extraArgs ...string) {
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
+func deleteNetwork() {
+	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
+	Expect(err).NotTo(HaveOccurred(), string(output))
+}
+
 func createContainer() {
 	containerId = filepath.Base(bundlePath)
 	bundleSpec := runtimeSpecGenerator(createSandbox("C:\\run\\winc", rootfsPath, containerId), containerId)
@@ -454,11 +541,6 @@ func deleteContainerAndNetwork() {
 	Expect(err).NotTo(HaveOccurred(), string(output))
 
 	deleteNetwork()
-}
-
-func deleteNetwork() {
-	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
 func getContainerFirewallRule(containerIp string, ruleInfo interface{}) {
