@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,88 +14,84 @@ import (
 	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 func main() {
-	action, handle, configFile, err := parseArgs(os.Args)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid args: %s", err.Error())
-		os.Exit(1)
+	app := cli.NewApp()
+	app.Name = "winc-network.exe"
+	app.Usage = "winc-network is a command line client for managing container networks"
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "action",
+			Usage: "network action e.g. up,down,create,delete",
+			Value: "",
+		},
+		cli.StringFlag{
+			Name:  "configFile",
+			Usage: "config file for winc-network",
+			Value: "",
+		},
+		cli.StringFlag{
+			Name:  "handle",
+			Usage: "container id handle",
+			Value: "",
+		},
 	}
-
-	config, err := parseConfig(configFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "configFile: %s", err.Error())
-		os.Exit(1)
-	}
-
-	networkManager := wireNetworkManager(config, handle)
-
-	switch action {
-	case "up":
-		var inputs network.UpInputs
-		if err := json.NewDecoder(os.Stdin).Decode(&inputs); err != nil {
-			fmt.Fprintf(os.Stderr, "networkUp: %s", err.Error())
-			os.Exit(1)
-		}
-
-		outputs, err := networkManager.Up(inputs)
+	app.Action = func(context *cli.Context) error {
+		config, err := parseConfig(context.String("configFile"))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "networkUp: %s", err.Error())
-			os.Exit(1)
+			return fmt.Errorf("configFile: %s", err.Error())
+		}
+		handle := context.String("handle")
+		action := context.String("action")
+		if (action == "up" || action == "down") && handle == "" {
+			return fmt.Errorf("missing required flag 'handle'")
 		}
 
-		if err := json.NewEncoder(os.Stdout).Encode(outputs); err != nil {
-			fmt.Fprintf(os.Stderr, "networkUp: %s", err.Error())
-			os.Exit(1)
+		networkManager := wireNetworkManager(config, handle)
+
+		switch action {
+		case "up":
+			var inputs network.UpInputs
+			if err := json.NewDecoder(os.Stdin).Decode(&inputs); err != nil {
+				return fmt.Errorf("networkUp: %s", err.Error())
+			}
+
+			outputs, err := networkManager.Up(inputs)
+			if err != nil {
+				return fmt.Errorf("networkUp: %s", err.Error())
+			}
+
+			if err := json.NewEncoder(os.Stdout).Encode(outputs); err != nil {
+				return fmt.Errorf("networkUp: %s", err.Error())
+			}
+
+		case "create":
+			if err := networkManager.CreateHostNATNetwork(); err != nil {
+				return fmt.Errorf("network create: %s", err.Error())
+			}
+
+		case "delete":
+			if err := networkManager.DeleteHostNATNetwork(); err != nil {
+				return fmt.Errorf("network delete: %s", err.Error())
+			}
+
+		case "down":
+			if err := networkManager.Down(); err != nil {
+				return fmt.Errorf("networkDown: %s", err.Error())
+			}
+
+		default:
+			return fmt.Errorf("invalid action: %s", action)
 		}
-
-	case "create":
-		if err := networkManager.CreateHostNATNetwork(); err != nil {
-			fmt.Fprintf(os.Stderr, "network create: %s", err.Error())
-			os.Exit(1)
-		}
-
-	case "delete":
-		if err := networkManager.DeleteHostNATNetwork(); err != nil {
-			fmt.Fprintf(os.Stderr, "network delete: %s", err.Error())
-			os.Exit(1)
-		}
-
-	case "down":
-		if err := networkManager.Down(); err != nil {
-			fmt.Fprintf(os.Stderr, "networkDown: %s", err.Error())
-			os.Exit(1)
-		}
-
-	default:
-		fmt.Fprintf(os.Stderr, "invalid action: %s", action)
-		os.Exit(1)
-	}
-}
-
-func parseArgs(allArgs []string) (string, string, string, error) {
-	var action, handle, configFile string
-	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
-
-	flagSet.StringVar(&action, "action", "", "")
-	flagSet.StringVar(&handle, "handle", "", "")
-	flagSet.StringVar(&configFile, "configFile", "", "")
-
-	err := flagSet.Parse(allArgs[1:])
-	if err != nil {
-		return "", "", "", err
-	}
-
-	if action == "" {
-		return "", "", "", fmt.Errorf("missing required flag 'action'")
+		return nil
 	}
 
-	if (action == "up" || action == "down") && handle == "" {
-		return "", "", "", fmt.Errorf("missing required flag 'handle'")
+	if err := app.Run(os.Args); err != nil {
+		fatal(err)
 	}
-
-	return action, handle, configFile, nil
 }
 
 func parseConfig(configFile string) (network.Config, error) {
@@ -142,4 +137,10 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 		handle,
 		config,
 	)
+}
+
+func fatal(err error) {
+	logrus.Error(err)
+	fmt.Fprintln(os.Stderr, err)
+	os.Exit(1)
 }
