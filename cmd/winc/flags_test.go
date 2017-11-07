@@ -147,7 +147,7 @@ var _ = Describe("Flags", func() {
 				It("logs to the log file instead of stdout", func() {
 					log, err := ioutil.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(string(log)).To(ContainSubstring(fmt.Sprintf("containerId=%s", containerId)))
+					Expect(string(log)).To(ContainSubstring(fmt.Sprintf(`"containerId":"%s"`, containerId)))
 
 					Expect(session.Out.Contents()).To(BeEmpty())
 				})

@@ -338,14 +338,95 @@ var _ = Describe("networking", func() {
 			})
 		})
 	})
+
+	Context("when provided --log <log-file>", func() {
+		var (
+			logFile string
+			tempDir string
+		)
+
+		BeforeEach(func() {
+			var err error
+			tempDir, err = ioutil.TempDir("", "log-dir")
+			Expect(err).NotTo(HaveOccurred())
+
+			logFile = filepath.Join(tempDir, "winc-network.log")
+
+			subnetRange, gatewayAddress = randomSubnetAddress()
+			networkConfig = network.Config{
+				SubnetRange:    subnetRange,
+				GatewayAddress: gatewayAddress,
+				NetworkName:    gatewayAddress,
+			}
+		})
+
+		AfterEach(func() {
+			deleteNetwork()
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
+		})
+
+		Context("when the provided log file path does not exist", func() {
+			BeforeEach(func() {
+				logFile = filepath.Join(tempDir, "some-dir", "winc-network.log")
+			})
+
+			It("creates the full path", func() {
+				createNetwork(networkConfig, "--log", logFile)
+
+				Expect(logFile).To(BeAnExistingFile())
+			})
+		})
+
+		Context("when it runs successfully", func() {
+			It("does not log to the specified file", func() {
+				createNetwork(networkConfig, "--log", logFile)
+
+				contents, err := ioutil.ReadFile(logFile)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(string(contents)).To(BeEmpty())
+			})
+
+			Context("when provided --debug", func() {
+				It("outputs debug level logs", func() {
+					createNetwork(networkConfig, "--log", logFile, "--debug")
+
+					contents, err := ioutil.ReadFile(logFile)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(string(contents)).NotTo(BeEmpty())
+				})
+			})
+		})
+
+		Context("when it errors", func() {
+			BeforeEach(func() {
+				c, err := json.Marshal(networkConfig)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ioutil.WriteFile(networkConfigFile, c, 0644)).To(Succeed())
+			})
+
+			It("logs errors to the specified file", func() {
+				exec.Command(wincNetworkBin, "--action", "some-invalid-action", "--log", logFile).CombinedOutput()
+
+				contents, err := ioutil.ReadFile(logFile)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(string(contents)).NotTo(BeEmpty())
+				Expect(string(contents)).To(ContainSubstring("some-invalid-action"))
+			})
+		})
+	})
 })
 
-func createNetwork(config network.Config) {
+func createNetwork(config network.Config, extraArgs ...string) {
 	c, err := json.Marshal(config)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(ioutil.WriteFile(networkConfigFile, c, 0644)).To(Succeed())
 
-	output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", networkConfigFile).CombinedOutput()
+	args := []string{"--action", "create", "--configFile", networkConfigFile}
+	args = append(args, extraArgs...)
+	output, err := exec.Command(wincNetworkBin, args...).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
@@ -372,7 +453,11 @@ func deleteContainerAndNetwork() {
 	output, err = exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 
-	output, err = exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
+	deleteNetwork()
+}
+
+func deleteNetwork() {
+	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 

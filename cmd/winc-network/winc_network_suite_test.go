@@ -117,7 +117,7 @@ func runtimeSpecGenerator(baseSpec specs.Spec, containerId string) specs.Spec {
 }
 
 func getContainerState(containerId string) specs.State {
-	stdOut, _, err := execute(exec.Command(wincBin, "state", containerId))
+	stdOut, _, err := execute(wincBin, "state", containerId)
 	Expect(err).ToNot(HaveOccurred())
 
 	var state specs.State
@@ -144,13 +144,13 @@ func copyFile(dst, src string) error {
 	return cerr
 }
 
-func execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
+func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
-	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
-	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
-	err := c.Run()
-
+	command := exec.Command(cmd, args...)
+	command.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
+	command.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
+	err := command.Run()
 	return stdOut, stdErr, err
 }
 

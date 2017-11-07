@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"code.cloudfoundry.org/winc/endpoint"
 	"code.cloudfoundry.org/winc/hcs"
@@ -38,6 +40,57 @@ func main() {
 			Usage: "container id handle",
 			Value: "",
 		},
+		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "enable debug output for logging",
+		},
+		cli.StringFlag{
+			Name:  "log",
+			Value: os.DevNull,
+			Usage: "set the log file path where internal debug information is written",
+		},
+		cli.StringFlag{
+			Name:  "log-format",
+			Value: "json",
+			Usage: "set the format used by logs ('json' (default), or 'text')",
+		},
+	}
+	app.Before = func(context *cli.Context) error {
+		debug := context.GlobalBool("debug")
+		logFile := context.GlobalString("log")
+		logFormat := context.GlobalString("log-format")
+
+		if debug {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+
+		var logWriter io.Writer
+		if logFile == "" || logFile == os.DevNull {
+			logWriter = ioutil.Discard
+		} else {
+			if err := os.MkdirAll(filepath.Dir(logFile), 0666); err != nil {
+				return err
+			}
+
+			f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
+			if err != nil {
+				return err
+			}
+
+			logWriter = f
+		}
+		logrus.SetOutput(logWriter)
+
+		switch logFormat {
+		case "text":
+			// retain logrus's default.
+		case "json":
+			logrus.SetFormatter(new(logrus.JSONFormatter))
+		default:
+			return fmt.Errorf("invalid log format: %s", logFormat)
+		}
+
+		return nil
 	}
 	app.Action = func(context *cli.Context) error {
 		config, err := parseConfig(context.String("configFile"))

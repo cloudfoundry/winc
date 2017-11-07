@@ -39,8 +39,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "log-format",
-			Value: "text",
-			Usage: "set the format used by logs ('text' (default), or 'json')",
+			Value: "json",
+			Usage: "set the format used by logs ('json' (default), or 'text')",
 		},
 	}
 

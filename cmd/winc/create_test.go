@@ -249,7 +249,7 @@ var _ = Describe("Create", func() {
 					contents, err := ioutil.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(string(contents)).To(ContainSubstring("mount is not a directory, ignoring"))
-					Expect(string(contents)).To(ContainSubstring(fmt.Sprintf("mount=\"%s\"", strings.Replace(mountFile, `\`, `\\`, -1))))
+					Expect(string(contents)).To(ContainSubstring(fmt.Sprintf(`"mount":"%s"`, strings.Replace(mountFile, `\`, `\\`, -1))))
 				})
 			})
 		})
