@@ -66,10 +66,10 @@ func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEn
 	}
 
 	if err := e.hcsClient.HotAttachEndpoint(e.containerId, createdEndpoint.Id); err != nil {
-		logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s", createdEndpoint.Id, e.containerId), err)
+		logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s: %s", createdEndpoint.Id, e.containerId, err.Error()))
 
 		if _, err := e.hcsClient.DeleteEndpoint(createdEndpoint); err != nil {
-			logrus.Error(fmt.Sprintf("Error deleting endpoint %s", createdEndpoint.Id), err)
+			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", createdEndpoint.Id, err.Error()))
 		}
 
 		return hcsshim.HNSEndpoint{}, err
