@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate counterfeiter . HCSClient
@@ -65,7 +66,12 @@ func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEn
 	}
 
 	if err := e.hcsClient.HotAttachEndpoint(e.containerId, createdEndpoint.Id); err != nil {
-		e.hcsClient.DeleteEndpoint(createdEndpoint)
+		logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s", createdEndpoint.Id, e.containerId), err)
+
+		if _, err := e.hcsClient.DeleteEndpoint(createdEndpoint); err != nil {
+			logrus.Error(fmt.Sprintf("Error deleting endpoint %s", createdEndpoint.Id), err)
+		}
+
 		return hcsshim.HNSEndpoint{}, err
 	}
 
