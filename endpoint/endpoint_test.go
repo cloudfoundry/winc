@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/endpoint"
 	"code.cloudfoundry.org/winc/endpoint/endpointfakes"
@@ -11,6 +12,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("EndpointManager", func() {
@@ -34,6 +36,8 @@ var _ = Describe("EndpointManager", func() {
 		}
 
 		endpointManager = endpoint.NewEndpointManager(hcsClient, containerId, config)
+
+		logrus.SetOutput(ioutil.Discard)
 	})
 
 	Describe("Create", func() {
