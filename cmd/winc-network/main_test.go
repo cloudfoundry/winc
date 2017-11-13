@@ -188,7 +188,7 @@ var _ = Describe("networking", func() {
 			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output))
 			expectedOutput := fmt.Sprintf("Get-NetAdapter : No MSFT_NetAdapter objects found with property 'Name' equal to 'vEthernet (%s)'", networkConfig.NetworkName)
-			Expect(strings.TrimSpace(string(output))).To(ContainSubstring(expectedOutput))
+			Expect(strings.Replace(string(output), "\r\n", " ", -1)).To(ContainSubstring(expectedOutput))
 		})
 
 		It("deletes the associated firewall rules", func() {
@@ -196,8 +196,8 @@ var _ = Describe("networking", func() {
 			getFirewallRule := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s"`, networkConfig.NetworkName)
 			output, err := exec.Command("powershell.exe", "-Command", getFirewallRule).CombinedOutput()
 			Expect(err).To(HaveOccurred())
-			expectedError := fmt.Sprintf(`Get-NetFirewallRule : No MSFT_NetFirewallRule objects found with property 'DisplayName' equal to '%s'`, networkConfig.NetworkName)
-			Expect(string(output)).To(ContainSubstring(expectedError))
+			expectedOutput := fmt.Sprintf(`Get-NetFirewallRule : No MSFT_NetFirewallRule objects found with property 'DisplayName' equal to '%s'`, networkConfig.NetworkName)
+			Expect(strings.Replace(string(output), "\r\n", " ", -1)).To(ContainSubstring(expectedOutput))
 		})
 	})
 
