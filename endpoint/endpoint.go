@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
@@ -109,6 +110,9 @@ func (e *EndpointManager) Create(natPolicies []*hcsshim.NatPolicy, aclPolicies [
 
 		return err
 	}
+
+	// need to wait for ACLs to take effect
+	time.Sleep(2 * time.Second)
 
 	return nil
 }
