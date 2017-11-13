@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
@@ -238,6 +239,7 @@ var _ = Describe("networking", func() {
 					hostPort2      uint32
 					containerPort1 uint32
 					containerPort2 uint32
+					client         http.Client
 				)
 
 				BeforeEach(func() {
@@ -246,6 +248,9 @@ var _ = Describe("networking", func() {
 
 					containerPort1 = 12345
 					containerPort2 = 9876
+
+					client = *http.DefaultClient
+					client.Timeout = 5 * time.Second
 
 					pid := getContainerState(containerId).Pid
 					Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
@@ -275,7 +280,7 @@ var _ = Describe("networking", func() {
 
 					hostIp := outputs.Properties.ContainerIP
 
-					resp, err := http.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
+					resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
 					Expect(err).NotTo(HaveOccurred())
 					defer resp.Body.Close()
 
@@ -283,7 +288,7 @@ var _ = Describe("networking", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
-					resp2, err := http.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort2))
+					resp2, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort2))
 					Expect(err).NotTo(HaveOccurred())
 					defer resp2.Body.Close()
 
@@ -298,12 +303,12 @@ var _ = Describe("networking", func() {
 					ep, err := hcsshim.GetHNSEndpointByName(containerId)
 					Expect(err).NotTo(HaveOccurred())
 
-					_, err = http.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
+					_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("connectex: A connection attempt failed"))
+					Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
 
-					_, err = http.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
-					Expect(err.Error()).To(ContainSubstring("connectex: A connection attempt failed"))
+					_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
+					Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
 					Expect(err).To(HaveOccurred())
 				})
 
@@ -313,7 +318,7 @@ var _ = Describe("networking", func() {
 					ep, err := hcsshim.GetHNSEndpointByName(containerId)
 					Expect(err).NotTo(HaveOccurred())
 
-					resp, err := http.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
+					resp, err := client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
 					Expect(err).NotTo(HaveOccurred())
 					defer resp.Body.Close()
 
@@ -321,7 +326,7 @@ var _ = Describe("networking", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
-					resp2, err := http.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
+					resp2, err := client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
 					Expect(err).NotTo(HaveOccurred())
 					defer resp2.Body.Close()
 
@@ -345,12 +350,12 @@ var _ = Describe("networking", func() {
 						ep, err := hcsshim.GetHNSEndpointByName(containerId)
 						Expect(err).NotTo(HaveOccurred())
 
-						_, err = http.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
+						_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
 						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).To(ContainSubstring("connectex: A connection attempt failed"))
+						Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
 
-						_, err = http.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
-						Expect(err.Error()).To(ContainSubstring("connectex: A connection attempt failed"))
+						_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
+						Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
 						Expect(err).To(HaveOccurred())
 					})
 
@@ -471,7 +476,7 @@ var _ = Describe("networking", func() {
 							Expect(err).NotTo(HaveOccurred())
 						})
 
-						It("can resolve dns", func() {
+						It("can resolve DNS", func() {
 							networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
 							cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com")
