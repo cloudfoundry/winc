@@ -9,18 +9,17 @@ import (
 )
 
 type FakeEndpointManager struct {
-	CreateStub        func([]hcsshim.NatPolicy) (hcsshim.HNSEndpoint, error)
+	CreateStub        func([]*hcsshim.NatPolicy, []*hcsshim.ACLPolicy) error
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
-		arg1 []hcsshim.NatPolicy
+		arg1 []*hcsshim.NatPolicy
+		arg2 []*hcsshim.ACLPolicy
 	}
 	createReturns struct {
-		result1 hcsshim.HNSEndpoint
-		result2 error
+		result1 error
 	}
 	createReturnsOnCall map[int]struct {
-		result1 hcsshim.HNSEndpoint
-		result2 error
+		result1 error
 	}
 	DeleteStub        func() error
 	deleteMutex       sync.RWMutex
@@ -35,26 +34,32 @@ type FakeEndpointManager struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeEndpointManager) Create(arg1 []hcsshim.NatPolicy) (hcsshim.HNSEndpoint, error) {
-	var arg1Copy []hcsshim.NatPolicy
+func (fake *FakeEndpointManager) Create(arg1 []*hcsshim.NatPolicy, arg2 []*hcsshim.ACLPolicy) error {
+	var arg1Copy []*hcsshim.NatPolicy
 	if arg1 != nil {
-		arg1Copy = make([]hcsshim.NatPolicy, len(arg1))
+		arg1Copy = make([]*hcsshim.NatPolicy, len(arg1))
 		copy(arg1Copy, arg1)
+	}
+	var arg2Copy []*hcsshim.ACLPolicy
+	if arg2 != nil {
+		arg2Copy = make([]*hcsshim.ACLPolicy, len(arg2))
+		copy(arg2Copy, arg2)
 	}
 	fake.createMutex.Lock()
 	ret, specificReturn := fake.createReturnsOnCall[len(fake.createArgsForCall)]
 	fake.createArgsForCall = append(fake.createArgsForCall, struct {
-		arg1 []hcsshim.NatPolicy
-	}{arg1Copy})
-	fake.recordInvocation("Create", []interface{}{arg1Copy})
+		arg1 []*hcsshim.NatPolicy
+		arg2 []*hcsshim.ACLPolicy
+	}{arg1Copy, arg2Copy})
+	fake.recordInvocation("Create", []interface{}{arg1Copy, arg2Copy})
 	fake.createMutex.Unlock()
 	if fake.CreateStub != nil {
-		return fake.CreateStub(arg1)
+		return fake.CreateStub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1
 	}
-	return fake.createReturns.result1, fake.createReturns.result2
+	return fake.createReturns.result1
 }
 
 func (fake *FakeEndpointManager) CreateCallCount() int {
@@ -63,32 +68,29 @@ func (fake *FakeEndpointManager) CreateCallCount() int {
 	return len(fake.createArgsForCall)
 }
 
-func (fake *FakeEndpointManager) CreateArgsForCall(i int) []hcsshim.NatPolicy {
+func (fake *FakeEndpointManager) CreateArgsForCall(i int) ([]*hcsshim.NatPolicy, []*hcsshim.ACLPolicy) {
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
-	return fake.createArgsForCall[i].arg1
+	return fake.createArgsForCall[i].arg1, fake.createArgsForCall[i].arg2
 }
 
-func (fake *FakeEndpointManager) CreateReturns(result1 hcsshim.HNSEndpoint, result2 error) {
+func (fake *FakeEndpointManager) CreateReturns(result1 error) {
 	fake.CreateStub = nil
 	fake.createReturns = struct {
-		result1 hcsshim.HNSEndpoint
-		result2 error
-	}{result1, result2}
+		result1 error
+	}{result1}
 }
 
-func (fake *FakeEndpointManager) CreateReturnsOnCall(i int, result1 hcsshim.HNSEndpoint, result2 error) {
+func (fake *FakeEndpointManager) CreateReturnsOnCall(i int, result1 error) {
 	fake.CreateStub = nil
 	if fake.createReturnsOnCall == nil {
 		fake.createReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.HNSEndpoint
-			result2 error
+			result1 error
 		})
 	}
 	fake.createReturnsOnCall[i] = struct {
-		result1 hcsshim.HNSEndpoint
-		result2 error
-	}{result1, result2}
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeEndpointManager) Delete() error {

@@ -40,21 +40,29 @@ var _ = Describe("Applier", func() {
 			}
 		})
 
-		It("returns the correct NAT policy", func() {
-			policy, err := applier.In(netInRule)
+		It("returns the correct NAT policy + ACL policy", func() {
+			natPolicy, aclPolicy, err := applier.In(netInRule)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedPolicy := hcsshim.NatPolicy{
-				Type:         "NAT",
+			expectedNatPolicy := hcsshim.NatPolicy{
+				Type:         hcsshim.Nat,
 				InternalPort: 1000,
 				ExternalPort: 2000,
 				Protocol:     "TCP",
 			}
-			Expect(policy).To(Equal(expectedPolicy))
+			expectedAclPolicy := hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				Protocol:  6,
+				Action:    hcsshim.Allow,
+				Direction: hcsshim.In,
+				LocalPort: 1000,
+			}
+			Expect(*natPolicy).To(Equal(expectedNatPolicy))
+			Expect(*aclPolicy).To(Equal(expectedAclPolicy))
 		})
 
 		It("opens the port inside the container", func() {
-			_, err := applier.In(netInRule)
+			_, _, err := applier.In(netInRule)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(netSh.RunContainerCallCount()).To(Equal(1))
@@ -68,7 +76,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := applier.In(netInRule)
+				_, _, err := applier.In(netInRule)
 				Expect(err).To(MatchError("couldn't exec netsh"))
 			})
 		})
@@ -83,16 +91,24 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("uses the port allocator to find an open host port", func() {
-				policy, err := applier.In(netInRule)
+				natPolicy, aclPolicy, err := applier.In(netInRule)
 				Expect(err).NotTo(HaveOccurred())
 
-				expectedPolicy := hcsshim.NatPolicy{
-					Type:         "NAT",
+				expectedNatPolicy := hcsshim.NatPolicy{
+					Type:         hcsshim.Nat,
 					InternalPort: 1000,
 					ExternalPort: 1234,
 					Protocol:     "TCP",
 				}
-				Expect(policy).To(Equal(expectedPolicy))
+				expectedAclPolicy := hcsshim.ACLPolicy{
+					Type:      hcsshim.ACL,
+					Protocol:  6,
+					Action:    hcsshim.Allow,
+					Direction: hcsshim.In,
+					LocalPort: 1000,
+				}
+				Expect(*natPolicy).To(Equal(expectedNatPolicy))
+				Expect(*aclPolicy).To(Equal(expectedAclPolicy))
 
 				Expect(portAllocator.AllocatePortCallCount()).To(Equal(1))
 				id, p := portAllocator.AllocatePortArgsForCall(0)
@@ -106,7 +122,7 @@ var _ = Describe("Applier", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := applier.In(netInRule)
+					_, _, err := applier.In(netInRule)
 					Expect(err).To(MatchError("some-error"))
 				})
 			})
@@ -115,18 +131,12 @@ var _ = Describe("Applier", func() {
 
 	Describe("Out", func() {
 		var (
-			protocol   netrules.Protocol
 			netOutRule netrules.NetOut
-			endpoint   hcsshim.HNSEndpoint
 		)
 
 		BeforeEach(func() {
-			endpoint.IPAddress = net.ParseIP("5.4.3.2")
-		})
-
-		JustBeforeEach(func() {
 			netOutRule = netrules.NetOut{
-				Protocol: protocol,
+				Protocol: netrules.ProtocolTCP,
 				Networks: []netrules.IPRange{
 					ipRangeFromIP(net.ParseIP("8.8.8.8")),
 					netrules.IPRange{
@@ -138,84 +148,243 @@ var _ = Describe("Applier", func() {
 					portRangeFromPort(80),
 					netrules.PortRange{
 						Start: 8080,
-						End:   8090,
+						End:   8081,
 					},
 				},
 			}
 		})
 
+		It("returns an ACL Policy per port + IP CIDR", func() {
+			expectedACLPolicies := []hcsshim.ACLPolicy{
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 80, RemoteAddresses: "8.8.8.8/32"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 80, RemoteAddresses: "10.0.0.0/7"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 80, RemoteAddresses: "12.0.0.0/8"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 80, RemoteAddresses: "13.0.0.0/32"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8080, RemoteAddresses: "8.8.8.8/32"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8080, RemoteAddresses: "10.0.0.0/7"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8080, RemoteAddresses: "12.0.0.0/8"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8080, RemoteAddresses: "13.0.0.0/32"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8081, RemoteAddresses: "8.8.8.8/32"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8081, RemoteAddresses: "10.0.0.0/7"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8081, RemoteAddresses: "12.0.0.0/8"},
+				{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8081, RemoteAddresses: "13.0.0.0/32"},
+			}
+
+			aclPolicies, err := applier.Out(netOutRule)
+			Expect(err).To(Succeed())
+
+			Expect(len(aclPolicies)).To(Equal(12))
+			acls := []hcsshim.ACLPolicy{}
+			for _, acl := range aclPolicies {
+				acls = append(acls, *acl)
+			}
+			Expect(acls).To(ConsistOf(expectedACLPolicies))
+		})
+
 		Context("a UDP rule is specified", func() {
 			BeforeEach(func() {
-				protocol = netrules.ProtocolUDP
+				netOutRule.Networks = []netrules.IPRange{
+					{Start: net.ParseIP("1.1.1.1"), End: net.ParseIP("1.1.1.1")},
+				}
+				netOutRule.Ports = []netrules.PortRange{{Start: 5, End: 5}}
+				netOutRule.Protocol = netrules.ProtocolUDP
 			})
 
-			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
+			It("uses UDP for each policy", func() {
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"remoteport=80-80,8080-8090",
-					"protocol=UDP"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolUDP, RemotePort: 5, RemoteAddresses: "1.1.1.1/32"},
+				}
+
+				Expect(len(aclPolicies)).To(Equal(1))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
 			})
 		})
 
 		Context("a TCP rule is specified", func() {
 			BeforeEach(func() {
-				protocol = netrules.ProtocolTCP
+				netOutRule.Networks = []netrules.IPRange{
+					{Start: net.ParseIP("1.1.1.1"), End: net.ParseIP("1.1.1.1")},
+				}
+				netOutRule.Ports = []netrules.PortRange{{Start: 5, End: 5}}
+				netOutRule.Protocol = netrules.ProtocolTCP
 			})
 
-			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
+			It("uses TCP for each policy", func() {
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"remoteport=80-80,8080-8090",
-					"protocol=TCP"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 5, RemoteAddresses: "1.1.1.1/32"},
+				}
+
+				Expect(len(aclPolicies)).To(Equal(1))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
 			})
 		})
 
 		Context("an ICMP rule is specified", func() {
 			BeforeEach(func() {
-				protocol = netrules.ProtocolICMP
+				netOutRule.Networks = []netrules.IPRange{
+					{Start: net.ParseIP("1.1.1.1"), End: net.ParseIP("1.1.1.1")},
+				}
+				netOutRule.Ports = []netrules.PortRange{{Start: 5, End: 5}}
+				netOutRule.Protocol = netrules.ProtocolICMP
 			})
 
-			It("ignores it", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
-				Expect(netSh.RunHostCallCount()).To(Equal(0))
+			It("uses ICMP for each policy, making sure not to set the por", func() {
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
+
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolICMP, RemoteAddresses: "1.1.1.1/32"},
+				}
+
+				Expect(len(aclPolicies)).To(Equal(1))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
 			})
 		})
 
 		Context("an ANY rule is specified", func() {
 			BeforeEach(func() {
-				protocol = netrules.ProtocolAll
+				netOutRule.Networks = []netrules.IPRange{
+					{Start: net.ParseIP("1.1.1.1"), End: net.ParseIP("1.1.1.1")},
+				}
+				netOutRule.Ports = []netrules.PortRange{{Start: 5, End: 5}}
+				netOutRule.Protocol = netrules.ProtocolAll
 			})
 
-			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
+			It("creates a rule for each protocol", func() {
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"protocol=ANY"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 5, RemoteAddresses: "1.1.1.1/32"},
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolICMP, RemoteAddresses: "1.1.1.1/32"},
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolUDP, RemotePort: 5, RemoteAddresses: "1.1.1.1/32"},
+				}
+
+				Expect(len(aclPolicies)).To(Equal(3))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
 			})
 		})
 
 		Context("an invalid protocol is specified", func() {
 			BeforeEach(func() {
-				protocol = 7
+				netOutRule.Protocol = 255
 			})
 
 			It("returns an error", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(MatchError(errors.New("invalid protocol: 7")))
-				Expect(netSh.RunHostCallCount()).To(Equal(0))
+				_, err := applier.Out(netOutRule)
+				Expect(err).To(MatchError(errors.New("invalid protocol: 255")))
+			})
+		})
+
+		Context("no ports are supplied", func() {
+			BeforeEach(func() {
+				netOutRule = netrules.NetOut{
+					Protocol: netrules.ProtocolTCP,
+					Networks: []netrules.IPRange{
+						netrules.IPRange{
+							Start: net.ParseIP("10.0.0.0"),
+							End:   net.ParseIP("13.0.0.0"),
+						},
+					},
+					Ports: []netrules.PortRange{},
+				}
+			})
+
+			It("returns acls with no port specified", func() {
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemoteAddresses: "10.0.0.0/7"},
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemoteAddresses: "12.0.0.0/8"},
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemoteAddresses: "13.0.0.0/32"},
+				}
+
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
+
+				Expect(len(aclPolicies)).To(Equal(3))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
+			})
+		})
+
+		Context("no ips are supplied", func() {
+			BeforeEach(func() {
+				netOutRule = netrules.NetOut{
+					Protocol: netrules.ProtocolTCP,
+					Ports: []netrules.PortRange{
+						portRangeFromPort(80),
+						netrules.PortRange{
+							Start: 8080,
+							End:   8081,
+						},
+					},
+				}
+			})
+
+			It("returns acls with empty RemoteAddresses", func() {
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 80},
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8080},
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP, RemotePort: 8081},
+				}
+
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
+
+				Expect(len(aclPolicies)).To(Equal(3))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
+			})
+		})
+
+		Context("no ports and no ips are supplied", func() {
+			BeforeEach(func() {
+				netOutRule = netrules.NetOut{
+					Protocol: netrules.ProtocolTCP,
+				}
+			})
+
+			It("returns an acl that allows everything", func() {
+				expectedACLPolicies := []hcsshim.ACLPolicy{
+					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Allow, Protocol: netrules.WindowsProtocolTCP},
+				}
+
+				aclPolicies, err := applier.Out(netOutRule)
+				Expect(err).To(Succeed())
+
+				Expect(len(aclPolicies)).To(Equal(1))
+				acls := []hcsshim.ACLPolicy{}
+				for _, acl := range aclPolicies {
+					acls = append(acls, *acl)
+				}
+				Expect(acls).To(ConsistOf(expectedACLPolicies))
 			})
 		})
 	})
@@ -306,81 +475,11 @@ MTU  MediaSenseState   Bytes In  Bytes Out  Interface
 	})
 
 	Describe("Cleanup", func() {
-		It("removes the firewall rules applied to the container and de-allocates all the ports", func() {
+		It("de-allocates all the ports", func() {
 			Expect(applier.Cleanup()).To(Succeed())
 
 			Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
 			Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
-
-			Expect(netSh.RunHostCallCount()).To(Equal(2))
-			Expect(netSh.RunHostArgsForCall(0)).To(Equal([]string{"advfirewall", "firewall", "show", "rule", `name="containerabc"`}))
-			Expect(netSh.RunHostArgsForCall(1)).To(Equal([]string{"advfirewall", "firewall", "delete", "rule", `name="containerabc"`}))
-		})
-
-		Context("there are no firewall rules applied to the container", func() {
-			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(0, nil, errors.New("firewall rule not found"))
-			})
-
-			It("does not error", func() {
-				Expect(applier.Cleanup()).To(Succeed())
-
-				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-			})
-		})
-
-		Context("deleting the firewall rule fails", func() {
-			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(1, nil, errors.New("deleting firewall rule failed"))
-			})
-
-			It("releases the ports and returns an error", func() {
-				Expect(applier.Cleanup()).To(MatchError("deleting firewall rule failed"))
-
-				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(netSh.RunHostCallCount()).To(Equal(2))
-			})
-		})
-
-		Context("releasing ports fails", func() {
-			BeforeEach(func() {
-				portAllocator.ReleaseAllPortsReturns(errors.New("releasing ports failed"))
-			})
-
-			It("still removes firewall rules but returns an error", func() {
-				Expect(applier.Cleanup()).To(MatchError("releasing ports failed"))
-
-				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(netSh.RunHostCallCount()).To(Equal(2))
-			})
-
-			Context("there are no firewall rules applied to the container", func() {
-				BeforeEach(func() {
-					netSh.RunHostReturnsOnCall(0, nil, errors.New("firewall rule not found"))
-				})
-
-				It("returns the port release error", func() {
-					Expect(applier.Cleanup()).To(MatchError("releasing ports failed"))
-
-					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-					Expect(netSh.RunHostCallCount()).To(Equal(1))
-				})
-			})
-
-			Context("deleting firewall rule also fails", func() {
-				BeforeEach(func() {
-					netSh.RunHostReturnsOnCall(1, nil, errors.New("deleting firewall rule failed"))
-				})
-
-				It("returns a combined error", func() {
-					err := applier.Cleanup()
-					Expect(err).To(MatchError("releasing ports failed, deleting firewall rule failed"))
-
-					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-					Expect(netSh.RunHostCallCount()).To(Equal(2))
-				})
-			})
 		})
 	})
 })

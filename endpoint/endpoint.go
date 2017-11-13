@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
@@ -19,6 +20,7 @@ type HCSClient interface {
 	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	HotAttachEndpoint(containerID string, endpointID string) error
 	HotDetachEndpoint(containerID string, endpointID string) error
+	ApplyACLPolicy(*hcsshim.HNSEndpoint, ...*hcsshim.ACLPolicy) error
 }
 
 type EndpointManager struct {
@@ -35,17 +37,17 @@ func NewEndpointManager(hcsClient HCSClient, containerId string, config network.
 	}
 }
 
-func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEndpoint, error) {
+func (e *EndpointManager) Create(natPolicies []*hcsshim.NatPolicy, aclPolicies []*hcsshim.ACLPolicy) error {
 	network, err := e.hcsClient.GetHNSNetworkByName(e.config.NetworkName)
 	if err != nil {
-		return hcsshim.HNSEndpoint{}, err
+		return err
 	}
 
 	policies := []json.RawMessage{}
 	for _, natPolicy := range natPolicies {
 		data, err := json.Marshal(natPolicy)
 		if err != nil {
-			return hcsshim.HNSEndpoint{}, err
+			return err
 		}
 		policies = append(policies, data)
 	}
@@ -62,7 +64,7 @@ func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEn
 
 	createdEndpoint, err := e.createEndpoint(endpoint)
 	if err != nil {
-		return hcsshim.HNSEndpoint{}, err
+		return err
 	}
 
 	if err := e.hcsClient.HotAttachEndpoint(e.containerId, createdEndpoint.Id); err != nil {
@@ -72,10 +74,43 @@ func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEn
 			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", createdEndpoint.Id, err.Error()))
 		}
 
-		return hcsshim.HNSEndpoint{}, err
+		return err
 	}
 
-	return *createdEndpoint, nil
+	blockIn := &hcsshim.ACLPolicy{
+		Type:           hcsshim.ACL,
+		Action:         hcsshim.Block,
+		Direction:      hcsshim.In,
+		LocalAddresses: createdEndpoint.IPAddress.String(),
+		Protocol:       netrules.WindowsProtocolTCP,
+	}
+
+	blockOut := &hcsshim.ACLPolicy{
+		Type:           hcsshim.ACL,
+		Action:         hcsshim.Block,
+		Direction:      hcsshim.Out,
+		LocalAddresses: createdEndpoint.IPAddress.String(),
+		Protocol:       netrules.WindowsProtocolTCP,
+	}
+
+	acls := []*hcsshim.ACLPolicy{blockIn, blockOut}
+
+	for _, v := range aclPolicies {
+		v.LocalAddresses = createdEndpoint.IPAddress.String()
+		acls = append(acls, v)
+	}
+
+	if err := e.hcsClient.ApplyACLPolicy(createdEndpoint, acls...); err != nil {
+		logrus.Error(fmt.Sprintf("Unable to apply acl polices %+v to endpoint %s: %s", acls, createdEndpoint.Id, err.Error()))
+
+		if _, err := e.hcsClient.DeleteEndpoint(createdEndpoint); err != nil {
+			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", createdEndpoint.Id, err.Error()))
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func (e *EndpointManager) Delete() error {

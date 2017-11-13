@@ -10,30 +10,33 @@ import (
 )
 
 type FakeNetRuleApplier struct {
-	InStub        func(netrules.NetIn) (hcsshim.NatPolicy, error)
+	InStub        func(netrules.NetIn) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error)
 	inMutex       sync.RWMutex
 	inArgsForCall []struct {
 		arg1 netrules.NetIn
 	}
 	inReturns struct {
-		result1 hcsshim.NatPolicy
-		result2 error
+		result1 *hcsshim.NatPolicy
+		result2 *hcsshim.ACLPolicy
+		result3 error
 	}
 	inReturnsOnCall map[int]struct {
-		result1 hcsshim.NatPolicy
-		result2 error
+		result1 *hcsshim.NatPolicy
+		result2 *hcsshim.ACLPolicy
+		result3 error
 	}
-	OutStub        func(netrules.NetOut, hcsshim.HNSEndpoint) error
+	OutStub        func(netrules.NetOut) ([]*hcsshim.ACLPolicy, error)
 	outMutex       sync.RWMutex
 	outArgsForCall []struct {
 		arg1 netrules.NetOut
-		arg2 hcsshim.HNSEndpoint
 	}
 	outReturns struct {
-		result1 error
+		result1 []*hcsshim.ACLPolicy
+		result2 error
 	}
 	outReturnsOnCall map[int]struct {
-		result1 error
+		result1 []*hcsshim.ACLPolicy
+		result2 error
 	}
 	NatMTUStub        func(int) error
 	natMTUMutex       sync.RWMutex
@@ -70,7 +73,7 @@ type FakeNetRuleApplier struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNetRuleApplier) In(arg1 netrules.NetIn) (hcsshim.NatPolicy, error) {
+func (fake *FakeNetRuleApplier) In(arg1 netrules.NetIn) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error) {
 	fake.inMutex.Lock()
 	ret, specificReturn := fake.inReturnsOnCall[len(fake.inArgsForCall)]
 	fake.inArgsForCall = append(fake.inArgsForCall, struct {
@@ -82,9 +85,9 @@ func (fake *FakeNetRuleApplier) In(arg1 netrules.NetIn) (hcsshim.NatPolicy, erro
 		return fake.InStub(arg1)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1, ret.result2, ret.result3
 	}
-	return fake.inReturns.result1, fake.inReturns.result2
+	return fake.inReturns.result1, fake.inReturns.result2, fake.inReturns.result3
 }
 
 func (fake *FakeNetRuleApplier) InCallCount() int {
@@ -99,44 +102,46 @@ func (fake *FakeNetRuleApplier) InArgsForCall(i int) netrules.NetIn {
 	return fake.inArgsForCall[i].arg1
 }
 
-func (fake *FakeNetRuleApplier) InReturns(result1 hcsshim.NatPolicy, result2 error) {
+func (fake *FakeNetRuleApplier) InReturns(result1 *hcsshim.NatPolicy, result2 *hcsshim.ACLPolicy, result3 error) {
 	fake.InStub = nil
 	fake.inReturns = struct {
-		result1 hcsshim.NatPolicy
-		result2 error
-	}{result1, result2}
+		result1 *hcsshim.NatPolicy
+		result2 *hcsshim.ACLPolicy
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *FakeNetRuleApplier) InReturnsOnCall(i int, result1 hcsshim.NatPolicy, result2 error) {
+func (fake *FakeNetRuleApplier) InReturnsOnCall(i int, result1 *hcsshim.NatPolicy, result2 *hcsshim.ACLPolicy, result3 error) {
 	fake.InStub = nil
 	if fake.inReturnsOnCall == nil {
 		fake.inReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.NatPolicy
-			result2 error
+			result1 *hcsshim.NatPolicy
+			result2 *hcsshim.ACLPolicy
+			result3 error
 		})
 	}
 	fake.inReturnsOnCall[i] = struct {
-		result1 hcsshim.NatPolicy
-		result2 error
-	}{result1, result2}
+		result1 *hcsshim.NatPolicy
+		result2 *hcsshim.ACLPolicy
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *FakeNetRuleApplier) Out(arg1 netrules.NetOut, arg2 hcsshim.HNSEndpoint) error {
+func (fake *FakeNetRuleApplier) Out(arg1 netrules.NetOut) ([]*hcsshim.ACLPolicy, error) {
 	fake.outMutex.Lock()
 	ret, specificReturn := fake.outReturnsOnCall[len(fake.outArgsForCall)]
 	fake.outArgsForCall = append(fake.outArgsForCall, struct {
 		arg1 netrules.NetOut
-		arg2 hcsshim.HNSEndpoint
-	}{arg1, arg2})
-	fake.recordInvocation("Out", []interface{}{arg1, arg2})
+	}{arg1})
+	fake.recordInvocation("Out", []interface{}{arg1})
 	fake.outMutex.Unlock()
 	if fake.OutStub != nil {
-		return fake.OutStub(arg1, arg2)
+		return fake.OutStub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fake.outReturns.result1
+	return fake.outReturns.result1, fake.outReturns.result2
 }
 
 func (fake *FakeNetRuleApplier) OutCallCount() int {
@@ -145,29 +150,32 @@ func (fake *FakeNetRuleApplier) OutCallCount() int {
 	return len(fake.outArgsForCall)
 }
 
-func (fake *FakeNetRuleApplier) OutArgsForCall(i int) (netrules.NetOut, hcsshim.HNSEndpoint) {
+func (fake *FakeNetRuleApplier) OutArgsForCall(i int) netrules.NetOut {
 	fake.outMutex.RLock()
 	defer fake.outMutex.RUnlock()
-	return fake.outArgsForCall[i].arg1, fake.outArgsForCall[i].arg2
+	return fake.outArgsForCall[i].arg1
 }
 
-func (fake *FakeNetRuleApplier) OutReturns(result1 error) {
+func (fake *FakeNetRuleApplier) OutReturns(result1 []*hcsshim.ACLPolicy, result2 error) {
 	fake.OutStub = nil
 	fake.outReturns = struct {
-		result1 error
-	}{result1}
+		result1 []*hcsshim.ACLPolicy
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *FakeNetRuleApplier) OutReturnsOnCall(i int, result1 error) {
+func (fake *FakeNetRuleApplier) OutReturnsOnCall(i int, result1 []*hcsshim.ACLPolicy, result2 error) {
 	fake.OutStub = nil
 	if fake.outReturnsOnCall == nil {
 		fake.outReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 []*hcsshim.ACLPolicy
+			result2 error
 		})
 	}
 	fake.outReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 []*hcsshim.ACLPolicy
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeNetRuleApplier) NatMTU(arg1 int) error {

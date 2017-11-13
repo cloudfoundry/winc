@@ -9,12 +9,13 @@ import (
 	"code.cloudfoundry.org/winc/netrules"
 
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate counterfeiter . NetRuleApplier
 type NetRuleApplier interface {
-	In(netrules.NetIn) (hcsshim.NatPolicy, error)
-	Out(netrules.NetOut, hcsshim.HNSEndpoint) error
+	In(netrules.NetIn) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error)
+	Out(netrules.NetOut) ([]*hcsshim.ACLPolicy, error)
 	NatMTU(int) error
 	ContainerMTU(int) error
 	Cleanup() error
@@ -22,8 +23,14 @@ type NetRuleApplier interface {
 
 //go:generate counterfeiter . EndpointManager
 type EndpointManager interface {
-	Create([]hcsshim.NatPolicy) (hcsshim.HNSEndpoint, error)
+	Create([]*hcsshim.NatPolicy, []*hcsshim.ACLPolicy) error
 	Delete() error
+}
+
+//go:generate counterfeiter . NetShRunner
+type NetShRunner interface {
+	RunContainer([]string) error
+	RunHost([]string) ([]byte, error)
 }
 
 //go:generate counterfeiter . HCSClient
@@ -61,15 +68,17 @@ type NetworkManager struct {
 	hcsClient       HCSClient
 	applier         NetRuleApplier
 	endpointManager EndpointManager
+	netshRunner     NetShRunner
 	containerId     string
 	config          Config
 }
 
-func NewNetworkManager(client HCSClient, applier NetRuleApplier, endpointManager EndpointManager, containerId string, config Config) *NetworkManager {
+func NewNetworkManager(client HCSClient, applier NetRuleApplier, endpointManager EndpointManager, netshRunner NetShRunner, containerId string, config Config) *NetworkManager {
 	return &NetworkManager{
 		hcsClient:       client,
 		applier:         applier,
 		endpointManager: endpointManager,
+		netshRunner:     netshRunner,
 		containerId:     containerId,
 		config:          config,
 	}
@@ -102,7 +111,16 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		return err
 	}
 
-	return n.applier.NatMTU(n.config.MTU)
+	if err := n.applier.NatMTU(n.config.MTU); err != nil {
+		return err
+	}
+
+	args := []string{"advfirewall", "firewall", "add", "rule", fmt.Sprintf("name=%s", n.config.NetworkName), "dir=in", "action=allow", fmt.Sprintf("localip=%s", n.config.SubnetRange), fmt.Sprintf("remoteip=%s", n.config.GatewayAddress)}
+	_, err = n.netshRunner.RunHost(args)
+	if err != nil {
+		return fmt.Errorf("couldn't add firewall: %s", err.Error())
+	}
+	return nil
 }
 
 func subnetsMatch(a, b hcsshim.Subnet) bool {
@@ -118,6 +136,13 @@ func (n *NetworkManager) DeleteHostNATNetwork() error {
 
 		return err
 	}
+
+	args := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf("name=%s", n.config.NetworkName)}
+	_, err = n.netshRunner.RunHost(args)
+	if err != nil {
+		logrus.Error(err.Error())
+	}
+
 	_, err = n.hcsClient.DeleteNetwork(network)
 	return err
 }
@@ -133,31 +158,34 @@ func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 
 func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	outputs := UpOutputs{}
-	natPolicies := []hcsshim.NatPolicy{}
+	natPolicies := []*hcsshim.NatPolicy{}
+	aclPolicies := []*hcsshim.ACLPolicy{}
 	mappedPorts := []netrules.PortMapping{}
 
 	for _, rule := range inputs.NetIn {
-		policy, err := n.applier.In(rule)
+		natPolicy, aclPolicy, err := n.applier.In(rule)
 		if err != nil {
 			return outputs, err
 		}
-		natPolicies = append(natPolicies, policy)
+		natPolicies = append(natPolicies, natPolicy)
+		aclPolicies = append(aclPolicies, aclPolicy)
 		mapping := netrules.PortMapping{
-			ContainerPort: uint32(policy.InternalPort),
-			HostPort:      uint32(policy.ExternalPort),
+			ContainerPort: uint32(natPolicy.InternalPort),
+			HostPort:      uint32(natPolicy.ExternalPort),
 		}
 		mappedPorts = append(mappedPorts, mapping)
 	}
 
-	createdEndpoint, err := n.endpointManager.Create(natPolicies)
-	if err != nil {
-		return outputs, err
-	}
-
 	for _, rule := range inputs.NetOut {
-		if err := n.applier.Out(rule, createdEndpoint); err != nil {
+		acls, err := n.applier.Out(rule)
+		if err != nil {
 			return outputs, err
 		}
+		aclPolicies = append(aclPolicies, acls...)
+	}
+
+	if err := n.endpointManager.Create(natPolicies, aclPolicies); err != nil {
+		return outputs, err
 	}
 
 	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {

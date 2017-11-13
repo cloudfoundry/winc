@@ -98,6 +98,18 @@ type FakeHCSClient struct {
 	hotDetachEndpointReturnsOnCall map[int]struct {
 		result1 error
 	}
+	ApplyACLPolicyStub        func(*hcsshim.HNSEndpoint, ...*hcsshim.ACLPolicy) error
+	applyACLPolicyMutex       sync.RWMutex
+	applyACLPolicyArgsForCall []struct {
+		arg1 *hcsshim.HNSEndpoint
+		arg2 []*hcsshim.ACLPolicy
+	}
+	applyACLPolicyReturns struct {
+		result1 error
+	}
+	applyACLPolicyReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -455,6 +467,55 @@ func (fake *FakeHCSClient) HotDetachEndpointReturnsOnCall(i int, result1 error) 
 	}{result1}
 }
 
+func (fake *FakeHCSClient) ApplyACLPolicy(arg1 *hcsshim.HNSEndpoint, arg2 ...*hcsshim.ACLPolicy) error {
+	fake.applyACLPolicyMutex.Lock()
+	ret, specificReturn := fake.applyACLPolicyReturnsOnCall[len(fake.applyACLPolicyArgsForCall)]
+	fake.applyACLPolicyArgsForCall = append(fake.applyACLPolicyArgsForCall, struct {
+		arg1 *hcsshim.HNSEndpoint
+		arg2 []*hcsshim.ACLPolicy
+	}{arg1, arg2})
+	fake.recordInvocation("ApplyACLPolicy", []interface{}{arg1, arg2})
+	fake.applyACLPolicyMutex.Unlock()
+	if fake.ApplyACLPolicyStub != nil {
+		return fake.ApplyACLPolicyStub(arg1, arg2...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.applyACLPolicyReturns.result1
+}
+
+func (fake *FakeHCSClient) ApplyACLPolicyCallCount() int {
+	fake.applyACLPolicyMutex.RLock()
+	defer fake.applyACLPolicyMutex.RUnlock()
+	return len(fake.applyACLPolicyArgsForCall)
+}
+
+func (fake *FakeHCSClient) ApplyACLPolicyArgsForCall(i int) (*hcsshim.HNSEndpoint, []*hcsshim.ACLPolicy) {
+	fake.applyACLPolicyMutex.RLock()
+	defer fake.applyACLPolicyMutex.RUnlock()
+	return fake.applyACLPolicyArgsForCall[i].arg1, fake.applyACLPolicyArgsForCall[i].arg2
+}
+
+func (fake *FakeHCSClient) ApplyACLPolicyReturns(result1 error) {
+	fake.ApplyACLPolicyStub = nil
+	fake.applyACLPolicyReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeHCSClient) ApplyACLPolicyReturnsOnCall(i int, result1 error) {
+	fake.ApplyACLPolicyStub = nil
+	if fake.applyACLPolicyReturnsOnCall == nil {
+		fake.applyACLPolicyReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.applyACLPolicyReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -472,6 +533,8 @@ func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	defer fake.hotAttachEndpointMutex.RUnlock()
 	fake.hotDetachEndpointMutex.RLock()
 	defer fake.hotDetachEndpointMutex.RUnlock()
+	fake.applyACLPolicyMutex.RLock()
+	defer fake.applyACLPolicyMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

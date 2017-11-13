@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"net"
+
 	"code.cloudfoundry.org/winc/endpoint"
 	"code.cloudfoundry.org/winc/endpoint/endpointfakes"
+	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -42,43 +45,77 @@ var _ = Describe("EndpointManager", func() {
 
 	Describe("Create", func() {
 		var (
-			policy1 hcsshim.NatPolicy
-			policy2 hcsshim.NatPolicy
+			natPolicies     []*hcsshim.NatPolicy
+			aclPolicies     []*hcsshim.ACLPolicy
+			createdEndpoint hcsshim.HNSEndpoint
 		)
 
 		BeforeEach(func() {
-			policy1 = hcsshim.NatPolicy{InternalPort: 111, ExternalPort: 222}
-			policy2 = hcsshim.NatPolicy{InternalPort: 333, ExternalPort: 444}
+			natPolicies = []*hcsshim.NatPolicy{{InternalPort: 111, ExternalPort: 222}}
+			aclPolicies = []*hcsshim.ACLPolicy{{LocalPort: 333}}
 
 			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
-			hcsClient.CreateEndpointReturns(&hcsshim.HNSEndpoint{Id: endpointId}, nil)
+
+			createdEndpoint = hcsshim.HNSEndpoint{Id: endpointId, DNSServerList: "dns-servers-from-container", IPAddress: net.ParseIP("11.22.33.44")}
+			hcsClient.CreateEndpointReturns(&createdEndpoint, nil)
 		})
 
 		It("creates an endpoint on the configured network and attaches it to the container", func() {
-			ep, err := endpointManager.Create([]hcsshim.NatPolicy{policy1, policy2})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ep.Id).To(Equal(endpointId))
+			Expect(endpointManager.Create(natPolicies, aclPolicies)).To(Succeed())
 
 			Expect(hcsClient.CreateEndpointCallCount()).To(Equal(1))
 			endpointToCreate := hcsClient.CreateEndpointArgsForCall(0)
 			Expect(endpointToCreate.VirtualNetwork).To(Equal(networkId))
 			Expect(endpointToCreate.Name).To(Equal(containerId))
-			Expect(len(endpointToCreate.Policies)).To(Equal(2))
+			Expect(len(endpointToCreate.Policies)).To(Equal(1))
 			Expect(endpointToCreate.DNSServerList).To(Equal("1.1.1.1,2.2.2.2"))
 
-			requestedPortMappings := []hcsshim.NatPolicy{}
-			for _, pol := range endpointToCreate.Policies {
+			requestedNatPolicies := []hcsshim.NatPolicy{}
+			for _, natPolicy := range endpointToCreate.Policies {
 				mapping := hcsshim.NatPolicy{}
 
-				Expect(json.Unmarshal(pol, &mapping)).To(Succeed())
-				requestedPortMappings = append(requestedPortMappings, mapping)
+				Expect(json.Unmarshal(natPolicy, &mapping)).To(Succeed())
+				requestedNatPolicies = append(requestedNatPolicies, mapping)
 			}
-			Expect(requestedPortMappings).To(ConsistOf([]hcsshim.NatPolicy{policy1, policy2}))
+			Expect(len(requestedNatPolicies)).To(Equal(len(natPolicies)))
+			Expect(requestedNatPolicies[0]).To(Equal(*natPolicies[0]))
 
 			Expect(hcsClient.HotAttachEndpointCallCount()).To(Equal(1))
 			cId, eId := hcsClient.HotAttachEndpointArgsForCall(0)
 			Expect(cId).To(Equal(containerId))
 			Expect(eId).To(Equal(endpointId))
+
+			actualEndpoint, actualACLPolicies := hcsClient.ApplyACLPolicyArgsForCall(0)
+			Expect(*actualEndpoint).To(Equal(createdEndpoint))
+			Expect(actualACLPolicies).To(ContainElement(aclPolicies[0]))
+			blockInACLPolicy := hcsshim.ACLPolicy{
+				Protocol:       netrules.WindowsProtocolTCP,
+				Type:           hcsshim.ACL,
+				Action:         hcsshim.Block,
+				Direction:      hcsshim.In,
+				LocalAddresses: "11.22.33.44",
+			}
+
+			blockOutACLPolicy := hcsshim.ACLPolicy{
+				Protocol:       netrules.WindowsProtocolTCP,
+				Type:           hcsshim.ACL,
+				Action:         hcsshim.Block,
+				Direction:      hcsshim.Out,
+				LocalAddresses: "11.22.33.44",
+			}
+			foundIn := false
+			foundOut := false
+			for _, v := range actualACLPolicies {
+				if *v == blockInACLPolicy {
+					foundIn = true
+				}
+
+				if *v == blockOutACLPolicy {
+					foundOut = true
+				}
+			}
+			Expect(foundOut).To(BeTrue())
+			Expect(foundIn).To(BeTrue())
 		})
 
 		Context("the network does not already exist", func() {
@@ -87,7 +124,7 @@ var _ = Describe("EndpointManager", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := endpointManager.Create(nil)
+				err := endpointManager.Create(nil, nil)
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -101,9 +138,8 @@ var _ = Describe("EndpointManager", func() {
 				})
 
 				It("retries creating the endpoint", func() {
-					ep, err := endpointManager.Create(nil)
+					err := endpointManager.Create(nil, nil)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(ep.Id).To(Equal(endpointId))
 				})
 			})
 
@@ -113,7 +149,7 @@ var _ = Describe("EndpointManager", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := endpointManager.Create(nil)
+					err := endpointManager.Create(nil, nil)
 					Expect(err).To(MatchError("HNS failed with error : Unspecified error"))
 					Expect(hcsClient.CreateEndpointCallCount()).To(Equal(3))
 				})
@@ -125,7 +161,7 @@ var _ = Describe("EndpointManager", func() {
 				})
 
 				It("does not retry", func() {
-					_, err := endpointManager.Create(nil)
+					err := endpointManager.Create(nil, nil)
 					Expect(err).To(MatchError("cannot create endpoint"))
 					Expect(hcsClient.CreateEndpointCallCount()).To(Equal(1))
 				})
@@ -138,7 +174,7 @@ var _ = Describe("EndpointManager", func() {
 			})
 
 			It("deletes the endpoint and returns an error", func() {
-				_, err := endpointManager.Create(nil)
+				err := endpointManager.Create(nil, nil)
 				Expect(err).To(MatchError("couldn't attach endpoint"))
 
 				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))

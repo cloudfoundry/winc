@@ -187,6 +187,7 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 		hcsClient,
 		applier,
 		endpointManager,
+		runner,
 		handle,
 		config,
 	)
