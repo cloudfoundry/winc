@@ -1,6 +1,8 @@
 package powershell_test
 
 import (
+	"strings"
+
 	"code.cloudfoundry.org/winc/powershell"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,8 +29,8 @@ var _ = Describe("Powershell", func() {
 			It("returns an error including the output", func() {
 				errorMsg := `The term 'some-bad-command' is not recognized as the name of a cmdlet, function, script file`
 				output, err := ps.Run("some-bad-command")
-				Expect(err).To(MatchError(ContainSubstring(errorMsg)))
-				Expect(output).To(ContainSubstring(errorMsg))
+				Expect(strings.Replace(string(err.Error()), "\r\n", "", -1)).To(ContainSubstring(errorMsg))
+				Expect(strings.Replace(string(output), "\r\n", "", -1)).To(ContainSubstring(errorMsg))
 			})
 		})
 	})
