@@ -93,8 +93,13 @@ var _ = Describe("networking", func() {
 		})
 
 		It("creates the network with mtu matching that of the host", func() {
-			psCommand := `(Get-NetAdapter -Physical).MtuSize`
+			psCommand := `(Get-NetAdapter -Physical).Name`
 			output, err := exec.Command("powershell.exe", "-Command", psCommand).CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), string(output))
+			physicalNetworkName := strings.TrimSpace(string(output))
+
+			psCommand = fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias '%s').NlMtu`, physicalNetworkName)
+			output, err = exec.Command("powershell.exe", "-Command", psCommand).CombinedOutput()
 			Expect(err).ToNot(HaveOccurred(), string(output))
 			physicalMTU := strings.TrimSpace(string(output))
 
