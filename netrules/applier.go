@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/localip"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -22,6 +23,7 @@ type PortAllocator interface {
 //go:generate counterfeiter . NetIfaceFinder
 type NetIfaceFinder interface {
 	ByName(string) (*net.Interface, error)
+	ByIP(string) (*net.Interface, error)
 }
 
 type Applier struct {
@@ -163,7 +165,11 @@ func (a *Applier) ContainerMTU(mtu int) error {
 
 func (a *Applier) NatMTU(mtu int) error {
 	if mtu == 0 {
-		iface, err := a.netIfaceFinder.ByName("Ethernet")
+		hostIP, err := localip.LocalIP()
+		if err != nil {
+			return err
+		}
+		iface, err := a.netIfaceFinder.ByIP(hostIP)
 		if err != nil {
 			return err
 		}

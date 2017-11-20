@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/netrules/netrulesfakes"
 	"github.com/Microsoft/hcsshim"
@@ -432,14 +433,17 @@ var _ = Describe("Applier", func() {
 
 		Context("the specified mtu is 0", func() {
 			BeforeEach(func() {
-				netIfaceFinder.ByNameReturns(&net.Interface{MTU: 1302}, nil)
+				netIfaceFinder.ByIPReturns(&net.Interface{MTU: 1302}, nil)
 			})
 
 			It("sets the NAT network MTU to the host interface MTU", func() {
 				Expect(applier.NatMTU(0)).To(Succeed())
 
-				Expect(netIfaceFinder.ByNameCallCount()).To(Equal(1))
-				Expect(netIfaceFinder.ByNameArgsForCall(0)).To(Equal("Ethernet"))
+				hostIP, err := localip.LocalIP()
+				Expect(err).To(Succeed())
+
+				Expect(netIfaceFinder.ByIPCallCount()).To(Equal(1))
+				Expect(netIfaceFinder.ByIPArgsForCall(0)).To(Equal(hostIP))
 
 				Expect(netSh.RunHostCallCount()).To(Equal(1))
 				expectedMTUArgs := []string{"interface", "ipv4", "set", "subinterface",
