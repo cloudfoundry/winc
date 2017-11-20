@@ -180,7 +180,9 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 		Locker:     locker,
 	}
 
-	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator)
+	netIfaceFinder := &netrules.NetInterface{}
+
+	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIfaceFinder)
 	endpointManager := endpoint.NewEndpointManager(hcsClient, handle, config)
 
 	return network.NewNetworkManager(

@@ -18,16 +18,18 @@ var _ = Describe("Applier", func() {
 	const networkName = "my-network"
 
 	var (
-		netSh         *netrulesfakes.FakeNetShRunner
-		portAllocator *netrulesfakes.FakePortAllocator
-		applier       *netrules.Applier
+		netSh          *netrulesfakes.FakeNetShRunner
+		portAllocator  *netrulesfakes.FakePortAllocator
+		netIfaceFinder *netrulesfakes.FakeNetIfaceFinder
+		applier        *netrules.Applier
 	)
 
 	BeforeEach(func() {
 		netSh = &netrulesfakes.FakeNetShRunner{}
 		portAllocator = &netrulesfakes.FakePortAllocator{}
+		netIfaceFinder = &netrulesfakes.FakeNetIfaceFinder{}
 
-		applier = netrules.NewApplier(netSh, containerId, networkName, portAllocator)
+		applier = netrules.NewApplier(netSh, containerId, networkName, portAllocator, netIfaceFinder)
 	})
 
 	Describe("In", func() {
@@ -401,33 +403,19 @@ var _ = Describe("Applier", func() {
 
 		Context("the specified mtu is 0", func() {
 			BeforeEach(func() {
-				netSh.RunHostReturns([]byte(`
-MTU  MediaSenseState   Bytes In  Bytes Out  Interface
-------  ---------------  ---------  ---------  -------------
-1302                1     142864    2448382  vEthernet (my-network)
-			`), nil)
+				netIfaceFinder.ByNameReturns(&net.Interface{MTU: 1302}, nil)
 			})
 
 			It("sets the container MTU to the NAT network MTU", func() {
 				Expect(applier.ContainerMTU(0)).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedMTUArgs := []string{"interface", "ipv4", "show", "subinterface",
-					fmt.Sprintf("interface=vEthernet (%s)", networkName)}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedMTUArgs))
+				Expect(netIfaceFinder.ByNameCallCount()).To(Equal(1))
+				Expect(netIfaceFinder.ByNameArgsForCall(0)).To(Equal(fmt.Sprintf(`vEthernet (%s)`, networkName)))
 
 				Expect(netSh.RunContainerCallCount()).To(Equal(1))
-				expectedMTUArgs = []string{"interface", "ipv4", "set", "subinterface",
+				expectedMTUArgs := []string{"interface", "ipv4", "set", "subinterface",
 					fmt.Sprintf(`"vEthernet (%s)"`, containerId), "mtu=1302", "store=persistent"}
 				Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedMTUArgs))
-			})
-		})
-
-		Context("the specified mtu is > 1500", func() {
-			It("returns an error", func() {
-				err := applier.ContainerMTU(1600)
-				Expect(err).To(MatchError(errors.New("invalid mtu specified: 1600")))
-				Expect(netSh.RunContainerCallCount()).To(Equal(0))
 			})
 		})
 	})
@@ -444,32 +432,19 @@ MTU  MediaSenseState   Bytes In  Bytes Out  Interface
 
 		Context("the specified mtu is 0", func() {
 			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(0, []byte(`
-MTU  MediaSenseState   Bytes In  Bytes Out  Interface
-------  ---------------  ---------  ---------  -------------
-1302                1     142864    2448382  Ethernet
-			`), nil)
+				netIfaceFinder.ByNameReturns(&net.Interface{MTU: 1302}, nil)
 			})
 
 			It("sets the NAT network MTU to the host interface MTU", func() {
 				Expect(applier.NatMTU(0)).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(2))
-				expectedMTUArgs := []string{"interface", "ipv4", "show", "subinterface",
-					"interface=Ethernet"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedMTUArgs))
+				Expect(netIfaceFinder.ByNameCallCount()).To(Equal(1))
+				Expect(netIfaceFinder.ByNameArgsForCall(0)).To(Equal("Ethernet"))
 
-				expectedMTUArgs = []string{"interface", "ipv4", "set", "subinterface",
+				Expect(netSh.RunHostCallCount()).To(Equal(1))
+				expectedMTUArgs := []string{"interface", "ipv4", "set", "subinterface",
 					fmt.Sprintf(`vEthernet (%s)`, networkName), "mtu=1302", "store=persistent"}
-				Expect(netSh.RunHostArgsForCall(1)).To(Equal(expectedMTUArgs))
-			})
-		})
-
-		Context("the specified mtu is > 1500", func() {
-			It("returns an error", func() {
-				err := applier.NatMTU(1600)
-				Expect(err).To(MatchError(errors.New("invalid mtu specified: 1600")))
-				Expect(netSh.RunHostCallCount()).To(Equal(0))
+				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedMTUArgs))
 			})
 		})
 	})
