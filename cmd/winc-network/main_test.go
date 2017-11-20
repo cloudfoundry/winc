@@ -12,9 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 
@@ -113,51 +111,6 @@ var _ = Describe("networking", func() {
 			Expect(virtualMTU).To(Equal(physicalMTU))
 		})
 
-		It("creates a firewall rule allowing inbound access to the container network", func() {
-			createNetwork(networkConfig)
-			getFirewallRule := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s" | ConvertTo-Json`, networkConfig.NetworkName)
-			output, err := exec.Command("powershell.exe", "-Command", getFirewallRule).CombinedOutput()
-			Expect(err).NotTo(HaveOccurred(), string(output))
-
-			// https://msdn.microsoft.com/en-us/library/windows/desktop/aa366282(v=vs.85).aspx
-			const NET_FW_ACTION_ALLOW = 2
-			// https://msdn.microsoft.com/en-us/library/windows/desktop/aa366307(v=vs.85).aspx
-			const NET_FW_RULE_DIR_IN = 1
-
-			type firewall struct {
-				DisplayName string `json:"DisplayName"`
-				Direction   int    `json:"Direction"`
-				Action      int    `json:"Action"`
-			}
-
-			var f firewall
-			Expect(json.Unmarshal(output, &f)).To(Succeed())
-			Expect(f.DisplayName).To(Equal(networkConfig.NetworkName))
-			Expect(f.Direction).To(Equal(NET_FW_RULE_DIR_IN))
-			Expect(f.Action).To(Equal(NET_FW_ACTION_ALLOW))
-
-			getFilter := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s" | Get-NetFirewallAddressFilter | ConvertTo-Json`, networkConfig.NetworkName)
-			output, err = exec.Command("powershell.exe", "-Command", getFilter).CombinedOutput()
-			Expect(err).NotTo(HaveOccurred(), string(output))
-
-			ga := strings.Split(networkConfig.SubnetRange, "/")
-			Expect(len(ga)).To(Equal(2))
-
-			maskLen, err := strconv.Atoi(ga[1])
-			Expect(err).NotTo(HaveOccurred())
-
-			type addressFilter struct {
-				LocalIP  string `json:"LocalIP"`
-				RemoteIP string `json:"RemoteIP"`
-			}
-
-			var filter addressFilter
-			Expect(json.Unmarshal(output, &filter)).To(Succeed())
-
-			Expect(filter.RemoteIP).To(Equal(networkConfig.GatewayAddress))
-			Expect(filter.LocalIP).To(Equal(fmt.Sprintf("%s/%s", ga[0], ipMask(maskLen).String())))
-		})
-
 		Context("mtu is set in the config", func() {
 			BeforeEach(func() {
 				networkConfig.MTU = 1234
@@ -173,36 +126,6 @@ var _ = Describe("networking", func() {
 
 				Expect(virtualMTU).To(Equal(strconv.Itoa(networkConfig.MTU)))
 			})
-		})
-	})
-
-	Describe("Delete", func() {
-		BeforeEach(func() {
-			subnetRange, gatewayAddress = randomSubnetAddress()
-			networkConfig = network.Config{
-				SubnetRange:    subnetRange,
-				GatewayAddress: gatewayAddress,
-				NetworkName:    gatewayAddress,
-			}
-			createNetwork(networkConfig)
-		})
-
-		It("deletes the NAT network", func() {
-			deleteNetwork()
-			psCommand := fmt.Sprintf(`(Get-NetAdapter -name "vEthernet (%s)").InterfaceAlias`, networkConfig.NetworkName)
-			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
-			Expect(err).NotTo(HaveOccurred(), string(output))
-			expectedOutput := fmt.Sprintf("Get-NetAdapter : No MSFT_NetAdapter objects found with property 'Name' equal to 'vEthernet (%s)'", networkConfig.NetworkName)
-			Expect(strings.Replace(string(output), "\r\n", "", -1)).To(ContainSubstring(expectedOutput))
-		})
-
-		It("deletes the associated firewall rules", func() {
-			deleteNetwork()
-			getFirewallRule := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s"`, networkConfig.NetworkName)
-			output, err := exec.Command("powershell.exe", "-Command", getFirewallRule).CombinedOutput()
-			Expect(err).To(HaveOccurred())
-			expectedOutput := fmt.Sprintf(`Get-NetFirewallRule : No MSFT_NetFirewallRule objects found with property 'DisplayName' equal to '%s'`, networkConfig.NetworkName)
-			Expect(strings.Replace(string(output), "\r\n", "", -1)).To(ContainSubstring(expectedOutput))
 		})
 	})
 
@@ -224,11 +147,14 @@ var _ = Describe("networking", func() {
 			})
 
 			It("sets the host MTU in the container", func() {
-				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+				cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+				output, err := cmd.CombinedOutput()
+				Expect(err).ToNot(HaveOccurred(), string(output))
 
 				powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, gatewayAddress)
-				cmd := exec.Command("powershell.exe", "-Command", powershellCommand)
-				output, err := cmd.CombinedOutput()
+				cmd = exec.Command("powershell.exe", "-Command", powershellCommand)
+				output, err = cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred(), string(output))
 				hostMTU := strings.TrimSpace(string(output))
 
@@ -240,38 +166,40 @@ var _ = Describe("networking", func() {
 
 			Context("stdin contains a net in rule", func() {
 				var (
-					hostPort1      uint32
-					hostPort2      uint32
-					containerPort1 uint32
-					containerPort2 uint32
-					client         http.Client
+					containerPort1 int
+					containerPort2 int
 				)
 
 				BeforeEach(func() {
-					hostPort1 = 0
-					hostPort2 = uint32(randomPort())
-
 					containerPort1 = 12345
 					containerPort2 = 9876
-
-					client = *http.DefaultClient
-					client.Timeout = 5 * time.Second
 
 					pid := getContainerState(containerId).Pid
 					Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
 
-					cmd := exec.Command(wincBin, "exec", "-d", containerId, "c:\\server.exe", strconv.Itoa(int(containerPort1)))
+					cmd := exec.Command(wincBin, "exec", "-d", containerId, "c:\\server.exe", strconv.Itoa(containerPort1))
 					Expect(cmd.Run()).To(Succeed())
 
-					cmd = exec.Command(wincBin, "exec", "-d", containerId, "c:\\server.exe", strconv.Itoa(int(containerPort2)))
+					cmd = exec.Command(wincBin, "exec", "-d", containerId, "c:\\server.exe", strconv.Itoa(containerPort2))
 					Expect(cmd.Run()).To(Succeed())
 				})
 
 				It("generates the correct port mappings and binds them to the container", func() {
-					outputs := networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
+					hostPort1 := 0
+					hostPort2 := randomPort()
+					cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+					cmd.Stdin = strings.NewReader(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
+					output, err := cmd.CombinedOutput()
+					Expect(err).NotTo(HaveOccurred(), string(output))
+					var upOutput network.UpOutputs
+					Expect(json.Unmarshal(output, &upOutput)).To(Succeed())
 
-					mappedPorts := []netrules.PortMapping{}
-					Expect(json.Unmarshal([]byte(outputs.Properties.MappedPorts), &mappedPorts)).To(Succeed())
+					type portMapping struct {
+						HostPort      int
+						ContainerPort int
+					}
+					mappedPorts := []portMapping{}
+					Expect(json.Unmarshal([]byte(upOutput.Properties.MappedPorts), &mappedPorts)).To(Succeed())
 
 					Expect(len(mappedPorts)).To(Equal(2))
 
@@ -283,9 +211,8 @@ var _ = Describe("networking", func() {
 
 					hostPort1 = mappedPorts[0].HostPort
 
-					hostIp := outputs.Properties.ContainerIP
-
-					resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
+					hostIp := upOutput.Properties.ContainerIP
+					resp, err := http.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
 					Expect(err).NotTo(HaveOccurred())
 					defer resp.Body.Close()
 
@@ -293,45 +220,7 @@ var _ = Describe("networking", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
-					resp2, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort2))
-					Expect(err).NotTo(HaveOccurred())
-					defer resp2.Body.Close()
-
-					data, err = ioutil.ReadAll(resp2.Body)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
-				})
-
-				It("cannot listen on a port that is not exposed", func() {
-					networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d}]}`, uint32(randomPort()), 4444))
-
-					ep, err := hcsshim.GetHNSEndpointByName(containerId)
-					Expect(err).NotTo(HaveOccurred())
-
-					_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
-
-					_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
-					Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
-					Expect(err).To(HaveOccurred())
-				})
-
-				It("can hit a port on the container directly", func() {
-					networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
-
-					ep, err := hcsshim.GetHNSEndpointByName(containerId)
-					Expect(err).NotTo(HaveOccurred())
-
-					resp, err := client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
-					Expect(err).NotTo(HaveOccurred())
-					defer resp.Body.Close()
-
-					data, err := ioutil.ReadAll(resp.Body)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
-
-					resp2, err := client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
+					resp2, err := http.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort2))
 					Expect(err).NotTo(HaveOccurred())
 					defer resp2.Body.Close()
 
@@ -341,269 +230,81 @@ var _ = Describe("networking", func() {
 				})
 
 				It("creates the correct urlacl in the container", func() {
-					networkUp(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+					cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+					cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+					output, err := cmd.CombinedOutput()
+					Expect(err).NotTo(HaveOccurred(), string(output))
 
-					output, err := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User").CombinedOutput()
+					output, err = exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User").CombinedOutput()
 					Expect(err).NotTo(HaveOccurred(), string(output))
 					Expect(string(output)).To(ContainSubstring("BUILTIN\\Users"))
 				})
 
 				Context("stdin does not contain a port mapping request", func() {
-					It("cannot listen on any ports", func() {
-						networkUp(`{"Pid": 123, "Properties": {} }`)
-
-						ep, err := hcsshim.GetHNSEndpointByName(containerId)
-						Expect(err).NotTo(HaveOccurred())
-
-						_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort1))
-						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
-
-						_, err = client.Get(fmt.Sprintf("http://%s:%d", ep.IPAddress.String(), containerPort2))
-						Expect(err.Error()).To(ContainSubstring("request canceled while waiting for connection"))
-						Expect(err).To(HaveOccurred())
-					})
-
 					It("prints an empty list of mapped ports", func() {
-						outputs := networkUp(`{"Pid": 123, "Properties": {} }`)
+						cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+						cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} }`)
+						output, err := cmd.CombinedOutput()
+						Expect(err).NotTo(HaveOccurred(), string(output))
+						var upOutput network.UpOutputs
+						Expect(json.Unmarshal(output, &upOutput)).To(Succeed())
+						Expect(upOutput.Properties.MappedPorts).To(Equal("[]"))
 
-						Expect(outputs.Properties.MappedPorts).To(Equal("[]"))
-						Expect(outputs.Properties.DeprecatedHostIP).To(Equal("255.255.255.255"))
-
-						localIP, err := localip.LocalIP()
-						Expect(err).NotTo(HaveOccurred())
-						Expect(outputs.Properties.ContainerIP).To(Equal(localIP))
+						regex := `{"properties":{"garden\.network\.container-ip":"\d+\.\d+\.\d+\.\d+","garden\.network\.host-ip":"255\.255\.255\.255","garden\.network\.mapped-ports":"\[\]"}}`
+						Expect(string(output)).To(MatchRegexp(regex))
 					})
-				})
-			})
-
-			Context("stdin does not contain net out rules", func() {
-				BeforeEach(func() {
-					pid := getContainerState(containerId).Pid
-					Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
-				})
-
-				It("cannot resolve DNS", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
-
-					cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com")
-					output, err := cmd.CombinedOutput()
-					Expect(err).To(HaveOccurred(), string(output))
-					Expect(string(output)).To(ContainSubstring("lookup www.google.com: no such host"))
-				})
-
-				It("cannot connect to a remote host over TCP", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
-
-					cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53")
-					output, err := cmd.CombinedOutput()
-					Expect(err).To(HaveOccurred(), string(output))
-					errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
-					Expect(strings.TrimSpace(string(output))).To(Equal(errStr))
-				})
-
-				It("cannot connect to a remote host over UDP", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
-
-					cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53")
-					output, err := cmd.CombinedOutput()
-					Expect(err).To(HaveOccurred(), string(output))
-					Expect(string(output)).To(ContainSubstring("failed to exchange: read udp"))
-					Expect(string(output)).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
-				})
-
-				It("cannot connect to a remote host over ICMP", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
-
-					cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8")
-					output, err := cmd.CombinedOutput()
-					Expect(err).To(HaveOccurred(), string(output))
-					Expect(string(output)).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-					Expect(string(output)).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 				})
 			})
 
 			Context("stdin contains net out rules", func() {
-				var (
-					netOutRules []byte
-					netOutRule  netrules.NetOut
-				)
+				var containerIp string
 
 				BeforeEach(func() {
-					netOutRule = netrules.NetOut{
+					netOutRule := netrules.NetOut{
+						Protocol: netrules.ProtocolTCP,
 						Networks: []netrules.IPRange{
-							{Start: net.ParseIP("8.8.5.5"), End: net.ParseIP("9.0.0.0")},
+							netrules.IPRange{
+								Start: net.ParseIP("10.0.0.0"),
+								End:   net.ParseIP("13.0.0.0"),
+							},
 						},
-						Ports: []netrules.PortRange{{Start: 40, End: 60}},
+						Ports: []netrules.PortRange{
+							netrules.PortRange{
+								Start: 8080,
+								End:   8090,
+							},
+						},
 					}
+					netOutRuleStr, err := json.Marshal(&netOutRule)
+					Expect(err).NotTo(HaveOccurred())
 
-					pid := getContainerState(containerId).Pid
-					Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+					cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+					cmd.Stdin = strings.NewReader(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": [%s]}`, string(netOutRuleStr)))
+					output, err := cmd.CombinedOutput()
+					Expect(err).NotTo(HaveOccurred(), string(output))
+
+					containerIp = getContainerIp(containerId).String()
 				})
 
-				Context("netout allows udp", func() {
-					BeforeEach(func() {
-						var err error
-
-						netOutRule.Protocol = netrules.ProtocolUDP
-						netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("can connect to a remote host over UDP", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53")
-						output, err := cmd.CombinedOutput()
-						Expect(err).NotTo(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
-					})
-
-					It("cannot connect to a remote host over UDP prohibited by netout", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53")
-						output, err := cmd.CombinedOutput()
-						Expect(err).To(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("failed to exchange: read udp"))
-						Expect(string(output)).To(ContainSubstring("8.8.4.4:53: i/o timeout"))
-					})
-
-					Context("netout allows udp on port 53", func() {
-						BeforeEach(func() {
-							var err error
-
-							netOutRule.Networks = []netrules.IPRange{
-								{Start: net.ParseIP("0.0.0.0"), End: net.ParseIP("255.255.255.255")},
-							}
-
-							netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
-							Expect(err).NotTo(HaveOccurred())
-						})
-
-						It("can resolve DNS", func() {
-							networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-							cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com")
-							output, err := cmd.CombinedOutput()
-							Expect(err).NotTo(HaveOccurred(), string(output))
-							Expect(string(output)).To(ContainSubstring("found addr"))
-						})
-					})
-
+				AfterEach(func() {
+					Expect(exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", containerId).Run()).To(Succeed())
+					parsedCmd := fmt.Sprintf(`Get-NetFirewallAddressFilter | ?{$_.LocalAddress -eq "%s"}`, containerIp)
+					output, err := exec.Command("powershell.exe", "-Command", parsedCmd).CombinedOutput()
+					Expect(err).NotTo(HaveOccurred(), string(output))
+					Expect(string(output)).To(BeEmpty())
 				})
 
-				Context("netout allows tcp", func() {
-					BeforeEach(func() {
-						var err error
-
-						netOutRule.Protocol = netrules.ProtocolTCP
-						netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("can connect to a remote host over TCP", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53")
-						output, err := cmd.CombinedOutput()
-						Expect(err).NotTo(HaveOccurred(), string(output))
-						Expect(strings.TrimSpace(string(output))).To(Equal("connected to 8.8.8.8:53 over tcp"))
-					})
-
-					It("cannot connect to a remote server over TCP prohibited by netout", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53")
-						output, err := cmd.CombinedOutput()
-						Expect(err).To(HaveOccurred(), string(output))
-						errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
-						Expect(strings.TrimSpace(string(output))).To(Equal(errStr))
-					})
+				It("creates the correct firewall rule", func() {
+					var firewallRule struct {
+						Protocol   string `json:"Protocol"`
+						RemotePort string `json:"RemotePort"`
+						RemoteIP   string `json:"RemoteIP"`
+					}
+					getContainerFirewallRule(containerIp, &firewallRule)
+					Expect(strings.ToUpper(firewallRule.Protocol)).To(Equal("TCP"))
+					Expect(firewallRule.RemoteIP).To(Equal("10.0.0.0-13.0.0.0"))
+					Expect(firewallRule.RemotePort).To(Equal("8080-8090"))
 				})
-
-				Context("netout allows icmp", func() {
-					BeforeEach(func() {
-						var err error
-
-						netOutRule.Protocol = netrules.ProtocolICMP
-						netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("can connect to a remote host over ICMP", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8")
-						output, err := cmd.CombinedOutput()
-						Expect(err).NotTo(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-						Expect(string(output)).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
-					})
-
-					It("cannot connect to a remote host over ICMP prohibited by netout", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4")
-						output, err := cmd.CombinedOutput()
-						Expect(err).To(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("Ping statistics for 8.8.4.4"))
-						Expect(string(output)).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
-					})
-				})
-
-				Context("netout allows all", func() {
-					BeforeEach(func() {
-						var err error
-
-						netOutRule.Protocol = netrules.ProtocolAll
-						netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
-						Expect(err).NotTo(HaveOccurred())
-					})
-
-					It("allows access over all protocols to valid remote hosts", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53")
-						output, err := cmd.CombinedOutput()
-						Expect(err).NotTo(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
-
-						cmd = exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53")
-						output, err = cmd.CombinedOutput()
-						Expect(err).NotTo(HaveOccurred(), string(output))
-						Expect(strings.TrimSpace(string(output))).To(Equal("connected to 8.8.8.8:53 over tcp"))
-
-						cmd = exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8")
-						output, err = cmd.CombinedOutput()
-						Expect(err).NotTo(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-						Expect(string(output)).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
-					})
-
-					It("blocks access over all protocols to prohibited remote hosts", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
-
-						cmd := exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53")
-						output, err := cmd.CombinedOutput()
-						Expect(err).To(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("failed to exchange: read udp"))
-						Expect(string(output)).To(ContainSubstring("8.8.4.4:53: i/o timeout"))
-
-						cmd = exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53")
-						output, err = cmd.CombinedOutput()
-						Expect(err).To(HaveOccurred(), string(output))
-						errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
-						Expect(strings.TrimSpace(string(output))).To(Equal(errStr))
-
-						cmd = exec.Command(wincBin, "exec", containerId, "c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4")
-						output, err = cmd.CombinedOutput()
-						Expect(err).To(HaveOccurred(), string(output))
-						Expect(string(output)).To(ContainSubstring("Ping statistics for 8.8.4.4"))
-						Expect(string(output)).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
-					})
-				})
-
 			})
 		})
 
@@ -625,10 +326,13 @@ var _ = Describe("networking", func() {
 			})
 
 			It("sets the network MTU on the internal container NIC", func() {
-				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
-
-				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
+				cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
 				output, err := cmd.CombinedOutput()
+				Expect(err).NotTo(HaveOccurred(), string(output))
+
+				cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`)
+				output, err = cmd.CombinedOutput()
 				Expect(err).NotTo(HaveOccurred(), string(output))
 				Expect(strings.TrimSpace(string(output))).To(Equal("1405"))
 			})
@@ -652,10 +356,13 @@ var _ = Describe("networking", func() {
 			})
 
 			It("uses those IP addresses as DNS servers", func() {
-				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
-
-				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`)
+				cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+				cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {} ,"netin": []}`)
 				output, err := cmd.CombinedOutput()
+				Expect(err).NotTo(HaveOccurred(), string(output))
+
+				cmd = exec.Command(wincBin, "exec", containerId, "powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`)
+				output, err = cmd.CombinedOutput()
 				Expect(err).NotTo(HaveOccurred(), string(output))
 				Expect(strings.TrimSpace(string(output))).To(Equal("1.1.1.1,2.2.2.2"))
 			})
@@ -676,7 +383,10 @@ var _ = Describe("networking", func() {
 			output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", networkConfigFile).CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output))
 
-			networkUp(`{"Pid": 123, "Properties": {}}`)
+			cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+			cmd.Stdin = strings.NewReader(`{"Pid": 123, "Properties": {}}`)
+			output, err = cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
 			Expect(len(allEndpoints(containerId))).To(Equal(1))
 		})
 
@@ -796,17 +506,6 @@ var _ = Describe("networking", func() {
 	})
 })
 
-func networkUp(input string) network.UpOutputs {
-	cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
-	cmd.Stdin = strings.NewReader(input)
-	output, err := cmd.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
-
-	var upOutput network.UpOutputs
-	Expect(json.Unmarshal(output, &upOutput)).To(Succeed())
-	return upOutput
-}
-
 func createNetwork(config network.Config, extraArgs ...string) {
 	c, err := json.Marshal(config)
 	Expect(err).NotTo(HaveOccurred())
@@ -914,17 +613,7 @@ func randomSubnetAddress() (string, string) {
 
 func randomValidSubnetAddress() (string, string) {
 	randomOctet := rand.Intn(256)
-	gatewayAddress := fmt.Sprintf("172.16.%d.1", randomOctet)
-	subnet := fmt.Sprintf("172.16.%d.0/30", randomOctet)
+	gatewayAddress := fmt.Sprintf("172.0.%d.1", randomOctet)
+	subnet := fmt.Sprintf("172.0.%d.0/30", randomOctet)
 	return subnet, gatewayAddress
-}
-
-func ipMask(maskLen int) net.IP {
-	mask := net.CIDRMask(maskLen, 32)
-	return net.IPv4(
-		mask[0],
-		mask[1],
-		mask[2],
-		mask[3],
-	)
 }

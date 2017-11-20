@@ -27,7 +27,7 @@
 
 [[constraint]]
   name = "github.com/Microsoft/hcsshim"
-  revision = "33793492662087369cf96403be23a1ec8360f7dd"
+  version = "0.6.6"
 
 [[constraint]]
   branch = "master"
@@ -64,7 +64,3 @@
 [[constraint]]
   branch = "master"
   name = "golang.org/x/text"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/miekg/dns"

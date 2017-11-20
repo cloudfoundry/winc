@@ -22,7 +22,6 @@ var _ = Describe("NetworkManager", func() {
 		netRuleApplier  *networkfakes.FakeNetRuleApplier
 		hcsClient       *networkfakes.FakeHCSClient
 		endpointManager *networkfakes.FakeEndpointManager
-		netShRunner     *networkfakes.FakeNetShRunner
 		config          network.Config
 		hnsNetwork      *hcsshim.HNSNetwork
 	)
@@ -31,16 +30,14 @@ var _ = Describe("NetworkManager", func() {
 		hcsClient = &networkfakes.FakeHCSClient{}
 		netRuleApplier = &networkfakes.FakeNetRuleApplier{}
 		endpointManager = &networkfakes.FakeEndpointManager{}
-		netShRunner = &networkfakes.FakeNetShRunner{}
-
 		config = network.Config{
 			MTU:            1434,
-			SubnetRange:    "123.45.0.0/32",
+			SubnetRange:    "123.45.0.0/67",
 			GatewayAddress: "123.45.0.1",
 			NetworkName:    "unit-test-name",
 		}
 
-		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, netShRunner, containerId, config)
+		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -59,22 +56,17 @@ var _ = Describe("NetworkManager", func() {
 			Expect(hcsClient.CreateNetworkCallCount()).To(Equal(1))
 			net := hcsClient.CreateNetworkArgsForCall(0)
 			Expect(net.Name).To(Equal("unit-test-name"))
-			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/32", GatewayAddress: "123.45.0.1"}))
+			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
 
 			Expect(netRuleApplier.NatMTUCallCount()).To(Equal(1))
 			Expect(netRuleApplier.NatMTUArgsForCall(0)).To(Equal(1434))
-
-			Expect(netShRunner.RunHostCallCount()).To(Equal(1))
-			Expect(netShRunner.RunHostArgsForCall(0)).To(Equal(
-				[]string{"advfirewall", "firewall", "add", "rule", "name=unit-test-name", "dir=in", "action=allow", "localip=123.45.0.0/32", "remoteip=123.45.0.1"},
-			))
 		})
 
 		Context("the network already exists with the correct values", func() {
 			BeforeEach(func() {
 				hnsNetwork = &hcsshim.HNSNetwork{
 					Name:    "unit-test-name",
-					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.45.0.0/32", GatewayAddress: "123.45.0.1"}},
+					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}},
 				}
 				hcsClient.GetHNSNetworkByNameReturns(hnsNetwork, nil)
 			})
@@ -92,7 +84,7 @@ var _ = Describe("NetworkManager", func() {
 			BeforeEach(func() {
 				hnsNetwork = &hcsshim.HNSNetwork{
 					Name:    "unit-test-name",
-					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.89.0.0/32", GatewayAddress: "123.45.0.1"}},
+					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.89.0.0/67", GatewayAddress: "123.45.0.1"}},
 				}
 				hcsClient.GetHNSNetworkByNameReturns(hnsNetwork, nil)
 			})
@@ -107,7 +99,7 @@ var _ = Describe("NetworkManager", func() {
 			BeforeEach(func() {
 				hnsNetwork = &hcsshim.HNSNetwork{
 					Name:    "unit-test-name",
-					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.45.0.0/32", GatewayAddress: "123.45.67.89"}},
+					Subnets: []hcsshim.Subnet{{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.67.89"}},
 				}
 				hcsClient.GetHNSNetworkByNameReturns(hnsNetwork, nil)
 			})
@@ -166,11 +158,6 @@ var _ = Describe("NetworkManager", func() {
 
 			Expect(hcsClient.DeleteNetworkCallCount()).To(Equal(1))
 			Expect(hcsClient.DeleteNetworkArgsForCall(0)).To(Equal(hnsNetwork))
-
-			Expect(netShRunner.RunHostCallCount()).To(Equal(1))
-			Expect(netShRunner.RunHostArgsForCall(0)).To(Equal(
-				[]string{"advfirewall", "firewall", "delete", "rule", "name=unit-test-name"},
-			))
 		})
 
 		Context("the network does not exist", func() {
@@ -203,10 +190,8 @@ var _ = Describe("NetworkManager", func() {
 			inputs          network.UpInputs
 			createdEndpoint hcsshim.HNSEndpoint
 			localIP         string
-			natPolicy1      *hcsshim.NatPolicy
-			natPolicy2      *hcsshim.NatPolicy
-			aclPolicy1      *hcsshim.ACLPolicy
-			aclPolicy2      *hcsshim.ACLPolicy
+			policy1         hcsshim.NatPolicy
+			policy2         hcsshim.NatPolicy
 		)
 
 		BeforeEach(func() {
@@ -228,16 +213,13 @@ var _ = Describe("NetworkManager", func() {
 				},
 			}
 
-			natPolicy1 = &hcsshim.NatPolicy{ExternalPort: 111, InternalPort: 666}
-			natPolicy2 = &hcsshim.NatPolicy{ExternalPort: 222, InternalPort: 888}
+			policy1 = hcsshim.NatPolicy{ExternalPort: 111, InternalPort: 666}
+			policy2 = hcsshim.NatPolicy{ExternalPort: 222, InternalPort: 888}
 
-			aclPolicy1 = &hcsshim.ACLPolicy{LocalPort: 666}
-			aclPolicy2 = &hcsshim.ACLPolicy{LocalPort: 888}
+			netRuleApplier.InReturnsOnCall(0, policy1, nil)
+			netRuleApplier.InReturnsOnCall(1, policy2, nil)
 
-			netRuleApplier.InReturnsOnCall(0, natPolicy1, aclPolicy1, nil)
-			netRuleApplier.InReturnsOnCall(1, natPolicy2, aclPolicy2, nil)
-
-			endpointManager.CreateReturns(nil)
+			endpointManager.CreateReturns(createdEndpoint, nil)
 		})
 
 		It("creates an endpoint with the port mappings, applies net out and mtu, and returns the up outputs", func() {
@@ -249,16 +231,16 @@ var _ = Describe("NetworkManager", func() {
 			Expect(output.Properties.MappedPorts).To(Equal(`[{"HostPort":111,"ContainerPort":666},{"HostPort":222,"ContainerPort":888}]`))
 
 			Expect(endpointManager.CreateCallCount()).To(Equal(1))
-			natPolicies, aclPolicies := endpointManager.CreateArgsForCall(0)
-			Expect(natPolicies).To(Equal([]*hcsshim.NatPolicy{natPolicy1, natPolicy2}))
-			Expect(aclPolicies).To(Equal([]*hcsshim.ACLPolicy{aclPolicy1, aclPolicy2}))
+			Expect(endpointManager.CreateArgsForCall(0)).To(Equal([]hcsshim.NatPolicy{policy1, policy2}))
 
 			Expect(netRuleApplier.OutCallCount()).To(Equal(2))
-			rule := netRuleApplier.OutArgsForCall(0)
+			rule, ep := netRuleApplier.OutArgsForCall(0)
 			Expect(rule).To(Equal(netrules.NetOut{Protocol: 7}))
+			Expect(ep).To(Equal(createdEndpoint))
 
-			rule = netRuleApplier.OutArgsForCall(1)
+			rule, ep = netRuleApplier.OutArgsForCall(1)
 			Expect(rule).To(Equal(netrules.NetOut{Protocol: 8}))
+			Expect(ep).To(Equal(createdEndpoint))
 
 			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
 			mtu := netRuleApplier.ContainerMTUArgsForCall(0)
@@ -267,7 +249,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net in fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.InReturnsOnCall(0, nil, nil, errors.New("couldn't allocate port"))
+				netRuleApplier.InReturnsOnCall(0, hcsshim.NatPolicy{}, errors.New("couldn't allocate port"))
 			})
 
 			It("cleans up allocated ports", func() {
@@ -279,7 +261,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("endpoint create fails", func() {
 			BeforeEach(func() {
-				endpointManager.CreateReturns(errors.New("couldn't create endpoint"))
+				endpointManager.CreateReturns(hcsshim.HNSEndpoint{}, errors.New("couldn't create endpoint"))
 			})
 
 			It("cleans up allocated ports", func() {
@@ -291,12 +273,12 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net out fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.OutReturns(nil, errors.New("some error"))
+				netRuleApplier.OutReturns(errors.New("couldn't set firewall rules"))
 			})
 
 			It("cleans up allocated ports, firewall rules and deletes the endpoint", func() {
 				_, err := networkManager.Up(inputs)
-				Expect(err).To(MatchError("some error"))
+				Expect(err).To(MatchError("couldn't set firewall rules"))
 				Expect(netRuleApplier.CleanupCallCount()).To(Equal(1))
 				Expect(endpointManager.DeleteCallCount()).To(Equal(1))
 			})

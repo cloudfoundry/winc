@@ -118,8 +118,3 @@ func (c *Client) HotAttachEndpoint(containerID string, endpointID string) error 
 func (c *Client) HotDetachEndpoint(containerID string, endpointID string) error {
 	return hcsshim.HotDetachEndpoint(containerID, endpointID)
 }
-
-func (c *Client) ApplyACLPolicy(endpoint *hcsshim.HNSEndpoint, aclPolicies ...*hcsshim.ACLPolicy) error {
-	return endpoint.ApplyACLPolicy(aclPolicies...)
-}
-

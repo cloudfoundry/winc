@@ -44,108 +44,66 @@ func NewApplier(netSh NetShRunner, containerId string, networkName string, portA
 	}
 }
 
-func (a *Applier) In(rule NetIn) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error) {
+func (a *Applier) In(rule NetIn) (hcsshim.NatPolicy, error) {
 	externalPort := uint16(rule.HostPort)
 
 	if externalPort == 0 {
 		allocatedPort, err := a.portAllocator.AllocatePort(a.containerId, 0)
 		if err != nil {
-			return nil, nil, err
+			return hcsshim.NatPolicy{}, err
 		}
 		externalPort = uint16(allocatedPort)
 	}
 
 	if err := a.openPort(rule.ContainerPort); err != nil {
-		return nil, nil, err
+		return hcsshim.NatPolicy{}, err
 	}
 
-	natPolicy := &hcsshim.NatPolicy{
-		Type:         hcsshim.Nat,
+	return hcsshim.NatPolicy{
+		Type:         "NAT",
 		Protocol:     "TCP",
 		InternalPort: uint16(rule.ContainerPort),
 		ExternalPort: externalPort,
-	}
-
-	aclPolicy := &hcsshim.ACLPolicy{
-		Type:      hcsshim.ACL,
-		Protocol:  WindowsProtocolTCP,
-		LocalPort: uint16(rule.ContainerPort),
-		Action:    hcsshim.Allow,
-		Direction: hcsshim.In,
-	}
-
-	return natPolicy, aclPolicy, nil
+	}, nil
 }
 
-func (a *Applier) Out(rule NetOut) ([]*hcsshim.ACLPolicy, error) {
-	aclPolicies := []*hcsshim.ACLPolicy{}
-	ipCIDRs := []string{}
-
-	for _, ipRange := range rule.Networks {
-		ipCIDRs = append(ipCIDRs, IPRangeToCIDRs(ipRange)...)
+func (a *Applier) Out(rule NetOut, endpoint hcsshim.HNSEndpoint) error {
+	netShArgs := []string{
+		"advfirewall", "firewall", "add", "rule",
+		fmt.Sprintf(`name="%s"`, a.containerId),
+		"dir=out",
+		"action=allow",
+		fmt.Sprintf("localip=%s", endpoint.IPAddress.String()),
+		fmt.Sprintf("remoteip=%s", firewallRuleIPRange(rule.Networks)),
 	}
 
-	if len(rule.Ports) == 0 {
-		rule.Ports = []PortRange{{Start: 0, End: 0}}
+	var protocol string
+	switch rule.Protocol {
+	case ProtocolTCP:
+		protocol = "TCP"
+		netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", firewallRulePortRange(rule.Ports)))
+	case ProtocolUDP:
+		protocol = "UDP"
+		netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", firewallRulePortRange(rule.Ports)))
+	case ProtocolICMP:
+		protocol = "ICMP"
+	case ProtocolAll:
+		protocol = "ANY"
+	default:
 	}
 
-	if len(ipCIDRs) == 0 {
-		ipCIDRs = []string{""}
+	if protocol == "ICMP" {
+		return nil
 	}
 
-	for _, cidr := range ipCIDRs {
-		if cidr == "0.0.0.0/0" {
-			cidr = ""
-		}
-
-		for _, ports := range rule.Ports {
-			for port := ports.Start; port <= ports.End; port++ {
-				policy := &hcsshim.ACLPolicy{
-					Type:            hcsshim.ACL,
-					Direction:       hcsshim.Out,
-					Action:          hcsshim.Allow,
-					RemoteAddresses: cidr,
-					RemotePort:      port,
-				}
-				policies := []*hcsshim.ACLPolicy{policy}
-
-				switch rule.Protocol {
-				case ProtocolTCP:
-					policy.Protocol = WindowsProtocolTCP
-				case ProtocolUDP:
-					policy.Protocol = WindowsProtocolUDP
-				case ProtocolICMP:
-					policy.Protocol = WindowsProtocolICMP
-					policy.RemotePort = 0
-				case ProtocolAll:
-					policy.Protocol = WindowsProtocolTCP
-					policyUDP := &hcsshim.ACLPolicy{
-						Type:            hcsshim.ACL,
-						Direction:       hcsshim.Out,
-						Action:          hcsshim.Allow,
-						RemoteAddresses: cidr,
-						RemotePort:      port,
-						Protocol:        WindowsProtocolUDP,
-					}
-
-					policyICMP := &hcsshim.ACLPolicy{
-						Type:            hcsshim.ACL,
-						Direction:       hcsshim.Out,
-						Action:          hcsshim.Allow,
-						RemoteAddresses: cidr,
-						Protocol:        WindowsProtocolICMP,
-					}
-					policies = append(policies, policyUDP, policyICMP)
-
-				default:
-					return nil, fmt.Errorf("invalid protocol: %d", rule.Protocol)
-				}
-				aclPolicies = append(aclPolicies, policies...)
-			}
-		}
+	if protocol == "" {
+		return fmt.Errorf("invalid protocol: %d", rule.Protocol)
 	}
 
-	return aclPolicies, nil
+	netShArgs = append(netShArgs, fmt.Sprintf("protocol=%s", protocol))
+
+	_, err := a.netSh.RunHost(netShArgs)
+	return err
 }
 
 func (a *Applier) ContainerMTU(mtu int) error {
@@ -189,5 +147,26 @@ func (a *Applier) openPort(port uint32) error {
 }
 
 func (a *Applier) Cleanup() error {
-	return a.portAllocator.ReleaseAllPorts(a.containerId)
+	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.containerId)
+
+	existsArgs := []string{"advfirewall", "firewall", "show", "rule", fmt.Sprintf(`name="%s"`, a.containerId)}
+	_, err := a.netSh.RunHost(existsArgs)
+	if err != nil {
+		return portReleaseErr
+	}
+
+	deleteArgs := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name="%s"`, a.containerId)}
+	_, deleteErr := a.netSh.RunHost(deleteArgs)
+
+	if portReleaseErr != nil && deleteErr != nil {
+		return fmt.Errorf("%s, %s", portReleaseErr.Error(), deleteErr.Error())
+	}
+	if portReleaseErr != nil {
+		return portReleaseErr
+	}
+	if deleteErr != nil {
+		return deleteErr
+	}
+
+	return nil
 }

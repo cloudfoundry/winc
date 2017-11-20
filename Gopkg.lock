@@ -16,19 +16,14 @@
 [[projects]]
   name = "github.com/Microsoft/hcsshim"
   packages = ["."]
-  revision = "33793492662087369cf96403be23a1ec8360f7dd"
+  revision = "7db05c0f1e17f2d6a1fc2b3bddb2e39ed30804e8"
+  version = "v0.6.6"
 
 [[projects]]
   name = "github.com/blang/semver"
   packages = ["."]
   revision = "2ee87856327ba09384cabd113bc6b5d174e9ec0f"
   version = "v3.5.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/miekg/dns"
-  packages = [".","internal/socket"]
-  revision = "a5852667e3c36e2e0b0a69ab43869e00e95aacdf"
 
 [[projects]]
   branch = "master"
@@ -109,6 +104,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2551e179794b8c4c69a4411f7a2e134880c4c133c9594cdde107324deaac7952"
+  inputs-digest = "16d154fdeabb658580048d67b499ab09f8b3a0da5f4b462dfcddaeb01d389a62"
   solver-name = "gps-cdcl"
   solver-version = 1
