@@ -27,6 +27,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/miekg/dns"
+  packages = [".","internal/socket"]
+  revision = "7994cb36eaf858ccb42fe26da404c345eca1d62d"
+
+[[projects]]
+  branch = "master"
   name = "github.com/mitchellh/go-ps"
   packages = ["."]
   revision = "4fdf99ab29366514c69ccccddab5dc58b8d84062"
@@ -104,6 +110,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "16d154fdeabb658580048d67b499ab09f8b3a0da5f4b462dfcddaeb01d389a62"
+  inputs-digest = "c2aaddbdde01cc9dfc4813169fd2211bb80764d60855058cbb95dcf41beea970"
   solver-name = "gps-cdcl"
   solver-version = 1

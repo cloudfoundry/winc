@@ -3,6 +3,7 @@ package network_test
 import (
 	"errors"
 	"io/ioutil"
+	"net"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
@@ -189,9 +190,10 @@ var _ = Describe("NetworkManager", func() {
 		var (
 			inputs          network.UpInputs
 			createdEndpoint hcsshim.HNSEndpoint
+			containerIP     net.IP
 			localIP         string
-			policy1         hcsshim.NatPolicy
-			policy2         hcsshim.NatPolicy
+			mapping1        netrules.PortMapping
+			mapping2        netrules.PortMapping
 		)
 
 		BeforeEach(func() {
@@ -199,7 +201,11 @@ var _ = Describe("NetworkManager", func() {
 			localIP, err = localip.LocalIP()
 			Expect(err).NotTo(HaveOccurred())
 
-			createdEndpoint = hcsshim.HNSEndpoint{}
+			containerIP = net.ParseIP("111.222.33.44")
+
+			createdEndpoint = hcsshim.HNSEndpoint{
+				IPAddress: containerIP,
+			}
 
 			inputs = network.UpInputs{
 				Pid: 1234,
@@ -213,16 +219,16 @@ var _ = Describe("NetworkManager", func() {
 				},
 			}
 
-			policy1 = hcsshim.NatPolicy{ExternalPort: 111, InternalPort: 666}
-			policy2 = hcsshim.NatPolicy{ExternalPort: 222, InternalPort: 888}
+			mapping1 = netrules.PortMapping{HostPort: 111, ContainerPort: 666}
+			mapping2 = netrules.PortMapping{HostPort: 222, ContainerPort: 888}
 
-			netRuleApplier.InReturnsOnCall(0, policy1, nil)
-			netRuleApplier.InReturnsOnCall(1, policy2, nil)
+			netRuleApplier.InReturnsOnCall(0, mapping1, nil)
+			netRuleApplier.InReturnsOnCall(1, mapping2, nil)
 
 			endpointManager.CreateReturns(createdEndpoint, nil)
 		})
 
-		It("creates an endpoint with the port mappings, applies net out and mtu, and returns the up outputs", func() {
+		It("creates an endpoint, applies net in, applies net out, handles mtu, and returns the up outputs", func() {
 			output, err := networkManager.Up(inputs)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -231,16 +237,29 @@ var _ = Describe("NetworkManager", func() {
 			Expect(output.Properties.MappedPorts).To(Equal(`[{"HostPort":111,"ContainerPort":666},{"HostPort":222,"ContainerPort":888}]`))
 
 			Expect(endpointManager.CreateCallCount()).To(Equal(1))
-			Expect(endpointManager.CreateArgsForCall(0)).To(Equal([]hcsshim.NatPolicy{policy1, policy2}))
+
+			Expect(netRuleApplier.InCallCount()).To(Equal(2))
+			inRule, ip := netRuleApplier.InArgsForCall(0)
+			Expect(inRule).To(Equal(netrules.NetIn{HostPort: 0, ContainerPort: 666}))
+			Expect(ip).To(Equal(containerIP.String()))
+
+			inRule, ip = netRuleApplier.InArgsForCall(1)
+			Expect(inRule).To(Equal(netrules.NetIn{HostPort: 0, ContainerPort: 888}))
+			Expect(ip).To(Equal(containerIP.String()))
 
 			Expect(netRuleApplier.OutCallCount()).To(Equal(2))
-			rule, ep := netRuleApplier.OutArgsForCall(0)
-			Expect(rule).To(Equal(netrules.NetOut{Protocol: 7}))
-			Expect(ep).To(Equal(createdEndpoint))
+			outRule, ip := netRuleApplier.OutArgsForCall(0)
+			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 7}))
+			Expect(ip).To(Equal(containerIP.String()))
 
-			rule, ep = netRuleApplier.OutArgsForCall(1)
-			Expect(rule).To(Equal(netrules.NetOut{Protocol: 8}))
+			outRule, ip = netRuleApplier.OutArgsForCall(1)
+			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 8}))
+			Expect(ip).To(Equal(containerIP.String()))
+
+			Expect(endpointManager.ApplyMappingsCallCount()).To(Equal(1))
+			ep, mappings := endpointManager.ApplyMappingsArgsForCall(0)
 			Expect(ep).To(Equal(createdEndpoint))
+			Expect(mappings).To(Equal([]netrules.PortMapping{mapping1, mapping2}))
 
 			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
 			mtu := netRuleApplier.ContainerMTUArgsForCall(0)
@@ -249,7 +268,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net in fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.InReturnsOnCall(0, hcsshim.NatPolicy{}, errors.New("couldn't allocate port"))
+				netRuleApplier.InReturnsOnCall(0, netrules.PortMapping{}, errors.New("couldn't allocate port"))
 			})
 
 			It("cleans up allocated ports", func() {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,7 @@ import (
 type HCSClient interface {
 	GetHNSNetworkByName(string) (*hcsshim.HNSNetwork, error)
 	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
+	UpdateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
 	GetHNSEndpointByID(string) (*hcsshim.HNSEndpoint, error)
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
@@ -21,39 +23,36 @@ type HCSClient interface {
 	HotDetachEndpoint(containerID string, endpointID string) error
 }
 
+//go:generate counterfeiter . Powershell
+type Powershell interface {
+	Run(command string) (string, error)
+}
+
 type EndpointManager struct {
 	hcsClient   HCSClient
+	powershell  Powershell
 	containerId string
 	config      network.Config
 }
 
-func NewEndpointManager(hcsClient HCSClient, containerId string, config network.Config) *EndpointManager {
+func NewEndpointManager(hcsClient HCSClient, powershell Powershell, containerId string, config network.Config) *EndpointManager {
 	return &EndpointManager{
 		hcsClient:   hcsClient,
+		powershell:  powershell,
 		containerId: containerId,
 		config:      config,
 	}
 }
 
-func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEndpoint, error) {
+func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 	network, err := e.hcsClient.GetHNSNetworkByName(e.config.NetworkName)
 	if err != nil {
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	policies := []json.RawMessage{}
-	for _, natPolicy := range natPolicies {
-		data, err := json.Marshal(natPolicy)
-		if err != nil {
-			return hcsshim.HNSEndpoint{}, err
-		}
-		policies = append(policies, data)
-	}
-
 	endpoint := &hcsshim.HNSEndpoint{
 		VirtualNetwork: network.Id,
 		Name:           e.containerId,
-		Policies:       policies,
 	}
 
 	if len(e.config.DNSServers) > 0 {
@@ -75,7 +74,45 @@ func (e *EndpointManager) Create(natPolicies []hcsshim.NatPolicy) (hcsshim.HNSEn
 		return hcsshim.HNSEndpoint{}, err
 	}
 
+	removeFirewallRule := fmt.Sprintf(`$id = (Get-NetCompartment | where {$_.CompartmentDescription -eq "\Container_%s"}).CompartmentId;  remove-NetFirewallRule -DisplayName "Compartment $id*"`, e.containerId)
+	if _, err := e.powershell.Run(removeFirewallRule); err != nil {
+		if _, err := e.hcsClient.DeleteEndpoint(createdEndpoint); err != nil {
+			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", createdEndpoint.Id, err.Error()))
+		}
+
+		return hcsshim.HNSEndpoint{}, err
+	}
+
 	return *createdEndpoint, nil
+}
+
+func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []netrules.PortMapping) (hcsshim.HNSEndpoint, error) {
+	var policies []json.RawMessage
+	if len(mappings) == 0 {
+		return endpoint, nil
+	}
+
+	for _, mapping := range mappings {
+		policy, err := json.Marshal(hcsshim.NatPolicy{
+			Type:         hcsshim.Nat,
+			Protocol:     "TCP",
+			InternalPort: uint16(mapping.ContainerPort),
+			ExternalPort: uint16(mapping.HostPort),
+		})
+		if err != nil {
+			return hcsshim.HNSEndpoint{}, err
+		}
+		policies = append(policies, policy)
+	}
+
+	endpoint.Policies = policies
+
+	updatedEndpoint, err := e.hcsClient.UpdateEndpoint(&endpoint)
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+
+	return *updatedEndpoint, nil
 }
 
 func (e *EndpointManager) Delete() error {

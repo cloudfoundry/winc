@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/localip"
-	"github.com/Microsoft/hcsshim"
 )
 
 //go:generate counterfeiter . NetShRunner
@@ -44,36 +43,50 @@ func NewApplier(netSh NetShRunner, containerId string, networkName string, portA
 	}
 }
 
-func (a *Applier) In(rule NetIn) (hcsshim.NatPolicy, error) {
-	externalPort := uint16(rule.HostPort)
+func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
+	externalPort := rule.HostPort
+	mapping := PortMapping{}
 
 	if externalPort == 0 {
 		allocatedPort, err := a.portAllocator.AllocatePort(a.containerId, 0)
 		if err != nil {
-			return hcsshim.NatPolicy{}, err
+			return mapping, err
 		}
-		externalPort = uint16(allocatedPort)
+		externalPort = uint32(allocatedPort)
+	}
+
+	netShArgs := []string{
+		"advfirewall", "firewall", "add", "rule",
+		fmt.Sprintf(`name="%s"`, a.containerId),
+		"dir=in",
+		"action=allow",
+		fmt.Sprintf("localip=%s", containerIP),
+		fmt.Sprintf("localport=%d", rule.ContainerPort),
+		"protocol=TCP",
+	}
+
+	_, err := a.netSh.RunHost(netShArgs)
+	if err != nil {
+		return mapping, err
 	}
 
 	if err := a.openPort(rule.ContainerPort); err != nil {
-		return hcsshim.NatPolicy{}, err
+		return mapping, err
 	}
 
-	return hcsshim.NatPolicy{
-		Type:         "NAT",
-		Protocol:     "TCP",
-		InternalPort: uint16(rule.ContainerPort),
-		ExternalPort: externalPort,
+	return PortMapping{
+		ContainerPort: rule.ContainerPort,
+		HostPort:      externalPort,
 	}, nil
 }
 
-func (a *Applier) Out(rule NetOut, endpoint hcsshim.HNSEndpoint) error {
+func (a *Applier) Out(rule NetOut, containerIP string) error {
 	netShArgs := []string{
 		"advfirewall", "firewall", "add", "rule",
 		fmt.Sprintf(`name="%s"`, a.containerId),
 		"dir=out",
 		"action=allow",
-		fmt.Sprintf("localip=%s", endpoint.IPAddress.String()),
+		fmt.Sprintf("localip=%s", containerIP),
 		fmt.Sprintf("remoteip=%s", firewallRuleIPRange(rule.Networks)),
 	}
 
@@ -86,14 +99,10 @@ func (a *Applier) Out(rule NetOut, endpoint hcsshim.HNSEndpoint) error {
 		protocol = "UDP"
 		netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", firewallRulePortRange(rule.Ports)))
 	case ProtocolICMP:
-		protocol = "ICMP"
+		protocol = "ICMPV4"
 	case ProtocolAll:
 		protocol = "ANY"
 	default:
-	}
-
-	if protocol == "ICMP" {
-		return nil
 	}
 
 	if protocol == "" {

@@ -8,14 +8,13 @@ import (
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/netrules/netrulesfakes"
-	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Applier", func() {
 	const containerId = "containerabc"
-	const endpointId = "1234-endpoint"
+	const containerIP = "5.4.3.2"
 	const networkName = "my-network"
 
 	var (
@@ -43,21 +42,31 @@ var _ = Describe("Applier", func() {
 			}
 		})
 
-		It("returns the correct NAT policy", func() {
-			policy, err := applier.In(netInRule)
+		It("creates the correct firewall rule on the host", func() {
+			_, err := applier.In(netInRule, containerIP)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedPolicy := hcsshim.NatPolicy{
-				Type:         "NAT",
-				InternalPort: 1000,
-				ExternalPort: 2000,
-				Protocol:     "TCP",
+			Expect(netSh.RunHostCallCount()).To(Equal(1))
+			expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
+				"dir=in", "action=allow", "localip=5.4.3.2",
+				"localport=1000",
+				"protocol=TCP"}
+			Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+		})
+
+		It("returns the correct port mapping", func() {
+			mapping, err := applier.In(netInRule, containerIP)
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedMapping := netrules.PortMapping{
+				ContainerPort: 1000,
+				HostPort:      2000,
 			}
-			Expect(policy).To(Equal(expectedPolicy))
+			Expect(mapping).To(Equal(expectedMapping))
 		})
 
 		It("opens the port inside the container", func() {
-			_, err := applier.In(netInRule)
+			_, err := applier.In(netInRule, containerIP)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(netSh.RunContainerCallCount()).To(Equal(1))
@@ -71,7 +80,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := applier.In(netInRule)
+				_, err := applier.In(netInRule, containerIP)
 				Expect(err).To(MatchError("couldn't exec netsh"))
 			})
 		})
@@ -86,16 +95,14 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("uses the port allocator to find an open host port", func() {
-				policy, err := applier.In(netInRule)
+				mapping, err := applier.In(netInRule, containerIP)
 				Expect(err).NotTo(HaveOccurred())
 
-				expectedPolicy := hcsshim.NatPolicy{
-					Type:         "NAT",
-					InternalPort: 1000,
-					ExternalPort: 1234,
-					Protocol:     "TCP",
+				expectedMapping := netrules.PortMapping{
+					ContainerPort: 1000,
+					HostPort:      1234,
 				}
-				Expect(policy).To(Equal(expectedPolicy))
+				Expect(mapping).To(Equal(expectedMapping))
 
 				Expect(portAllocator.AllocatePortCallCount()).To(Equal(1))
 				id, p := portAllocator.AllocatePortArgsForCall(0)
@@ -109,7 +116,7 @@ var _ = Describe("Applier", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := applier.In(netInRule)
+					_, err := applier.In(netInRule, containerIP)
 					Expect(err).To(MatchError("some-error"))
 				})
 			})
@@ -120,12 +127,7 @@ var _ = Describe("Applier", func() {
 		var (
 			protocol   netrules.Protocol
 			netOutRule netrules.NetOut
-			endpoint   hcsshim.HNSEndpoint
 		)
-
-		BeforeEach(func() {
-			endpoint.IPAddress = net.ParseIP("5.4.3.2")
-		})
 
 		JustBeforeEach(func() {
 			netOutRule = netrules.NetOut{
@@ -153,7 +155,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
+				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
 				Expect(netSh.RunHostCallCount()).To(Equal(1))
 				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
@@ -171,7 +173,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
+				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
 				Expect(netSh.RunHostCallCount()).To(Equal(1))
 				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
@@ -188,9 +190,15 @@ var _ = Describe("Applier", func() {
 				protocol = netrules.ProtocolICMP
 			})
 
-			It("ignores it", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
-				Expect(netSh.RunHostCallCount()).To(Equal(0))
+			It("creates the correct firewall rule on the host", func() {
+				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
+
+				Expect(netSh.RunHostCallCount()).To(Equal(1))
+				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
+					"dir=out", "action=allow", "localip=5.4.3.2",
+					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
+					"protocol=ICMPV4"}
+				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
 			})
 		})
 
@@ -200,7 +208,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(Succeed())
+				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
 				Expect(netSh.RunHostCallCount()).To(Equal(1))
 				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
@@ -217,7 +225,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(applier.Out(netOutRule, endpoint)).To(MatchError(errors.New("invalid protocol: 7")))
+				Expect(applier.Out(netOutRule, containerIP)).To(MatchError(errors.New("invalid protocol: 7")))
 				Expect(netSh.RunHostCallCount()).To(Equal(0))
 			})
 		})

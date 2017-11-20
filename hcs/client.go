@@ -83,6 +83,10 @@ func (c *Client) CreateEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndp
 	return endpoint.Create()
 }
 
+func (c *Client) UpdateEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
+	return endpoint.Update()
+}
+
 func (c *Client) DeleteEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
 	return endpoint.Delete()
 }

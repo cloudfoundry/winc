@@ -71,7 +71,7 @@ var _ = Describe("Netsh", func() {
 		})
 	})
 
-	Describe("RunContainer", func() {
+	Describe("RunHost", func() {
 		It("runs a netsh command on the host", func() {
 			output, err := runner.RunHost([]string{"interface", "show", "interface"})
 			Expect(err).NotTo(HaveOccurred())

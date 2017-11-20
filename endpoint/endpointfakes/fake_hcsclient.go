@@ -35,6 +35,19 @@ type FakeHCSClient struct {
 		result1 *hcsshim.HNSEndpoint
 		result2 error
 	}
+	UpdateEndpointStub        func(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
+	updateEndpointMutex       sync.RWMutex
+	updateEndpointArgsForCall []struct {
+		arg1 *hcsshim.HNSEndpoint
+	}
+	updateEndpointReturns struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}
+	updateEndpointReturnsOnCall map[int]struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}
 	GetHNSEndpointByIDStub        func(string) (*hcsshim.HNSEndpoint, error)
 	getHNSEndpointByIDMutex       sync.RWMutex
 	getHNSEndpointByIDArgsForCall []struct {
@@ -199,6 +212,57 @@ func (fake *FakeHCSClient) CreateEndpointReturnsOnCall(i int, result1 *hcsshim.H
 		})
 	}
 	fake.createEndpointReturnsOnCall[i] = struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeHCSClient) UpdateEndpoint(arg1 *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
+	fake.updateEndpointMutex.Lock()
+	ret, specificReturn := fake.updateEndpointReturnsOnCall[len(fake.updateEndpointArgsForCall)]
+	fake.updateEndpointArgsForCall = append(fake.updateEndpointArgsForCall, struct {
+		arg1 *hcsshim.HNSEndpoint
+	}{arg1})
+	fake.recordInvocation("UpdateEndpoint", []interface{}{arg1})
+	fake.updateEndpointMutex.Unlock()
+	if fake.UpdateEndpointStub != nil {
+		return fake.UpdateEndpointStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.updateEndpointReturns.result1, fake.updateEndpointReturns.result2
+}
+
+func (fake *FakeHCSClient) UpdateEndpointCallCount() int {
+	fake.updateEndpointMutex.RLock()
+	defer fake.updateEndpointMutex.RUnlock()
+	return len(fake.updateEndpointArgsForCall)
+}
+
+func (fake *FakeHCSClient) UpdateEndpointArgsForCall(i int) *hcsshim.HNSEndpoint {
+	fake.updateEndpointMutex.RLock()
+	defer fake.updateEndpointMutex.RUnlock()
+	return fake.updateEndpointArgsForCall[i].arg1
+}
+
+func (fake *FakeHCSClient) UpdateEndpointReturns(result1 *hcsshim.HNSEndpoint, result2 error) {
+	fake.UpdateEndpointStub = nil
+	fake.updateEndpointReturns = struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeHCSClient) UpdateEndpointReturnsOnCall(i int, result1 *hcsshim.HNSEndpoint, result2 error) {
+	fake.UpdateEndpointStub = nil
+	if fake.updateEndpointReturnsOnCall == nil {
+		fake.updateEndpointReturnsOnCall = make(map[int]struct {
+			result1 *hcsshim.HNSEndpoint
+			result2 error
+		})
+	}
+	fake.updateEndpointReturnsOnCall[i] = struct {
 		result1 *hcsshim.HNSEndpoint
 		result2 error
 	}{result1, result2}
@@ -462,6 +526,8 @@ func (fake *FakeHCSClient) Invocations() map[string][][]interface{} {
 	defer fake.getHNSNetworkByNameMutex.RUnlock()
 	fake.createEndpointMutex.RLock()
 	defer fake.createEndpointMutex.RUnlock()
+	fake.updateEndpointMutex.RLock()
+	defer fake.updateEndpointMutex.RUnlock()
 	fake.getHNSEndpointByIDMutex.RLock()
 	defer fake.getHNSEndpointByIDMutex.RUnlock()
 	fake.getHNSEndpointByNameMutex.RLock()

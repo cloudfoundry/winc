@@ -31,6 +31,7 @@ var (
 	wincNetworkBin string
 	wincImageBin   string
 	serverBin      string
+	netoutBin      string
 	rootfsPath     string
 	bundlePath     string
 )
@@ -71,6 +72,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	serverBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network/fixtures/server")
+	Expect(err).ToNot(HaveOccurred())
+
+	netoutBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network/fixtures/netout")
 	Expect(err).ToNot(HaveOccurred())
 })
 
