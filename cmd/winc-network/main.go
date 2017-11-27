@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/lib/serial"
 	"code.cloudfoundry.org/winc/netrules"
+	"code.cloudfoundry.org/winc/netrules/netinterface"
 	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
@@ -181,9 +182,9 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 		Locker:     locker,
 	}
 
-	netIfaceFinder := &netrules.NetInterface{}
+	netIface := &netinterface.NetInterface{}
 
-	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIfaceFinder)
+	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIface)
 	ps := powershell.NewPowershell()
 	endpointManager := endpoint.NewEndpointManager(hcsClient, ps, handle, config)
 

@@ -1,4 +1,4 @@
-package netrules_test
+package netinterface_test
 
 import (
 	"encoding/json"
@@ -6,16 +6,16 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/localip"
-	"code.cloudfoundry.org/winc/netrules"
+	"code.cloudfoundry.org/winc/netrules/netinterface"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("NetInterface", func() {
-	var netIfaceFinder *netrules.NetInterface
+	var netIface *netinterface.NetInterface
 
 	BeforeEach(func() {
-		netIfaceFinder = &netrules.NetInterface{}
+		netIface = &netinterface.NetInterface{}
 	})
 
 	Describe("ByIP", func() {
@@ -23,7 +23,7 @@ var _ = Describe("NetInterface", func() {
 			hostIPStr, err := localip.LocalIP()
 			Expect(err).To(Succeed())
 
-			iface, err := netIfaceFinder.ByIP(hostIPStr)
+			iface, err := netIface.ByIP(hostIPStr)
 			Expect(err).To(Succeed())
 			output, err := exec.Command("powershell.exe", "-Command", "(Get-NetAdapter -Physical) | Select-Object MacAddress,Name | ConvertTo-Json").CombinedOutput()
 			Expect(err).To(Succeed())
@@ -38,7 +38,7 @@ var _ = Describe("NetInterface", func() {
 		})
 		Context("when no physical adapter was found", func() {
 			It("returns a descriptive error", func() {
-				_, err := netIfaceFinder.ByIP("1.1.1.1")
+				_, err := netIface.ByIP("1.1.1.1")
 				Expect(err).To(MatchError("unable to find interface for IP: 1.1.1.1"))
 			})
 		})

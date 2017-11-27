@@ -116,7 +116,7 @@ var _ = Describe("networking", func() {
 
 		Context("mtu is set in the config", func() {
 			BeforeEach(func() {
-				networkConfig.MTU = 1234
+				networkConfig.MTU = 1400
 			})
 
 			It("creates the network with the configured mtu", func() {

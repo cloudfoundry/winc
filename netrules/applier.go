@@ -19,27 +19,28 @@ type PortAllocator interface {
 	ReleaseAllPorts(handle string) error
 }
 
-//go:generate counterfeiter . NetIfaceFinder
-type NetIfaceFinder interface {
+//go:generate counterfeiter . NetInterface
+type NetInterface interface {
 	ByName(string) (*net.Interface, error)
 	ByIP(string) (*net.Interface, error)
+	SetMTU(string, int) error
 }
 
 type Applier struct {
-	netSh          NetShRunner
-	containerId    string
-	networkName    string
-	portAllocator  PortAllocator
-	netIfaceFinder NetIfaceFinder
+	netSh         NetShRunner
+	containerId   string
+	networkName   string
+	portAllocator PortAllocator
+	netInterface  NetInterface
 }
 
-func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator, netIfaceFinder NetIfaceFinder) *Applier {
+func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator, netInterface NetInterface) *Applier {
 	return &Applier{
-		netSh:          netSh,
-		containerId:    containerId,
-		networkName:    networkName,
-		portAllocator:  portAllocator,
-		netIfaceFinder: netIfaceFinder,
+		netSh:         netSh,
+		containerId:   containerId,
+		networkName:   networkName,
+		portAllocator: portAllocator,
+		netInterface:  netInterface,
 	}
 }
 
@@ -117,17 +118,15 @@ func (a *Applier) Out(rule NetOut, containerIP string) error {
 
 func (a *Applier) ContainerMTU(mtu int) error {
 	if mtu == 0 {
-		iface, err := a.netIfaceFinder.ByName(fmt.Sprintf("vEthernet (%s)", a.networkName))
+		iface, err := a.netInterface.ByName(fmt.Sprintf("vEthernet (%s)", a.networkName))
 		if err != nil {
 			return err
 		}
 		mtu = iface.MTU
 	}
 
-	interfaceId := fmt.Sprintf(`"vEthernet (%s)"`, a.containerId)
-	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
-
-	return a.netSh.RunContainer(args)
+	interfaceAlias := fmt.Sprintf("vEthernet (%s)", a.containerId)
+	return a.netInterface.SetMTU(interfaceAlias, mtu)
 }
 
 func (a *Applier) NatMTU(mtu int) error {
@@ -136,18 +135,15 @@ func (a *Applier) NatMTU(mtu int) error {
 		if err != nil {
 			return err
 		}
-		iface, err := a.netIfaceFinder.ByIP(hostIP)
+		iface, err := a.netInterface.ByIP(hostIP)
 		if err != nil {
 			return err
 		}
 		mtu = iface.MTU
 	}
 
-	interfaceId := fmt.Sprintf(`vEthernet (%s)`, a.networkName)
-	args := []string{"interface", "ipv4", "set", "subinterface", interfaceId, fmt.Sprintf("mtu=%d", mtu), "store=persistent"}
-
-	_, err := a.netSh.RunHost(args)
-	return err
+	interfaceId := fmt.Sprintf("vEthernet (%s)", a.networkName)
+	return a.netInterface.SetMTU(interfaceId, mtu)
 }
 
 func (a *Applier) openPort(port uint32) error {

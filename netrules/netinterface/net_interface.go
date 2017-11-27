@@ -1,8 +1,9 @@
-package netrules
+package netinterface
 
 import (
 	"fmt"
 	"net"
+	"os/exec"
 )
 
 type NetInterface struct{}
@@ -37,4 +38,12 @@ func (n *NetInterface) ByIP(ipStr string) (*net.Interface, error) {
 		}
 	}
 	return nil, fmt.Errorf("unable to find interface for IP: %s", ipStr)
+}
+
+func (n *NetInterface) SetMTU(alias string, mtu int) error {
+	output, err := exec.Command("powershell.exe", "-command", fmt.Sprintf(`$index = (Get-NetIPInterface -Includeallcompartments -interfaceAlias "%s").ifIndex; set-netipinterface -includeallcompartments -ifindex $index -nlmtubytes %d`, alias, mtu)).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("unable to set MTU. \n error: %s \n output: %s", err.Error(), string(output))
+	}
+	return nil
 }
