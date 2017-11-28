@@ -27,18 +27,18 @@ var _ = Describe("EndpointManager", func() {
 	var (
 		endpointManager *endpoint.EndpointManager
 		hcsClient       *endpointfakes.FakeHCSClient
-		powershell      *endpointfakes.FakePowershell
+		netsh           *endpointfakes.FakeNetShRunner
 	)
 
 	BeforeEach(func() {
 		hcsClient = &endpointfakes.FakeHCSClient{}
-		powershell = &endpointfakes.FakePowershell{}
+		netsh = &endpointfakes.FakeNetShRunner{}
 		config := network.Config{
 			NetworkName: networkName,
 			DNSServers:  []string{"1.1.1.1", "2.2.2.2"},
 		}
 
-		endpointManager = endpoint.NewEndpointManager(hcsClient, powershell, containerId, config)
+		endpointManager = endpoint.NewEndpointManager(hcsClient, netsh, containerId, config)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -47,6 +47,11 @@ var _ = Describe("EndpointManager", func() {
 		BeforeEach(func() {
 			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
 			hcsClient.CreateEndpointReturns(&hcsshim.HNSEndpoint{Id: endpointId}, nil)
+			hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
+				Id: endpointId, Resources: hcsshim.Resources{
+					Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb"}},
+				},
+			}, nil)
 		})
 
 		It("creates an endpoint on the configured network, attaches it to the container, and deletes the compartment firewall rule", func() {
@@ -65,9 +70,9 @@ var _ = Describe("EndpointManager", func() {
 			Expect(cId).To(Equal(containerId))
 			Expect(eId).To(Equal(endpointId))
 
-			Expect(powershell.RunCallCount()).To(Equal(1))
-			arg := powershell.RunArgsForCall(0)
-			Expect(arg).To(Equal(`$id = (Get-NetCompartment | where {$_.CompartmentDescription -eq "\Container_containerid-1234"}).CompartmentId;  remove-NetFirewallRule -DisplayName "Compartment $id*"`))
+			Expect(netsh.RunHostCallCount()).To(Equal(1))
+			args := netsh.RunHostArgsForCall(0)
+			Expect(args).To(Equal([]string{"advfirewall", "firewall", "delete", "rule", "name=Compartment 9 - aaa-bbb"}))
 		})
 
 		Context("the network does not already exist", func() {
@@ -136,9 +141,43 @@ var _ = Describe("EndpointManager", func() {
 			})
 		})
 
+		Context("getting the allocated endpoint fails", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSEndpointByIDReturns(nil, errors.New("couldn't load"))
+			})
+
+			It("deletes the endpoint and returns an error", func() {
+				_, err := endpointManager.Create()
+				Expect(err).To(MatchError("couldn't load"))
+
+				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+		})
+
+		Context("the allocated endpoint does not have exactly 1 allocator (with CompartmentId + EndpointPortGuid)", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
+					Id: endpointId, Resources: hcsshim.Resources{
+						Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb"}, {CompartmentId: 3, EndpointPortGuid: "ccc-ddd"}},
+					},
+				}, nil)
+			})
+
+			It("deletes the endpoint and returns an error", func() {
+				_, err := endpointManager.Create()
+				Expect(err).To(MatchError("endpoint endpointid-abcd had 2 allocators, expected 1"))
+
+				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+		})
+
 		Context("removing the firewall fails", func() {
 			BeforeEach(func() {
-				powershell.RunReturns("couldn't delete", errors.New("couldn't delete"))
+				netsh.RunHostReturns([]byte("couldn't delete"), errors.New("couldn't delete"))
 			})
 
 			It("deletes the endpoint and returns an error", func() {

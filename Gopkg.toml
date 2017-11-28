@@ -27,7 +27,8 @@
 
 [[constraint]]
   name = "github.com/Microsoft/hcsshim"
-  version = "0.6.6"
+  source = "github.com/greenhouse-org/hcsshim"
+  branch = "extra-endpoint-info"
 
 [[constraint]]
   branch = "master"

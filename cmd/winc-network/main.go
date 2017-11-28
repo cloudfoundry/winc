@@ -17,7 +17,6 @@ import (
 	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
-	"code.cloudfoundry.org/winc/powershell"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -185,8 +184,7 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 	netIface := &netinterface.NetInterface{}
 
 	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIface)
-	ps := powershell.NewPowershell()
-	endpointManager := endpoint.NewEndpointManager(hcsClient, ps, handle, config)
+	endpointManager := endpoint.NewEndpointManager(hcsClient, runner, handle, config)
 
 	return network.NewNetworkManager(
 		hcsClient,

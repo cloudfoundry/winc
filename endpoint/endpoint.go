@@ -23,22 +23,22 @@ type HCSClient interface {
 	HotDetachEndpoint(containerID string, endpointID string) error
 }
 
-//go:generate counterfeiter . Powershell
-type Powershell interface {
-	Run(command string) (string, error)
+//go:generate counterfeiter . NetShRunner
+type NetShRunner interface {
+	RunHost([]string) ([]byte, error)
 }
 
 type EndpointManager struct {
 	hcsClient   HCSClient
-	powershell  Powershell
+	netsh       NetShRunner
 	containerId string
 	config      network.Config
 }
 
-func NewEndpointManager(hcsClient HCSClient, powershell Powershell, containerId string, config network.Config) *EndpointManager {
+func NewEndpointManager(hcsClient HCSClient, netsh NetShRunner, containerId string, config network.Config) *EndpointManager {
 	return &EndpointManager{
 		hcsClient:   hcsClient,
-		powershell:  powershell,
+		netsh:       netsh,
 		containerId: containerId,
 		config:      config,
 	}
@@ -64,26 +64,47 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	if err := e.hcsClient.HotAttachEndpoint(e.containerId, createdEndpoint.Id); err != nil {
-		logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s: %s", createdEndpoint.Id, e.containerId, err.Error()))
-
+	attachedEndpoint, err := e.attachEndpoint(createdEndpoint)
+	if err != nil {
 		if _, err := e.hcsClient.DeleteEndpoint(createdEndpoint); err != nil {
-			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", createdEndpoint.Id, err.Error()))
+			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", endpoint.Id, err.Error()))
 		}
 
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	removeFirewallRule := fmt.Sprintf(`$id = (Get-NetCompartment | where {$_.CompartmentDescription -eq "\Container_%s"}).CompartmentId;  remove-NetFirewallRule -DisplayName "Compartment $id*"`, e.containerId)
-	if _, err := e.powershell.Run(removeFirewallRule); err != nil {
-		if _, err := e.hcsClient.DeleteEndpoint(createdEndpoint); err != nil {
-			logrus.Error(fmt.Sprintf("Error deleting endpoint %s: %s", createdEndpoint.Id, err.Error()))
-		}
+	return *attachedEndpoint, nil
+}
 
-		return hcsshim.HNSEndpoint{}, err
+func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
+	if err := e.hcsClient.HotAttachEndpoint(e.containerId, endpoint.Id); err != nil {
+		logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s: %s", endpoint.Id, e.containerId, err.Error()))
+		return nil, err
 	}
 
-	return *createdEndpoint, nil
+	allocatedEndpoint, err := e.hcsClient.GetHNSEndpointByID(endpoint.Id)
+	if err != nil {
+		logrus.Error(fmt.Sprintf("Unable to load updated endpoint %s: %s", endpoint.Id, err.Error()))
+		return nil, err
+	}
+
+	if len(allocatedEndpoint.Resources.Allocators) != 1 {
+		logrus.Error(fmt.Sprintf("invalid endpoint %s allocators: %+v", endpoint.Id, allocatedEndpoint.Resources.Allocators))
+		return nil, fmt.Errorf("endpoint %s had %d allocators, expected 1", endpoint.Id, len(allocatedEndpoint.Resources.Allocators))
+	}
+
+	a := allocatedEndpoint.Resources.Allocators[0]
+
+	ruleName := fmt.Sprintf("Compartment %d - %s", a.CompartmentId, a.EndpointPortGuid)
+	removeFirewallRule := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name=%s`, ruleName)}
+
+	if _, err := e.netsh.RunHost(removeFirewallRule); err != nil {
+		logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
+		return nil, err
+	}
+
+	return allocatedEndpoint, nil
+
 }
 
 func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []netrules.PortMapping) (hcsshim.HNSEndpoint, error) {

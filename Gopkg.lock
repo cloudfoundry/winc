@@ -14,10 +14,11 @@
   version = "v0.4.5"
 
 [[projects]]
+  branch = "extra-endpoint-info"
   name = "github.com/Microsoft/hcsshim"
   packages = ["."]
-  revision = "7db05c0f1e17f2d6a1fc2b3bddb2e39ed30804e8"
-  version = "v0.6.6"
+  revision = "e0bf8eaa84a34f0bb2c113e38f25af78c7082bf3"
+  source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]
   name = "github.com/blang/semver"
@@ -110,6 +111,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c2aaddbdde01cc9dfc4813169fd2211bb80764d60855058cbb95dcf41beea970"
+  inputs-digest = "f1c95da9d4683660955efdf4cbc7b696935c6de7dd44f627a70ba7133a51ef8b"
   solver-name = "gps-cdcl"
   solver-version = 1

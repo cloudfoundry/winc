@@ -2,7 +2,6 @@ package hcsshim
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -24,6 +23,16 @@ type HNSEndpoint struct {
 	DisableICC         bool              `json:",omitempty"`
 	PrefixLength       uint8             `json:",omitempty"`
 	IsRemoteEndpoint   bool              `json:",omitempty"`
+	Resources          Resources         `json:",omitempty"`
+}
+
+type Resources struct {
+	Allocators []Allocator `json:",omitempty"`
+}
+
+type Allocator struct {
+	CompartmentId    uint32 `json:"CompartmendId,omitempty"` // HNS returned JSON has a typo
+	EndpointPortGuid string `json:",omitempty"`
 }
 
 //SystemType represents the type of the system on which actions are done
@@ -135,7 +144,7 @@ func GetHNSEndpointByName(endpointName string) (*HNSEndpoint, error) {
 			return &hnsEndpoint, nil
 		}
 	}
-	return nil, fmt.Errorf("Endpoint %v not found", endpointName)
+	return nil, EndpointNotFoundError{EndpointName: endpointName}
 }
 
 // Create Endpoint by sending EndpointRequest to HNS. TODO: Create a separate HNS interface to place all these methods
