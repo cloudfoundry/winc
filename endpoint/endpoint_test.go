@@ -49,7 +49,7 @@ var _ = Describe("EndpointManager", func() {
 			hcsClient.CreateEndpointReturns(&hcsshim.HNSEndpoint{Id: endpointId}, nil)
 			hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
 				Id: endpointId, Resources: hcsshim.Resources{
-					Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb"}},
+					Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb", Type: hcsshim.EndpointPortType}, {Type: 5}},
 				},
 			}, nil)
 		})
@@ -156,18 +156,18 @@ var _ = Describe("EndpointManager", func() {
 			})
 		})
 
-		Context("the allocated endpoint does not have exactly 1 allocator (with CompartmentId + EndpointPortGuid)", func() {
+		Context("the allocated endpoint does not return an EndpointPort allocator", func() {
 			BeforeEach(func() {
 				hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
 					Id: endpointId, Resources: hcsshim.Resources{
-						Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb"}, {CompartmentId: 3, EndpointPortGuid: "ccc-ddd"}},
+						Allocators: []hcsshim.Allocator{{Type: 5}},
 					},
 				}, nil)
 			})
 
 			It("deletes the endpoint and returns an error", func() {
 				_, err := endpointManager.Create()
-				Expect(err).To(MatchError("endpoint endpointid-abcd had 2 allocators, expected 1"))
+				Expect(err.Error()).To(ContainSubstring("invalid endpoint endpointid-abcd allocators"))
 
 				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
 				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)

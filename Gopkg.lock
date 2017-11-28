@@ -17,7 +17,7 @@
   branch = "extra-endpoint-info"
   name = "github.com/Microsoft/hcsshim"
   packages = ["."]
-  revision = "e0bf8eaa84a34f0bb2c113e38f25af78c7082bf3"
+  revision = "a22989befcc46027470339692fd8fc668bf10388"
   source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]

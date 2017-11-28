@@ -88,14 +88,22 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 		return nil, err
 	}
 
-	if len(allocatedEndpoint.Resources.Allocators) != 1 {
-		logrus.Error(fmt.Sprintf("invalid endpoint %s allocators: %+v", endpoint.Id, allocatedEndpoint.Resources.Allocators))
-		return nil, fmt.Errorf("endpoint %s had %d allocators, expected 1", endpoint.Id, len(allocatedEndpoint.Resources.Allocators))
+	var compartmentId uint32
+	var endpointPortGuid string
+
+	for _, a := range allocatedEndpoint.Resources.Allocators {
+		if a.Type == hcsshim.EndpointPortType {
+			compartmentId = a.CompartmentId
+			endpointPortGuid = a.EndpointPortGuid
+			break
+		}
 	}
 
-	a := allocatedEndpoint.Resources.Allocators[0]
+	if compartmentId == 0 || endpointPortGuid == "" {
+		return nil, fmt.Errorf("invalid endpoint %s allocators: %+v", endpoint.Id, allocatedEndpoint.Resources.Allocators)
+	}
 
-	ruleName := fmt.Sprintf("Compartment %d - %s", a.CompartmentId, a.EndpointPortGuid)
+	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
 	removeFirewallRule := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name=%s`, ruleName)}
 
 	if _, err := e.netsh.RunHost(removeFirewallRule); err != nil {

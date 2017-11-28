@@ -30,9 +30,12 @@ type Resources struct {
 	Allocators []Allocator `json:",omitempty"`
 }
 
+const EndpointPortType = 2
+
 type Allocator struct {
 	CompartmentId    uint32 `json:"CompartmendId,omitempty"` // HNS returned JSON has a typo
 	EndpointPortGuid string `json:",omitempty"`
+	Type             int    `json:",omitempty"`
 }
 
 //SystemType represents the type of the system on which actions are done
