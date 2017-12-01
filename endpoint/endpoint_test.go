@@ -177,7 +177,7 @@ var _ = Describe("EndpointManager", func() {
 
 		Context("removing the firewall fails", func() {
 			BeforeEach(func() {
-				netsh.RunHostReturns([]byte("couldn't delete"), errors.New("couldn't delete"))
+				netsh.RunHostReturnsOnCall(0, []byte("couldn't delete"), errors.New("couldn't delete"))
 			})
 
 			It("deletes the endpoint and returns an error", func() {
@@ -187,6 +187,34 @@ var _ = Describe("EndpointManager", func() {
 				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
 				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
 				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+
+			Context("when the error is 'No rules match the specified criteria'", func() {
+				BeforeEach(func() {
+					netsh.RunHostReturnsOnCall(0, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
+					netsh.RunHostReturnsOnCall(1, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
+					netsh.RunHostReturnsOnCall(2, []byte("OK"), nil)
+				})
+
+				It("retries creating the endpoint", func() {
+					ep, err := endpointManager.Create()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ep.Id).To(Equal(endpointId))
+				})
+			})
+
+			Context("it fails 3 times with 'No rules match the specified criteria'", func() {
+				BeforeEach(func() {
+					netsh.RunHostReturnsOnCall(0, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
+					netsh.RunHostReturnsOnCall(1, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
+					netsh.RunHostReturnsOnCall(2, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
+				})
+
+				It("returns an error", func() {
+					_, err := endpointManager.Create()
+					Expect(err).To(MatchError("netsh failed: No rules match the specified criteria."))
+					Expect(netsh.RunHostCallCount()).To(Equal(3))
+				})
 			})
 		})
 	})

@@ -104,15 +104,36 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 	}
 
 	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
-	removeFirewallRule := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name=%s`, ruleName)}
-
-	if _, err := e.netsh.RunHost(removeFirewallRule); err != nil {
-		logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
+	if err := e.deleteFirewallRule(ruleName); err != nil {
 		return nil, err
 	}
 
 	return allocatedEndpoint, nil
 
+}
+
+func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
+	removeFirewallRule := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name=%s`, ruleName)}
+
+	deleted := false
+	var err error
+
+	for i := 0; i < 3 && !deleted; i++ {
+		if _, err = e.netsh.RunHost(removeFirewallRule); err != nil {
+			logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
+			if strings.Contains(err.Error(), "No rules match the specified criteria") {
+				continue
+			}
+			return err
+		}
+		deleted = true
+	}
+
+	if !deleted {
+		return err
+	}
+
+	return nil
 }
 
 func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []netrules.PortMapping) (hcsshim.HNSEndpoint, error) {
