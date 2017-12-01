@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
@@ -143,6 +144,7 @@ func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
 		if _, err = e.netsh.RunHost(removeFirewallRule); err != nil {
 			logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
 			if strings.Contains(err.Error(), "No rules match the specified criteria") {
+				time.Sleep(time.Millisecond * 200 * time.Duration(i+1))
 				continue
 			}
 			return err
