@@ -139,6 +139,34 @@ var _ = Describe("EndpointManager", func() {
 				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
 				Expect(deletedEndpoint.Id).To(Equal(endpointId))
 			})
+
+			Context("when the error is 'Element not found'", func() {
+				BeforeEach(func() {
+					hcsClient.HotAttachEndpointReturnsOnCall(0, hcsshim.ErrElementNotFound)
+					hcsClient.HotAttachEndpointReturnsOnCall(1, hcsshim.ErrElementNotFound)
+					hcsClient.HotAttachEndpointReturnsOnCall(2, nil)
+				})
+
+				It("retries creating the endpoint", func() {
+					ep, err := endpointManager.Create()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ep.Id).To(Equal(endpointId))
+				})
+			})
+
+			Context("it fails 3 times with 'Element not found'", func() {
+				BeforeEach(func() {
+					hcsClient.HotAttachEndpointReturnsOnCall(0, hcsshim.ErrElementNotFound)
+					hcsClient.HotAttachEndpointReturnsOnCall(1, hcsshim.ErrElementNotFound)
+					hcsClient.HotAttachEndpointReturnsOnCall(2, hcsshim.ErrElementNotFound)
+				})
+
+				It("returns an error", func() {
+					_, err := endpointManager.Create()
+					Expect(err).To(MatchError(hcsshim.ErrElementNotFound))
+					Expect(hcsClient.HotAttachEndpointCallCount()).To(Equal(3))
+				})
+			})
 		})
 
 		Context("getting the allocated endpoint fails", func() {

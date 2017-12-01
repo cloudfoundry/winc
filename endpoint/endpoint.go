@@ -77,8 +77,7 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 }
 
 func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
-	if err := e.hcsClient.HotAttachEndpoint(e.containerId, endpoint.Id); err != nil {
-		logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s: %s", endpoint.Id, e.containerId, err.Error()))
+	if err := e.hotAttachEndpoint(endpoint.Id); err != nil {
 		return nil, err
 	}
 
@@ -110,6 +109,28 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 
 	return allocatedEndpoint, nil
 
+}
+
+func (e *EndpointManager) hotAttachEndpoint(endpointID string) error {
+	attached := false
+	var err error
+
+	for i := 0; i < 3 && !attached; i++ {
+		if err = e.hcsClient.HotAttachEndpoint(e.containerId, endpointID); err != nil {
+			logrus.Error(fmt.Sprintf("Unable to attach endpoint %s to container %s: %s", endpointID, e.containerId, err.Error()))
+			if err == hcsshim.ErrElementNotFound {
+				continue
+			}
+			return err
+		}
+		attached = true
+	}
+
+	if !attached {
+		return err
+	}
+
+	return nil
 }
 
 func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
