@@ -173,7 +173,7 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 		Capacity:  5000,
 	}
 
-	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc\\port-state.json")
+	locker := filelock.NewLocker("C:\\var\\vcap\\data\\winc-network\\port-state.json")
 
 	portAllocator := &port_allocator.PortAllocator{
 		Tracker:    tracker,

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/lib/filelock"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 
@@ -25,13 +27,13 @@ import (
 )
 
 var (
-	subnetRange       string
-	gatewayAddress    string
 	containerId       string
 	tempDir           string
 	networkConfigFile string
 	networkConfig     network.Config
 )
+
+const gatewayFileName = "c:\\var\\vcap\\data\\winc-network\\gateways.json"
 
 var _ = Describe("networking", func() {
 	BeforeEach(func() {
@@ -47,16 +49,11 @@ var _ = Describe("networking", func() {
 
 	Describe("Create", func() {
 		BeforeEach(func() {
-			subnetRange, gatewayAddress = randomSubnetAddress()
-			networkConfig = network.Config{
-				SubnetRange:    subnetRange,
-				GatewayAddress: gatewayAddress,
-				NetworkName:    gatewayAddress,
-			}
+			networkConfig = generateNetworkConfig()
 		})
 
 		AfterEach(func() {
-			deleteNetwork()
+			deleteNetwork(networkConfig)
 		})
 
 		It("creates the network with the correct name", func() {
@@ -134,17 +131,12 @@ var _ = Describe("networking", func() {
 
 	Describe("Delete", func() {
 		BeforeEach(func() {
-			subnetRange, gatewayAddress = randomSubnetAddress()
-			networkConfig = network.Config{
-				SubnetRange:    subnetRange,
-				GatewayAddress: gatewayAddress,
-				NetworkName:    gatewayAddress,
-			}
+			networkConfig = generateNetworkConfig()
 			createNetwork(networkConfig)
 		})
 
 		It("deletes the NAT network", func() {
-			deleteNetwork()
+			deleteNetwork(networkConfig)
 			psCommand := fmt.Sprintf(`(Get-NetAdapter -name "vEthernet (%s)").InterfaceAlias`, networkConfig.NetworkName)
 			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output))
@@ -153,7 +145,7 @@ var _ = Describe("networking", func() {
 		})
 
 		It("deletes the associated firewall rules", func() {
-			deleteNetwork()
+			deleteNetwork(networkConfig)
 			getFirewallRule := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s"`, networkConfig.NetworkName)
 			output, err := exec.Command("powershell.exe", "-Command", getFirewallRule).CombinedOutput()
 			Expect(err).To(HaveOccurred())
@@ -166,23 +158,18 @@ var _ = Describe("networking", func() {
 		Context("default network config", func() {
 			BeforeEach(func() {
 				createContainer()
-				subnetRange, gatewayAddress = randomSubnetAddress()
-				networkConfig = network.Config{
-					SubnetRange:    subnetRange,
-					GatewayAddress: gatewayAddress,
-					NetworkName:    gatewayAddress,
-				}
+				networkConfig = generateNetworkConfig()
 				createNetwork(networkConfig)
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork()
+				deleteContainerAndNetwork(networkConfig)
 			})
 
 			It("sets the host MTU in the container", func() {
 				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
 
-				powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, gatewayAddress)
+				powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, networkConfig.GatewayAddress)
 				cmd := exec.Command("powershell.exe", "-Command", powershellCommand)
 				output, err := cmd.CombinedOutput()
 				Expect(err).ToNot(HaveOccurred(), string(output))
@@ -543,18 +530,13 @@ var _ = Describe("networking", func() {
 		Context("custom MTU", func() {
 			BeforeEach(func() {
 				createContainer()
-				subnetRange, gatewayAddress = randomSubnetAddress()
-				networkConfig = network.Config{
-					SubnetRange:    subnetRange,
-					GatewayAddress: gatewayAddress,
-					NetworkName:    gatewayAddress,
-					MTU:            1405,
-				}
+				networkConfig = generateNetworkConfig()
+				networkConfig.MTU = 1405
 				createNetwork(networkConfig)
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork()
+				deleteContainerAndNetwork(networkConfig)
 			})
 
 			It("sets the network MTU on the internal container NIC", func() {
@@ -569,18 +551,13 @@ var _ = Describe("networking", func() {
 		Context("custom DNS Servers", func() {
 			BeforeEach(func() {
 				createContainer()
-				subnetRange, gatewayAddress = randomSubnetAddress()
-				networkConfig = network.Config{
-					SubnetRange:    subnetRange,
-					GatewayAddress: gatewayAddress,
-					NetworkName:    gatewayAddress,
-					DNSServers:     []string{"1.1.1.1", "2.2.2.2"},
-				}
+				networkConfig = generateNetworkConfig()
+				networkConfig.DNSServers = []string{"1.1.1.1", "2.2.2.2"}
 				createNetwork(networkConfig)
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork()
+				deleteContainerAndNetwork(networkConfig)
 			})
 
 			It("uses those IP addresses as DNS servers", func() {
@@ -596,12 +573,7 @@ var _ = Describe("networking", func() {
 	Describe("Down", func() {
 		BeforeEach(func() {
 			createContainer()
-			subnetRange, gatewayAddress = randomSubnetAddress()
-			networkConfig = network.Config{
-				SubnetRange:    subnetRange,
-				GatewayAddress: gatewayAddress,
-				NetworkName:    gatewayAddress,
-			}
+			networkConfig = generateNetworkConfig()
 			createNetwork(networkConfig)
 
 			output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", networkConfigFile).CombinedOutput()
@@ -612,7 +584,7 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			deleteContainerAndNetwork()
+			deleteContainerAndNetwork(networkConfig)
 		})
 
 		It("deletes the endpoint", func() {
@@ -660,16 +632,11 @@ var _ = Describe("networking", func() {
 
 			logFile = filepath.Join(tempDir, "winc-network.log")
 
-			subnetRange, gatewayAddress = randomSubnetAddress()
-			networkConfig = network.Config{
-				SubnetRange:    subnetRange,
-				GatewayAddress: gatewayAddress,
-				NetworkName:    gatewayAddress,
-			}
+			networkConfig = generateNetworkConfig()
 		})
 
 		AfterEach(func() {
-			deleteNetwork()
+			deleteNetwork(networkConfig)
 			Expect(os.RemoveAll(tempDir)).To(Succeed())
 		})
 
@@ -761,7 +728,23 @@ func createNetwork(config network.Config, extraArgs ...string) {
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
-func deleteNetwork() {
+func deleteNetwork(config network.Config) {
+	gatewayFile := filelock.NewLocker(gatewayFileName)
+	f, err := gatewayFile.Open()
+	defer f.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	oldGatewaysInUse := loadGatewaysInUse(f)
+	var newGatewaysInUse []string
+
+	for _, n := range oldGatewaysInUse {
+		if n != config.GatewayAddress {
+			newGatewaysInUse = append(newGatewaysInUse, n)
+		}
+	}
+
+	writeGatewaysInUse(f, newGatewaysInUse)
+
 	output, err := exec.Command(wincNetworkBin, "--action", "delete", "--configFile", networkConfigFile).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
@@ -777,7 +760,7 @@ func createContainer() {
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
-func deleteContainerAndNetwork() {
+func deleteContainerAndNetwork(config network.Config) {
 	output, err := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", containerId).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 
@@ -789,7 +772,7 @@ func deleteContainerAndNetwork() {
 	output, err = exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 
-	deleteNetwork()
+	deleteNetwork(config)
 }
 
 func getContainerIp(containerId string) net.IP {
@@ -829,15 +812,73 @@ func endpointExists(endpointName string) bool {
 	return true
 }
 
-func randomSubnetAddress() (string, string) {
+func generateNetworkConfig() network.Config {
+	var subnet, gateway string
+
+	gatewayFile := filelock.NewLocker(gatewayFileName)
+	f, err := gatewayFile.Open()
+	defer f.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	gatewaysInUse := loadGatewaysInUse(f)
+
 	for {
-		subnet, gateway := randomValidSubnetAddress()
-		_, err := hcsshim.GetHNSNetworkByName(subnet)
-		if err != nil {
-			Expect(err).To(MatchError(ContainSubstring("Network " + subnet + " not found")))
-			return subnet, gateway
+		subnet, gateway = randomValidSubnetAddress()
+		if !natNetworkInUse(gateway, gatewaysInUse) {
+			gatewaysInUse = append(gatewaysInUse, gateway)
+			break
 		}
 	}
+
+	writeGatewaysInUse(f, gatewaysInUse)
+
+	return network.Config{
+		SubnetRange:    subnet,
+		GatewayAddress: gateway,
+		NetworkName:    gateway,
+	}
+}
+
+func loadGatewaysInUse(f filelock.LockedFile) []string {
+	data := make([]byte, 10240)
+	n, err := f.Read(data)
+	if err != nil {
+		Expect(err).To(Equal(io.EOF))
+		data = []byte("[]")
+	}
+
+	gateways := []string{}
+	Expect(json.Unmarshal(data[:n], &gateways)).To(Succeed())
+
+	return gateways
+}
+
+func writeGatewaysInUse(f filelock.LockedFile, gateways []string) {
+	data, err := json.Marshal(gateways)
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = f.Seek(0, io.SeekStart)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(f.Truncate(0)).To(Succeed())
+
+	_, err = f.Write(data)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func natNetworkInUse(name string, inuse []string) bool {
+	for _, n := range inuse {
+		if name == n {
+			return true
+		}
+	}
+
+	_, err := hcsshim.GetHNSNetworkByName(name)
+	if err != nil {
+		Expect(err).To(MatchError(ContainSubstring("Network " + name + " not found")))
+		return false
+	}
+
+	return true
 }
 
 func randomValidSubnetAddress() (string, string) {
