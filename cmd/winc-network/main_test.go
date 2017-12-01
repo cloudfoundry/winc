@@ -845,6 +845,7 @@ func loadGatewaysInUse(f filelock.LockedFile) []string {
 	if err != nil {
 		Expect(err).To(Equal(io.EOF))
 		data = []byte("[]")
+		n = 2
 	}
 
 	gateways := []string{}
