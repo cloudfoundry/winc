@@ -30,7 +30,10 @@ type Resources struct {
 	Allocators []Allocator `json:",omitempty"`
 }
 
-const EndpointPortType = 2
+const (
+	EndpointPortType = 2
+	NATPolicyType    = 4
+)
 
 type Allocator struct {
 	CompartmentId    uint32 `json:"CompartmendId,omitempty"` // HNS returned JSON has a typo

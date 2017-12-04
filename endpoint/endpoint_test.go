@@ -259,8 +259,17 @@ var _ = Describe("EndpointManager", func() {
 			mapping1 = netrules.PortMapping{ContainerPort: 111, HostPort: 222}
 			mapping2 = netrules.PortMapping{ContainerPort: 333, HostPort: 444}
 			endpoint = hcsshim.HNSEndpoint{Id: endpointId}
-			updatedEndpoint = hcsshim.HNSEndpoint{Id: endpointId, Policies: []json.RawMessage{[]byte("policies marshalled to json")}}
+			updatedEndpoint = hcsshim.HNSEndpoint{
+				Id:       endpointId,
+				Policies: []json.RawMessage{[]byte("policies marshalled to json")},
+				Resources: hcsshim.Resources{
+					Allocators: []hcsshim.Allocator{
+						{Type: hcsshim.NATPolicyType},
+					},
+				},
+			}
 			hcsClient.UpdateEndpointReturns(&updatedEndpoint, nil)
+			hcsClient.GetHNSEndpointByIDReturns(&updatedEndpoint, nil)
 		})
 
 		It("updates the endpoint with the given port mappings", func() {
@@ -285,6 +294,8 @@ var _ = Describe("EndpointManager", func() {
 				{Type: "NAT", Protocol: "TCP", InternalPort: 333, ExternalPort: 444},
 			}
 			Expect(requestedPortMappings).To(ConsistOf(policies))
+
+			Expect(hcsClient.GetHNSEndpointByIDCallCount()).To(Equal(1))
 		})
 
 		Context("no mappings are provided", func() {
@@ -293,6 +304,24 @@ var _ = Describe("EndpointManager", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ep).To(Equal(endpoint))
 				Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(0))
+			})
+		})
+
+		Context("nat initialization takes too long", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
+					Resources: hcsshim.Resources{
+						Allocators: []hcsshim.Allocator{
+							{Type: 10},
+						},
+					},
+				}, nil)
+			})
+
+			It("errors after repeatedly checking if the endpoint is ready", func() {
+				_, err := endpointManager.ApplyMappings(endpoint, []netrules.PortMapping{mapping1, mapping2})
+				Expect(err).To(MatchError("NAT not initialized in time"))
+				Expect(hcsClient.GetHNSEndpointByIDCallCount()).To(Equal(10))
 			})
 		})
 

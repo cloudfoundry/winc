@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -185,7 +186,33 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	return *updatedEndpoint, nil
+	id := updatedEndpoint.Id
+	var natAllocated bool
+	var allocatedEndpoint *hcsshim.HNSEndpoint
+
+	for i := 0; i < 10; i++ {
+		natAllocated = false
+		allocatedEndpoint, err = e.hcsClient.GetHNSEndpointByID(id)
+
+		for _, a := range allocatedEndpoint.Resources.Allocators {
+			if a.Type == hcsshim.NATPolicyType {
+				natAllocated = true
+				break
+			}
+		}
+
+		if natAllocated {
+			break
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if !natAllocated {
+		return hcsshim.HNSEndpoint{}, errors.New("NAT not initialized in time")
+	}
+
+	return *allocatedEndpoint, nil
 }
 
 func (e *EndpointManager) Delete() error {
