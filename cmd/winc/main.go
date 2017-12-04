@@ -10,7 +10,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/volume"
+	"code.cloudfoundry.org/winc/mount"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -174,5 +174,5 @@ func wireContainerManager(imageStore, bundlePath, containerId string) (*containe
 		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
-	return container.NewManager(&client, &volume.Mounter{}, imageStore, bundlePath), nil
+	return container.NewManager(&client, &mount.Mounter{}, imageStore, bundlePath), nil
 }

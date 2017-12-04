@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	kernel32            = windows.NewLazySystemDLL("kernel32.dll")
 	getDiskFreeSpaceExW = kernel32.NewProc("GetDiskFreeSpaceExW")
 )
 

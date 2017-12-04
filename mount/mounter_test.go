@@ -1,4 +1,4 @@
-package volume_test
+package mount_test
 
 import (
 	"crypto/rand"
@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"code.cloudfoundry.org/winc/volume"
-
+	"code.cloudfoundry.org/winc/mount"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -43,7 +42,7 @@ var _ = Describe("Mounter", func() {
 	})
 
 	It("mounts and unmounts a volume", func() {
-		mounter := &volume.Mounter{}
+		mounter := &mount.Mounter{}
 
 		Expect(mounter.Mount(pid, volumeGuid)).To(Succeed())
 		outBytes, err := exec.Command("mountvol", mountPath, "/L").CombinedOutput()
