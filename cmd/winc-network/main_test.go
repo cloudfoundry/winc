@@ -461,7 +461,8 @@ var _ = Describe("networking", func() {
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
+						Expect(stdout.String()).NotTo(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received ="))
 					})
 
 					It("cannot connect to a remote host over ICMP prohibited by netout", func() {
