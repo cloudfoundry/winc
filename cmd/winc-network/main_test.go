@@ -28,6 +28,7 @@ import (
 
 var (
 	containerId       string
+	bundlePath        string
 	tempDir           string
 	networkConfigFile string
 	networkConfig     network.Config
@@ -41,6 +42,10 @@ var _ = Describe("networking", func() {
 		tempDir, err = ioutil.TempDir("", "winc-network.config")
 		Expect(err).NotTo(HaveOccurred())
 		networkConfigFile = filepath.Join(tempDir, "winc-network.json")
+
+		bundlePath, err = ioutil.TempDir("", "win-container-1")
+		Expect(err).NotTo(HaveOccurred())
+		containerId = filepath.Base(bundlePath)
 	})
 
 	AfterEach(func() {
@@ -157,17 +162,17 @@ var _ = Describe("networking", func() {
 	Describe("Up", func() {
 		Context("default network config", func() {
 			BeforeEach(func() {
-				createContainer()
+				createContainer(containerId)
 				networkConfig = generateNetworkConfig()
 				createNetwork(networkConfig)
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork(networkConfig)
+				deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("sets the host MTU in the container", func() {
-				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+				networkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`)
 
 				powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, networkConfig.GatewayAddress)
 				cmd := exec.Command("powershell.exe", "-Command", powershellCommand)
@@ -175,7 +180,7 @@ var _ = Describe("networking", func() {
 				Expect(err).ToNot(HaveOccurred(), string(output))
 				hostMTU := strings.TrimSpace(string(output))
 
-				stdout, _, err := execInContainer([]string{"powershell.exe", "-Command", "(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet *').NlMtu"}, false)
+				stdout, _, err := execInContainer(containerId, []string{"powershell.exe", "-Command", "(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet *').NlMtu"}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(strings.TrimSpace(stdout.String())).To(Equal(hostMTU))
 			})
@@ -202,14 +207,14 @@ var _ = Describe("networking", func() {
 					pid := getContainerState(containerId).Pid
 					Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
 
-					_, _, err := execInContainer([]string{"c:\\server.exe", strconv.Itoa(int(containerPort1))}, true)
+					_, _, err := execInContainer(containerId, []string{"c:\\server.exe", strconv.Itoa(int(containerPort1))}, true)
 					Expect(err).NotTo(HaveOccurred())
-					_, _, err = execInContainer([]string{"c:\\server.exe", strconv.Itoa(int(containerPort2))}, true)
+					_, _, err = execInContainer(containerId, []string{"c:\\server.exe", strconv.Itoa(int(containerPort2))}, true)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("generates the correct port mappings and binds them to the container", func() {
-					outputs := networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
+					outputs := networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
 
 					mappedPorts := []netrules.PortMapping{}
 					Expect(json.Unmarshal([]byte(outputs.Properties.MappedPorts), &mappedPorts)).To(Succeed())
@@ -244,7 +249,7 @@ var _ = Describe("networking", func() {
 				})
 
 				It("can hit a port on the container directly", func() {
-					networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
+					networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2))
 
 					resp, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
 					Expect(err).NotTo(HaveOccurred())
@@ -264,16 +269,16 @@ var _ = Describe("networking", func() {
 				})
 
 				It("creates the correct urlacl in the container", func() {
-					networkUp(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
+					networkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`)
 
-					stdout, _, err := execInContainer([]string{"cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User"}, false)
+					stdout, _, err := execInContainer(containerId, []string{"cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User"}, false)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(stdout.String()).To(ContainSubstring("BUILTIN\\Users"))
 				})
 
 				Context("stdin does not contain a port mapping request", func() {
 					It("cannot listen on any ports", func() {
-						networkUp(`{"Pid": 123, "Properties": {} }`)
+						networkUp(containerId, `{"Pid": 123, "Properties": {} }`)
 
 						_, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
 						Expect(err).To(HaveOccurred())
@@ -287,7 +292,7 @@ var _ = Describe("networking", func() {
 					})
 
 					It("prints an empty list of mapped ports", func() {
-						outputs := networkUp(`{"Pid": 123, "Properties": {} }`)
+						outputs := networkUp(containerId, `{"Pid": 123, "Properties": {} }`)
 
 						Expect(outputs.Properties.MappedPorts).To(Equal("[]"))
 						Expect(outputs.Properties.DeprecatedHostIP).To(Equal("255.255.255.255"))
@@ -306,18 +311,18 @@ var _ = Describe("networking", func() {
 				})
 
 				It("cannot resolve DNS", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
+					networkUp(containerId, `{"Pid": 123, "Properties": {}}`)
 
-					stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com"}, false)
+					stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com"}, false)
 					Expect(err).To(HaveOccurred())
 
 					Expect(stdout.String()).To(ContainSubstring("lookup www.google.com: no such host"))
 				})
 
 				It("cannot connect to a remote host over TCP", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
+					networkUp(containerId, `{"Pid": 123, "Properties": {}}`)
 
-					stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+					stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 					Expect(err).To(HaveOccurred())
 
 					errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
@@ -325,9 +330,9 @@ var _ = Describe("networking", func() {
 				})
 
 				It("cannot connect to a remote host over UDP", func() {
-					networkUp(`{"Pid": 123, "Properties": {}}`)
+					networkUp(containerId, `{"Pid": 123, "Properties": {}}`)
 
-					stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
+					stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 					Expect(err).To(HaveOccurred())
 
 					Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
@@ -336,9 +341,9 @@ var _ = Describe("networking", func() {
 
 				It("cannot connect to a remote host over ICMP", func() {
 					Skip("ping.exe elevates to admin, breaking this test")
-					networkUp(`{"Pid": 123, "Properties": {}}`)
+					networkUp(containerId, `{"Pid": 123, "Properties": {}}`)
 
-					stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
+					stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 					Expect(err).To(HaveOccurred())
 
 					Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
@@ -374,18 +379,18 @@ var _ = Describe("networking", func() {
 					})
 
 					It("can connect to a remote host over UDP", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
 					})
 
 					It("cannot connect to a remote host over UDP prohibited by netout", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
@@ -406,9 +411,9 @@ var _ = Describe("networking", func() {
 						})
 
 						It("can resolve DNS", func() {
-							networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+							networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-							stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com"}, false)
+							stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "dns", "--addr", "www.google.com"}, false)
 							Expect(err).NotTo(HaveOccurred())
 
 							Expect(stdout.String()).To(ContainSubstring("found addr"))
@@ -426,18 +431,18 @@ var _ = Describe("networking", func() {
 					})
 
 					It("can connect to a remote host over TCP", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 					})
 
 					It("cannot connect to a remote server over TCP prohibited by netout", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
 						errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
@@ -455,9 +460,9 @@ var _ = Describe("networking", func() {
 					})
 
 					It("can connect to a remote host over ICMP", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
@@ -467,9 +472,9 @@ var _ = Describe("networking", func() {
 
 					It("cannot connect to a remote host over ICMP prohibited by netout", func() {
 						Skip("ping.exe elevates to admin, breaking this test")
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
 						Expect(err).To(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.4.4"))
@@ -487,31 +492,31 @@ var _ = Describe("networking", func() {
 					})
 
 					It("allows access over all protocols to valid remote hosts", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
 
-						stdout, _, err = execInContainer([]string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						stdout, _, err = execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 
-						stdout, _, err = execInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
+						stdout, _, err = execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
 					})
 
 					It("blocks access over all protocols to prohibited remote hosts", func() {
-						networkUp(fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
+						networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)))
 
-						stdout, _, err := execInContainer([]string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53"}, false)
+						stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
 						Expect(stdout.String()).To(ContainSubstring("8.8.4.4:53: i/o timeout"))
 
-						stdout, _, err = execInContainer([]string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
+						stdout, _, err = execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 						errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
@@ -530,20 +535,20 @@ var _ = Describe("networking", func() {
 
 		Context("custom MTU", func() {
 			BeforeEach(func() {
-				createContainer()
+				createContainer(containerId)
 				networkConfig = generateNetworkConfig()
 				networkConfig.MTU = 1405
 				createNetwork(networkConfig)
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork(networkConfig)
+				deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("sets the network MTU on the internal container NIC", func() {
-				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+				networkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`)
 
-				stdout, _, err := execInContainer([]string{"powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`}, false)
+				stdout, _, err := execInContainer(containerId, []string{"powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(strings.TrimSpace(stdout.String())).To(Equal("1405"))
 			})
@@ -551,20 +556,20 @@ var _ = Describe("networking", func() {
 
 		Context("custom DNS Servers", func() {
 			BeforeEach(func() {
-				createContainer()
+				createContainer(containerId)
 				networkConfig = generateNetworkConfig()
 				networkConfig.DNSServers = []string{"1.1.1.1", "2.2.2.2"}
 				createNetwork(networkConfig)
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork(networkConfig)
+				deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("uses those IP addresses as DNS servers", func() {
-				networkUp(`{"Pid": 123, "Properties": {} ,"netin": []}`)
+				networkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`)
 
-				stdout, _, err := execInContainer([]string{"powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`}, false)
+				stdout, _, err := execInContainer(containerId, []string{"powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(strings.TrimSpace(stdout.String())).To(Equal("1.1.1.1,2.2.2.2"))
 			})
@@ -573,19 +578,19 @@ var _ = Describe("networking", func() {
 
 	Describe("Down", func() {
 		BeforeEach(func() {
-			createContainer()
+			createContainer(containerId)
 			networkConfig = generateNetworkConfig()
 			createNetwork(networkConfig)
 
 			output, err := exec.Command(wincNetworkBin, "--action", "create", "--configFile", networkConfigFile).CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output))
 
-			networkUp(`{"Pid": 123, "Properties": {}}`)
+			networkUp(containerId, `{"Pid": 123, "Properties": {}}`)
 			Expect(len(allEndpoints(containerId))).To(Equal(1))
 		})
 
 		AfterEach(func() {
-			deleteContainerAndNetwork(networkConfig)
+			deleteContainerAndNetwork(containerId, networkConfig)
 		})
 
 		It("deletes the endpoint", func() {
@@ -695,8 +700,8 @@ var _ = Describe("networking", func() {
 	})
 })
 
-func networkUp(input string) network.UpOutputs {
-	cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", containerId)
+func networkUp(id, input string) network.UpOutputs {
+	cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "up", "--handle", id)
 	cmd.Stdin = strings.NewReader(input)
 	output, err := cmd.CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
@@ -706,13 +711,13 @@ func networkUp(input string) network.UpOutputs {
 	return upOutput
 }
 
-func execInContainer(args []string, detach bool) (*bytes.Buffer, *bytes.Buffer, error) {
+func execInContainer(id string, args []string, detach bool) (*bytes.Buffer, *bytes.Buffer, error) {
 	var defaultArgs []string
 
 	if detach {
-		defaultArgs = []string{"exec", "-u", "vcap", "-d", containerId}
+		defaultArgs = []string{"exec", "-u", "vcap", "-d", id}
 	} else {
-		defaultArgs = []string{"exec", "-u", "vcap", containerId}
+		defaultArgs = []string{"exec", "-u", "vcap", id}
 	}
 
 	return execute(wincBin, append(defaultArgs, args...)...)
@@ -750,29 +755,37 @@ func deleteNetwork(config network.Config) {
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
-func createContainer() {
-	containerId = filepath.Base(bundlePath)
-	bundleSpec := runtimeSpecGenerator(createSandbox("C:\\run\\winc", rootfsPath, containerId), containerId)
-	containerConfig, err := json.Marshal(&bundleSpec)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), containerConfig, 0666)).To(Succeed())
-
-	output, err := exec.Command(wincBin, "create", "-b", bundlePath, containerId).CombinedOutput()
+func deleteImage(id string) {
+	output, err := exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", id).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
-func deleteContainerAndNetwork(config network.Config) {
-	output, err := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", containerId).CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
+func createContainer(id string) {
+	bundleSpec := runtimeSpecGenerator(createSandbox("C:\\run\\winc", rootfsPath, id), id)
+	containerConfig, err := json.Marshal(&bundleSpec)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(filepath.Join(os.TempDir(), id, "config.json"), containerConfig, 0666)).To(Succeed())
 
-	if containerExists(containerId) {
-		output, err = exec.Command(wincBin, "delete", containerId).CombinedOutput()
+	output, err := exec.Command(wincBin, "create", "-b", filepath.Join(os.TempDir(), id), id).CombinedOutput()
+	Expect(err).NotTo(HaveOccurred(), string(output))
+}
+
+func deleteContainer(id string) {
+	if containerExists(id) {
+		output, err := exec.Command(wincBin, "delete", id).CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), string(output))
 	}
+}
 
-	output, err = exec.Command(wincImageBin, "--store", "C:\\run\\winc", "delete", containerId).CombinedOutput()
+func networkDown(id string) {
+	output, err := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
+}
 
+func deleteContainerAndNetwork(id string, config network.Config) {
+	networkDown(id)
+	deleteContainer(id)
+	deleteImage(id)
 	deleteNetwork(config)
 }
 
@@ -886,7 +899,7 @@ func natNetworkInUse(name string, inuse []string) bool {
 func randomValidSubnetAddress() (string, string) {
 	randomOctet := rand.Intn(256)
 	gatewayAddress := fmt.Sprintf("172.16.%d.1", randomOctet)
-	subnet := fmt.Sprintf("172.16.%d.0/30", randomOctet)
+	subnet := fmt.Sprintf("172.16.%d.0/24", randomOctet)
 	return subnet, gatewayAddress
 }
 

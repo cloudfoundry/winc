@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -33,7 +32,6 @@ var (
 	serverBin      string
 	netoutBin      string
 	rootfsPath     string
-	bundlePath     string
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -80,16 +78,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
-})
-
-var _ = BeforeEach(func() {
-	var err error
-	bundlePath, err = ioutil.TempDir("", "winccontainer")
-	Expect(err).NotTo(HaveOccurred())
-})
-
-var _ = AfterEach(func() {
-	Expect(os.RemoveAll(bundlePath)).To(Succeed())
 })
 
 func createSandbox(storePath, rootfsPath, containerId string) specs.Spec {
