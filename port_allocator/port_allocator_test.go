@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	filelockfakes "code.cloudfoundry.org/winc/lib/filelock/fakes"
-	serialfakes "code.cloudfoundry.org/winc/lib/serial/fakes"
+	filelockfakes "code.cloudfoundry.org/winc/filelock/fakes"
+	serialfakes "code.cloudfoundry.org/winc/serial/fakes"
 
 	"code.cloudfoundry.org/winc/port_allocator"
 	"code.cloudfoundry.org/winc/port_allocator/fakes"

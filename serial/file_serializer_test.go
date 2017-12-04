@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"code.cloudfoundry.org/winc/lib/serial"
-	"code.cloudfoundry.org/winc/lib/serial/fakes"
+	"code.cloudfoundry.org/winc/serial"
+	"code.cloudfoundry.org/winc/serial/fakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

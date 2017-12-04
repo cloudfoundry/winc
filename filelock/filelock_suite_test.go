@@ -13,7 +13,7 @@ func TestFilelock(t *testing.T) {
 	RunSpecs(t, "Filelock Suite")
 }
 
-const demoPackagePath = "code.cloudfoundry.org/winc/lib/filelock/filelock-demo"
+const demoPackagePath = "code.cloudfoundry.org/winc/filelock/filelock-demo"
 
 var pathToBinary string
 

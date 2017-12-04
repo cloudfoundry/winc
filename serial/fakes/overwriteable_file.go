@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/serial"
 )
 
 type OverwriteableFile struct {

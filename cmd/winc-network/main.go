@@ -9,14 +9,14 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/endpoint"
+	"code.cloudfoundry.org/winc/filelock"
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/lib/filelock"
-	"code.cloudfoundry.org/winc/lib/serial"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/netrules/netinterface"
 	"code.cloudfoundry.org/winc/netsh"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/port_allocator"
+	"code.cloudfoundry.org/winc/serial"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )

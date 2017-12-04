@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/serial"
 )
 
 type Serializer struct {

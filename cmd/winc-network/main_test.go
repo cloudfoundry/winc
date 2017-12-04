@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/localip"
-	"code.cloudfoundry.org/winc/lib/filelock"
+	"code.cloudfoundry.org/winc/filelock"
 	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
 

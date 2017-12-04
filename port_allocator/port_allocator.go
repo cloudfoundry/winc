@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/winc/lib/filelock"
-	"code.cloudfoundry.org/winc/lib/serial"
+	"code.cloudfoundry.org/winc/filelock"
+	"code.cloudfoundry.org/winc/serial"
 )
 
 //go:generate counterfeiter -o fakes/tracker.go --fake-name Tracker . tracker
