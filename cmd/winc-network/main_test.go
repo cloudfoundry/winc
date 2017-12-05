@@ -838,7 +838,7 @@ func generateNetworkConfig() network.Config {
 
 	for {
 		subnet, gateway = randomValidSubnetAddress()
-		if !natNetworkInUse(gateway, gatewaysInUse) {
+		if !natNetworkInUse(gateway, gatewaysInUse) && !collideWithHost(gateway) {
 			gatewaysInUse = append(gatewaysInUse, gateway)
 			break
 		}
@@ -894,6 +894,19 @@ func natNetworkInUse(name string, inuse []string) bool {
 	}
 
 	return true
+}
+
+func collideWithHost(gateway string) bool {
+	hostip, err := localip.LocalIP()
+	Expect(err).NotTo(HaveOccurred())
+
+	hostbytes := strings.Split(hostip, ".")
+	gatewaybytes := strings.Split(gateway, ".")
+
+	// only need to compare first 3 bytes since mask is /24
+	return hostbytes[0] == gatewaybytes[0] &&
+		hostbytes[1] == gatewaybytes[1] &&
+		hostbytes[2] == gatewaybytes[2]
 }
 
 func randomValidSubnetAddress() (string, string) {
