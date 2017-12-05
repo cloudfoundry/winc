@@ -1,10 +1,21 @@
 package hcs
 
 import (
+	"fmt"
+
+	"code.cloudfoundry.org/winc/filelock"
 	"github.com/Microsoft/hcsshim"
 )
 
-type Client struct{}
+func NewClient() *Client {
+	return &Client{
+		layerCreateLock: filelock.NewLocker("C:\\var\\vcap\\data\\winc-image\\create.lock"),
+	}
+}
+
+type Client struct {
+	layerCreateLock filelock.FileLocker
+}
 
 func (c *Client) GetContainers(q hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error) {
 	return hcsshim.GetContainers(q)
@@ -55,30 +66,6 @@ func (c *Client) GetContainerProperties(id string) (hcsshim.ContainerProperties,
 	return cps[0], nil
 }
 
-func (c *Client) ActivateLayer(di hcsshim.DriverInfo, id string) error {
-	return hcsshim.ActivateLayer(di, id)
-}
-
-func (c *Client) CreateSandboxLayer(di hcsshim.DriverInfo, id string, parentId string, parentLayerPaths []string) error {
-	return hcsshim.CreateSandboxLayer(di, id, parentId, parentLayerPaths)
-}
-
-func (c *Client) DeactivateLayer(di hcsshim.DriverInfo, id string) error {
-	return hcsshim.DeactivateLayer(di, id)
-}
-
-func (c *Client) DestroyLayer(di hcsshim.DriverInfo, id string) error {
-	return hcsshim.DestroyLayer(di, id)
-}
-
-func (c *Client) PrepareLayer(di hcsshim.DriverInfo, id string, parentLayerPaths []string) error {
-	return hcsshim.PrepareLayer(di, id, parentLayerPaths)
-}
-
-func (c *Client) UnprepareLayer(di hcsshim.DriverInfo, id string) error {
-	return hcsshim.UnprepareLayer(di, id)
-}
-
 func (c *Client) CreateEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
 	return endpoint.Create()
 }
@@ -121,4 +108,37 @@ func (c *Client) HotAttachEndpoint(containerID string, endpointID string) error 
 
 func (c *Client) HotDetachEndpoint(containerID string, endpointID string) error {
 	return hcsshim.HotDetachEndpoint(containerID, endpointID)
+}
+
+func (c *Client) CreateLayer(di hcsshim.DriverInfo, id string, parentId string, parentLayerPaths []string) error {
+	f, err := c.layerCreateLock.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := hcsshim.CreateSandboxLayer(di, id, parentId, parentLayerPaths); err != nil {
+		return err
+	}
+
+	if err := hcsshim.ActivateLayer(di, id); err != nil {
+		return err
+	}
+
+	return hcsshim.PrepareLayer(di, id, parentLayerPaths)
+}
+
+func (c *Client) RemoveLayer(di hcsshim.DriverInfo, id string) error {
+	var unprepareErr, deactivateErr, destroyErr error
+
+	for i := 0; i < 3; i++ {
+		unprepareErr = hcsshim.UnprepareLayer(di, id)
+		deactivateErr = hcsshim.DeactivateLayer(di, id)
+		destroyErr = hcsshim.DestroyLayer(di, id)
+		if destroyErr == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to remove layer (unprepare error: %s, deactivate error: %s, destroy error: %s)", unprepareErr.Error(), deactivateErr.Error(), destroyErr.Error())
 }

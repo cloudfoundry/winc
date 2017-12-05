@@ -165,7 +165,7 @@ func parseConfig(configFile string) (network.Config, error) {
 }
 
 func wireNetworkManager(config network.Config, handle string) *network.NetworkManager {
-	hcsClient := &hcs.Client{}
+	hcsClient := hcs.NewClient()
 	runner := netsh.NewRunner(hcsClient, handle)
 
 	tracker := &port_allocator.Tracker{

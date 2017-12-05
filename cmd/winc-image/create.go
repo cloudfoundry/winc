@@ -46,7 +46,7 @@ var createCommand = cli.Command{
 		}
 
 		rootfsPath = destToWindowsPath(rootfsPath)
-		lm := layer.NewManager(&hcs.Client{}, storePath)
+		lm := layer.NewManager(hcs.NewClient(), storePath)
 		im := image.NewManager(lm, &volume.Limiter{}, &volume.Statser{}, containerId)
 		imageSpec, err := im.Create(rootfsPath, diskLimit)
 		if err != nil {

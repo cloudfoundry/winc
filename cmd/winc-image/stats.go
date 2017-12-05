@@ -23,7 +23,7 @@ var statsCommand = cli.Command{
 		containerId := context.Args().First()
 		storePath := context.GlobalString("store")
 
-		lm := layer.NewManager(&hcs.Client{}, storePath)
+		lm := layer.NewManager(hcs.NewClient(), storePath)
 		im := image.NewManager(lm, &volume.Limiter{}, &volume.Statser{}, containerId)
 
 		imageStats, err := im.Stats()
