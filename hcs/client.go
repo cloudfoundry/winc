@@ -90,6 +90,7 @@ func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork
 	alias := fmt.Sprintf("vEthernet (%s)", net.Name)
 
 	for i := 0; i < 10; i++ {
+		time.Sleep(200 * time.Duration(i) * time.Millisecond)
 		interfaceUp, err = netinterface.InterfaceExists(alias)
 		if err != nil {
 			return nil, err
@@ -99,7 +100,6 @@ func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork
 			break
 		}
 
-		time.Sleep(200 * time.Millisecond)
 	}
 
 	if !interfaceUp {
