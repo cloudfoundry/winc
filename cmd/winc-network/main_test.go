@@ -50,6 +50,7 @@ var _ = Describe("networking", func() {
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	Describe("Create", func() {
@@ -625,6 +626,56 @@ var _ = Describe("networking", func() {
 		})
 	})
 
+	Context("two containers are running", func() {
+		var (
+			bundlePath2   string
+			containerId2  string
+			containerPort string
+		)
+
+		BeforeEach(func() {
+			var err error
+			bundlePath2, err = ioutil.TempDir("", "win-container-2")
+			Expect(err).NotTo(HaveOccurred())
+			containerId2 = filepath.Base(bundlePath2)
+
+			containerPort = "12345"
+
+			networkConfig = generateNetworkConfig()
+			createNetwork(networkConfig)
+		})
+
+		AfterEach(func() {
+			endpointDown(containerId2)
+			deleteContainer(containerId2)
+			deleteImage(containerId2)
+			deleteContainerAndNetwork(containerId, networkConfig)
+			Expect(os.RemoveAll(bundlePath2)).To(Succeed())
+		})
+
+		It("does not allow traffic between containers", func() {
+			createContainer(containerId)
+			outputs := networkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort))
+			containerIp := outputs.Properties.ContainerIP
+
+			pid := getContainerState(containerId).Pid
+			Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
+
+			_, _, err := execInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			createContainer(containerId2)
+			networkUp(containerId2, `{"Pid": 123, "Properties": {}}`)
+
+			pid = getContainerState(containerId2).Pid
+			Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+
+			stdOut, _, err := execInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", containerIp, "--port", containerPort}, false)
+			Expect(err).To(HaveOccurred())
+			Expect(stdOut.String()).To(ContainSubstring("A connection attempt failed"))
+		})
+	})
+
 	Context("when provided --log <log-file>", func() {
 		var (
 			logFile string
@@ -777,13 +828,13 @@ func deleteContainer(id string) {
 	}
 }
 
-func networkDown(id string) {
+func endpointDown(id string) {
 	output, err := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id).CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
 func deleteContainerAndNetwork(id string, config network.Config) {
-	networkDown(id)
+	endpointDown(id)
 	deleteContainer(id)
 	deleteImage(id)
 	deleteNetwork(config)
