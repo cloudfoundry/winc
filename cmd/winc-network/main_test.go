@@ -672,7 +672,7 @@ var _ = Describe("networking", func() {
 
 			stdOut, _, err := execInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", containerIp, "--port", containerPort}, false)
 			Expect(err).To(HaveOccurred())
-			Expect(stdOut.String()).To(ContainSubstring("A connection attempt failed"))
+			Expect(stdOut.String()).To(ContainSubstring("An attempt was made to access a socket in a way forbidden by its access permissions"))
 		})
 	})
 
