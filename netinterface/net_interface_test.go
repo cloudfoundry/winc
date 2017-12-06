@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/localip"
-	"code.cloudfoundry.org/winc/netrules/netinterface"
+	"code.cloudfoundry.org/winc/netinterface"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

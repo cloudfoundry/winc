@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestNetrules(t *testing.T) {
+func TestNetinterface(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Netinterface Suite")
+	RunSpecs(t, "NetInterface Suite")
 }

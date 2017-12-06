@@ -180,6 +180,18 @@ func (n *NetInterface) SetMTU(alias string, mtu int) error {
 	return nil
 }
 
+func InterfaceExists(alias string) (bool, error) {
+	_, _, err := getLuidAndCompartment(alias)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("interface %s not found", alias) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
 func getLuidAndCompartment(alias string) (NET_LUID, uint32, error) {
 	var b []byte
 	l := uint32(15000)

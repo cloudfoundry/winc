@@ -2,8 +2,10 @@ package hcs
 
 import (
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/winc/filelock"
+	"code.cloudfoundry.org/winc/netinterface"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -79,7 +81,32 @@ func (c *Client) DeleteEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndp
 }
 
 func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
-	return network.Create()
+	net, err := network.Create()
+	if err != nil {
+		return nil, err
+	}
+
+	interfaceUp := false
+	alias := fmt.Sprintf("vEthernet (%s)", net.Name)
+
+	for i := 0; i < 10; i++ {
+		interfaceUp, err = netinterface.InterfaceExists(alias)
+		if err != nil {
+			return nil, err
+		}
+
+		if interfaceUp {
+			break
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if !interfaceUp {
+		return nil, fmt.Errorf("interface %s not created in time", alias)
+	}
+
+	return net, nil
 }
 
 func (c *Client) DeleteNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
@@ -103,7 +130,32 @@ func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 }
 
 func (c *Client) HotAttachEndpoint(containerID string, endpointID string) error {
-	return hcsshim.HotAttachEndpoint(containerID, endpointID)
+	if err := hcsshim.HotAttachEndpoint(containerID, endpointID); err != nil {
+		return err
+	}
+
+	containerInterfaceUp := false
+	alias := fmt.Sprintf("vEthernet (%s)", containerID)
+
+	for i := 0; i < 10; i++ {
+		var err error
+		containerInterfaceUp, err = netinterface.InterfaceExists(alias)
+		if err != nil {
+			return err
+		}
+
+		if containerInterfaceUp {
+			break
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if !containerInterfaceUp {
+		return fmt.Errorf("container interface %s not created in time", alias)
+	}
+
+	return nil
 }
 
 func (c *Client) HotDetachEndpoint(containerID string, endpointID string) error {
