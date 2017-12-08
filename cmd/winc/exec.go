@@ -1,11 +1,6 @@
 package main
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
-	"os/signal"
-	"strconv"
 	"sync"
 	"time"
 
@@ -102,68 +97,7 @@ following will output a list of processes running in the container:
 			"detach":        detach,
 		}).Debug("executing process in container")
 
-		cm, err := wireContainerManager("", "", containerId)
-		if err != nil {
-			return err
-		}
-
-		process, err := cm.Exec(spec, !detach)
-		if err != nil {
-			return err
-		}
-
-		if pidFile != "" {
-			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(process.Pid()), 10)), 0666); err != nil {
-				return err
-			}
-		}
-
-		if !detach {
-			stdin, stdout, stderr, err := process.Stdio()
-			if err != nil {
-				return err
-			}
-
-			var wg sync.WaitGroup
-
-			go func() {
-				_, _ = io.Copy(stdin, os.Stdin)
-				_ = stdin.Close()
-			}()
-			go func() {
-				wg.Add(1)
-				_, _ = io.Copy(os.Stdout, stdout)
-				_ = stdout.Close()
-				wg.Done()
-			}()
-			go func() {
-				wg.Add(1)
-				_, _ = io.Copy(os.Stderr, stderr)
-				_ = stderr.Close()
-				wg.Done()
-			}()
-
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, os.Interrupt)
-			go func() {
-				<-c
-				_ = process.Kill()
-			}()
-
-			err = process.Wait()
-			waitWithTimeout(&wg, 1*time.Second)
-			if err != nil {
-				return err
-			}
-
-			exitCode, err := process.ExitCode()
-			if err != nil {
-				return err
-			}
-			os.Exit(exitCode)
-		}
-
-		return nil
+		return runProcess(containerId, spec, detach, pidFile)
 	},
 	SkipArgReorder: true,
 }

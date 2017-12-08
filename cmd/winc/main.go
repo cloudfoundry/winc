@@ -5,9 +5,14 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	"code.cloudfoundry.org/winc/config"
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/mount"
@@ -69,6 +74,7 @@ func main() {
 	app.Commands = []cli.Command{
 		createCommand,
 		deleteCommand,
+		runCommand,
 		stateCommand,
 		execCommand,
 		eventsCommand,
@@ -175,4 +181,111 @@ func wireContainerManager(imageStore, bundlePath, containerId string) (*containe
 	}
 
 	return container.NewManager(&client, &mount.Mounter{}, imageStore, bundlePath), nil
+}
+
+func createContainer(logger *logrus.Entry, bundlePath, imageStore, containerId, pidFile string) (*specs.Spec, error) {
+	if bundlePath == "" {
+		var err error
+		bundlePath, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+	}
+	bundlePath = filepath.Clean(bundlePath)
+
+	spec, err := config.ValidateBundle(logger, bundlePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := config.ValidateProcess(logger, "", spec.Process); err != nil {
+		return nil, err
+	}
+
+	cm, err := wireContainerManager(imageStore, bundlePath, containerId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cm.Create(spec); err != nil {
+		return nil, err
+	}
+
+	if pidFile != "" {
+		state, err := cm.State()
+		if err != nil {
+			return nil, err
+		}
+
+		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
+			return nil, err
+		}
+	}
+
+	return spec, nil
+}
+
+func runProcess(containerId string, spec *specs.Process, detach bool, pidFile string) error {
+	cm, err := wireContainerManager("", "", containerId)
+	if err != nil {
+		return err
+	}
+
+	process, err := cm.Exec(spec, !detach)
+	if err != nil {
+		return err
+	}
+
+	if pidFile != "" {
+		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(process.Pid()), 10)), 0666); err != nil {
+			return err
+		}
+	}
+
+	if !detach {
+		stdin, stdout, stderr, err := process.Stdio()
+		if err != nil {
+			return err
+		}
+
+		var wg sync.WaitGroup
+
+		go func() {
+			_, _ = io.Copy(stdin, os.Stdin)
+			_ = stdin.Close()
+		}()
+		go func() {
+			wg.Add(1)
+			_, _ = io.Copy(os.Stdout, stdout)
+			_ = stdout.Close()
+			wg.Done()
+		}()
+		go func() {
+			wg.Add(1)
+			_, _ = io.Copy(os.Stderr, stderr)
+			_ = stderr.Close()
+			wg.Done()
+		}()
+
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		go func() {
+			<-c
+			_ = process.Kill()
+		}()
+
+		err = process.Wait()
+		waitWithTimeout(&wg, 1*time.Second)
+		if err != nil {
+			return err
+		}
+
+		exitCode, err := process.ExitCode()
+		if err != nil {
+			return err
+		}
+		os.Exit(exitCode)
+	}
+
+	return nil
 }

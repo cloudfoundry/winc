@@ -21,15 +21,6 @@ import (
 )
 
 var _ = Describe("Exec", func() {
-	sendCtrlBreak := func(s *gexec.Session) {
-		d, err := syscall.LoadDLL("kernel32.dll")
-		Expect(err).ToNot(HaveOccurred())
-		p, err := d.FindProc("GenerateConsoleCtrlEvent")
-		Expect(err).ToNot(HaveOccurred())
-		r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(s.Command.Process.Pid))
-		Expect(r).ToNot(Equal(0), fmt.Sprintf("GenerateConsoleCtrlEvent: %v\n", err))
-	}
-
 	Context("when the container exists", func() {
 		var (
 			containerId string
