@@ -559,7 +559,7 @@ var _ = Describe("networking", func() {
 			BeforeEach(func() {
 				createContainer(containerId)
 				networkConfig = generateNetworkConfig()
-				networkConfig.DNSServers = []string{"1.1.1.1", "2.2.2.2"}
+				networkConfig.DNSServers = []string{"8.8.8.8", "8.8.4.4"}
 				createNetwork(networkConfig)
 			})
 
@@ -572,7 +572,15 @@ var _ = Describe("networking", func() {
 
 				stdout, _, err := execInContainer(containerId, []string{"powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`}, false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(Equal("1.1.1.1,2.2.2.2"))
+				Expect(strings.TrimSpace(stdout.String())).To(Equal("8.8.8.8,8.8.4.4"))
+			})
+
+			It("allows traffic to those servers", func() {
+				networkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`)
+
+				stdout, _, err := execInContainer(containerId, []string{"powershell.exe", "-Command", `test-netconnection -computername 8.8.8.8 -port 53`}, false)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(strings.TrimSpace(stdout.String())).To(ContainSubstring("TcpTestSucceeded : True"))
 			})
 		})
 	})

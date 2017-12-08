@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 
 	"code.cloudfoundry.org/localip"
@@ -148,6 +149,22 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		}
 
 		mappedPorts = append(mappedPorts, mapping)
+	}
+
+	for _, dnsServer := range n.config.DNSServers {
+		serverIP := net.ParseIP(dnsServer)
+		inputs.NetOut = append(inputs.NetOut,
+			netrules.NetOut{
+				Protocol: netrules.ProtocolTCP,
+				Networks: []netrules.IPRange{{Start: serverIP, End: serverIP}},
+				Ports:    []netrules.PortRange{{Start: 53, End: 53}},
+			},
+			netrules.NetOut{
+				Protocol: netrules.ProtocolUDP,
+				Networks: []netrules.IPRange{{Start: serverIP, End: serverIP}},
+				Ports:    []netrules.PortRange{{Start: 53, End: 53}},
+			},
+		)
 	}
 
 	for _, rule := range inputs.NetOut {

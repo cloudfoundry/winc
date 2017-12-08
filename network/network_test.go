@@ -23,7 +23,6 @@ var _ = Describe("NetworkManager", func() {
 		netRuleApplier  *networkfakes.FakeNetRuleApplier
 		hcsClient       *networkfakes.FakeHCSClient
 		endpointManager *networkfakes.FakeEndpointManager
-		config          network.Config
 		hnsNetwork      *hcsshim.HNSNetwork
 	)
 
@@ -31,7 +30,7 @@ var _ = Describe("NetworkManager", func() {
 		hcsClient = &networkfakes.FakeHCSClient{}
 		netRuleApplier = &networkfakes.FakeNetRuleApplier{}
 		endpointManager = &networkfakes.FakeEndpointManager{}
-		config = network.Config{
+		config := network.Config{
 			MTU:            1434,
 			SubnetRange:    "123.45.0.0/67",
 			GatewayAddress: "123.45.0.1",
@@ -264,6 +263,57 @@ var _ = Describe("NetworkManager", func() {
 			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
 			mtu := netRuleApplier.ContainerMTUArgsForCall(0)
 			Expect(mtu).To(Equal(1434))
+		})
+
+		Context("when the config specifies DNS servers", func() {
+			BeforeEach(func() {
+				config := network.Config{
+					DNSServers: []string{"1.1.1.1", "2.2.2.2"},
+				}
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config)
+				inputs.NetOut = []netrules.NetOut{}
+			})
+
+			It("creates netout rules for the servers", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).NotTo(HaveOccurred())
+
+				dnsServer1 := net.ParseIP("1.1.1.1")
+				dnsServer2 := net.ParseIP("2.2.2.2")
+				Expect(netRuleApplier.OutCallCount()).To(Equal(4))
+
+				outRule, ip := netRuleApplier.OutArgsForCall(0)
+				Expect(outRule).To(Equal(netrules.NetOut{
+					Protocol: netrules.ProtocolTCP,
+					Networks: []netrules.IPRange{{Start: dnsServer1, End: dnsServer1}},
+					Ports:    []netrules.PortRange{{Start: 53, End: 53}},
+				}))
+				Expect(ip).To(Equal(containerIP.String()))
+
+				outRule, ip = netRuleApplier.OutArgsForCall(1)
+				Expect(outRule).To(Equal(netrules.NetOut{
+					Protocol: netrules.ProtocolUDP,
+					Networks: []netrules.IPRange{{Start: dnsServer1, End: dnsServer1}},
+					Ports:    []netrules.PortRange{{Start: 53, End: 53}},
+				}))
+				Expect(ip).To(Equal(containerIP.String()))
+
+				outRule, ip = netRuleApplier.OutArgsForCall(2)
+				Expect(outRule).To(Equal(netrules.NetOut{
+					Protocol: netrules.ProtocolTCP,
+					Networks: []netrules.IPRange{{Start: dnsServer2, End: dnsServer2}},
+					Ports:    []netrules.PortRange{{Start: 53, End: 53}},
+				}))
+				Expect(ip).To(Equal(containerIP.String()))
+
+				outRule, ip = netRuleApplier.OutArgsForCall(3)
+				Expect(outRule).To(Equal(netrules.NetOut{
+					Protocol: netrules.ProtocolUDP,
+					Networks: []netrules.IPRange{{Start: dnsServer2, End: dnsServer2}},
+					Ports:    []netrules.PortRange{{Start: 53, End: 53}},
+				}))
+				Expect(ip).To(Equal(containerIP.String()))
+			})
 		})
 
 		Context("net in fails", func() {
