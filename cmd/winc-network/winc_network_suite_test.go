@@ -97,7 +97,7 @@ func runtimeSpecGenerator(baseSpec specs.Spec, containerId string) specs.Spec {
 		Version: specs.Version,
 		Process: &specs.Process{
 			Args: []string{"powershell"},
-			Cwd:  "/",
+			Cwd:  "C:\\",
 		},
 		Root: &specs.Root{
 			Path: baseSpec.Root.Path,

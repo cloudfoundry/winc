@@ -105,6 +105,10 @@ func createSandbox(storePath, rootfsPath, containerId string) specs.Spec {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	var spec specs.Spec
 	ExpectWithOffset(1, json.Unmarshal(stdOut.Bytes(), &spec)).To(Succeed())
+	spec.Process = &specs.Process{
+		Args: []string{"cmd"},
+		Cwd:  "C:\\",
+	}
 	return spec
 }
 
