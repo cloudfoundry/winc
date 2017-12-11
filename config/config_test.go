@@ -320,7 +320,7 @@ var _ = Describe("Config", func() {
 
 				BeforeEach(func() {
 					processConfigOverrides = &specs.Process{
-						Cwd: "foo/bar",
+						Cwd: "C:foo\\bar",
 						Env: []string{"var1"},
 					}
 
@@ -329,13 +329,13 @@ var _ = Describe("Config", func() {
 				})
 
 				It("errors", func() {
-					Expect(err).To(MatchError(&config.ProcessConfigValidationError{processConfigOverrides}))
+					Expect(err).To(MatchError(&config.ProcessConfigValidationError{ProcessSpec: processConfigOverrides}))
 					Expect(spec).To(BeNil())
 				})
 
 				It("logs the invalid fields", func() {
 					logOutputStr := logOutput.String()
-					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd \"foo/bar\" is not an absolute path"`))
+					Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd \"C:foo\\\\bar\" is not an absolute path"`))
 					Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
 					Expect(logOutputStr).To(ContainSubstring(`processConfigError="env \"var1\" should be in the form of 'key=value'`))
 				})
@@ -348,7 +348,7 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&config.MissingProcessConfigError{processConfig}))
+				Expect(err).To(MatchError(&config.MissingProcessConfigError{ProcessConfig: processConfig}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -366,7 +366,7 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&config.ProcessConfigInvalidEncodingError{processConfig}))
+				Expect(err).To(MatchError(&config.ProcessConfigInvalidEncodingError{ProcessConfig: processConfig}))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -378,12 +378,16 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&config.ProcessConfigInvalidJSONError{processConfig}))
+				Expect(err).To(MatchError(&config.ProcessConfigInvalidJSONError{ProcessConfig: processConfig}))
 				Expect(spec).To(BeNil())
 			})
 		})
 
 		Context("when the process config file does not conform to the runtime spec", func() {
+			recieveSpec := &specs.Process{
+				Cwd: "C:foo\\bar",
+				Env: []string{"var1"},
+			}
 			var (
 				logOutput   *bytes.Buffer
 				invalidSpec *specs.Process
@@ -404,13 +408,13 @@ var _ = Describe("Config", func() {
 			})
 
 			It("errors", func() {
-				Expect(err).To(MatchError(&config.ProcessConfigValidationError{invalidSpec}))
+				Expect(err).To(MatchError(&config.ProcessConfigValidationError{ProcessSpec: recieveSpec}))
 				Expect(spec).To(BeNil())
 			})
 
 			It("logs the invalid fields", func() {
 				logOutputStr := logOutput.String()
-				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd \"foo/bar\" is not an absolute path"`))
+				Expect(logOutputStr).To(ContainSubstring(`processConfigError="cwd \"C:foo\\\\bar\" is not an absolute path"`))
 				Expect(logOutputStr).To(ContainSubstring(`processConfigError="args must not be empty"`))
 				Expect(logOutputStr).To(ContainSubstring(`processConfigError="env \"var1\" should be in the form of 'key=value'`))
 			})
