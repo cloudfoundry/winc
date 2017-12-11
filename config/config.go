@@ -101,6 +101,8 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 		}
 	}
 
+	spec.Cwd = toWindowsPath(spec.Cwd)
+
 	if !filepath.IsAbs(spec.Cwd) {
 		msgs = append(msgs, fmt.Sprintf("cwd %q is not an absolute path", spec.Cwd))
 	}
@@ -153,4 +155,12 @@ func checkSemVer(version string) []string {
 	}
 
 	return []string{}
+}
+
+func toWindowsPath(input string) string {
+	vol := filepath.VolumeName(input)
+	if vol == "" {
+		input = filepath.Join("C:", input)
+	}
+	return filepath.Clean(input)
 }

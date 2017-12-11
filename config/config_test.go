@@ -271,6 +271,17 @@ var _ = Describe("Config", func() {
 					Expect(spec.User.Username).To(Equal(processConfigOverrides.User.Username))
 				})
 			})
+
+			Context("when the process config cwd is a unix style path", func() {
+				BeforeEach(func() {
+					processConfigOverrides.Cwd = "/"
+				})
+
+				It("the CWD is converted to windows style", func() {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(spec.Cwd).To(Equal("C:\\"))
+				})
+			})
 		})
 
 		Context("when the process config file is not provided", func() {
