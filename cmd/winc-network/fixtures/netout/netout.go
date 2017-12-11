@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -16,6 +17,8 @@ func main() {
 	if err != nil {
 		fatalError(err.Error())
 	}
+
+	time.Sleep(5 * time.Second)
 
 	switch protocol {
 	case "dns":
