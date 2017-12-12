@@ -65,3 +65,7 @@
 [[constraint]]
   branch = "master"
   name = "golang.org/x/text"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hectane/go-acl"

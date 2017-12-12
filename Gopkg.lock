@@ -28,6 +28,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/hectane/go-acl"
+  packages = [".","api"]
+  revision = "7f56832555fc229dad908c67d65ed3ce6156b70c"
+
+[[projects]]
+  branch = "master"
   name = "github.com/miekg/dns"
   packages = [".","internal/socket"]
   revision = "7994cb36eaf858ccb42fe26da404c345eca1d62d"
@@ -111,6 +117,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f1c95da9d4683660955efdf4cbc7b696935c6de7dd44f627a70ba7133a51ef8b"
+  inputs-digest = "a3f696cc00b530ef6556e1fc3874c70c0e329e2b4d66708ff7bacd1f78a6495f"
   solver-name = "gps-cdcl"
   solver-version = 1

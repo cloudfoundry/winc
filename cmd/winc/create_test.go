@@ -1,7 +1,10 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -10,18 +13,14 @@ import (
 	"strings"
 
 	helpers "code.cloudfoundry.org/winc/cmd/helpers"
+	acl "github.com/hectane/go-acl"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/windows"
 )
-
-func generateBundle(bundleSpec specs.Spec, bundlePath, id string) {
-	config, err := json.Marshal(&bundleSpec)
-	Expect(err).NotTo(HaveOccurred())
-	configFile := filepath.Join(bundlePath, "config.json")
-	Expect(ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
-}
 
 var _ = Describe("Create", func() {
 	var (
@@ -51,24 +50,18 @@ var _ = Describe("Create", func() {
 		})
 
 		It("creates and starts a container", func() {
-			generateBundle(bundleSpec, bundlePath, containerId)
-			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-			Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 			Expect(ps.FindProcess(helpers.GetContainerState(wincBin, containerId).Pid)).ToNot(BeNil())
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
-			generateBundle(bundleSpec, bundlePath, containerId)
-			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-			Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
 			pid := helpers.GetContainerState(wincBin, containerId).Pid
 			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
 
-			stdOut, stdErr, err = helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "type", "test.txt"}, false)
-			Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
-
+			stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"})
 			Expect(stdOut.String()).To(ContainSubstring("contents"))
 		})
 
@@ -86,10 +79,7 @@ var _ = Describe("Create", func() {
 
 		Context("when the bundle path ends with a \\", func() {
 			It("creates a container sucessfully", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
-				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath+"\\", containerId))
-				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
-
+				wincBinGenericCreate(bundleSpec, bundlePath+"\\", containerId)
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 			})
 		})
@@ -143,214 +133,244 @@ var _ = Describe("Create", func() {
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
-				stdOut, stdErr, err = helpers.ExecInContainer(wincBin, containerId, []string{"hostname"}, false)
-				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+				stdOut = wincBinGenericExecInContainer(containerId, []string{"hostname"})
 				Expect(strings.TrimSpace(stdOut.String())).To(Equal("some-random-hostname"))
 			})
 		})
 
 		Context("when the bundle config.json specifies bind mounts", func() {
-			// 	var (
-			// 		mountSource string
-			// 		mountDest   string
-			// 	)
+			var (
+				mountSource string
+				mountDest   string
+			)
 
 			BeforeEach(func() {
-				// 		var err error
-				// 		mountSource, err = ioutil.TempDir("", "mountsource")
-				// 		Expect(err).ToNot(HaveOccurred())
-				// 		Expect(ioutil.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
+				var err error
+				mountSource, err = ioutil.TempDir("", "mountsource")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
+				Expect(acl.Apply(mountSource, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 
-				// 		mountDest = "C:\\mountdest"
+				mountDest = "C:\\mountdest"
 
-				// 		mount := specs.Mount{Destination: mountDest, Source: mountSource}
-				// 		bundleSpec.Mounts = []specs.Mount{mount}
+				mount := specs.Mount{Destination: mountDest, Source: mountSource}
+				bundleSpec.Mounts = []specs.Mount{mount}
 			})
 
 			AfterEach(func() {
-				// 		Expect(os.RemoveAll(mountSource)).To(Succeed())
+				Expect(os.RemoveAll(mountSource)).To(Succeed())
 			})
 
-			// 	It("creates a container with the specified directories as mounts", func() {
-			// 		stdOut, _, err := execute(exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")))
-			// 		Expect(err).ToNot(HaveOccurred())
-			// 		Expect(stdOut.String()).To(ContainSubstring("hello"))
-			// 	})
+			It("creates a container with the specified directories as mounts", func() {
+				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+				stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")})
+				Expect(stdOut.String()).To(ContainSubstring("hello"))
+			})
 
-			// 	It("the mounted directories are read only", func() {
-			// 		cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "echo hello > "+filepath.Join(mountDest, "sentinel2"))
-			// 		session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			// 		Expect(err).ToNot(HaveOccurred())
-			// 		Eventually(session).Should(gexec.Exit(1))
-			// 	})
+			Context("when access to the mount source is granted to all users", func() {
+				BeforeEach(func() {
+					// Expect(acl.Chmod(mountSource, 0755)).To(Succeed())
+					// _, _, err := helpers.ExecInContainer()
+					// Expect(err).NotTo(HaveOccurred())
+				})
 
-			// 	Context("when the destination is /tmp/", func() {
-			// 		BeforeEach(func() {
-			// 			mountDest = "/tmp/mountdest"
+				XIt("non admin users can access the mounts in the container", func() {
+					// wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-			// 			mount := specs.Mount{Destination: mountDest, Source: mountSource}
-			// 			bundleSpec.Mounts = []specs.Mount{mount}
-			// 		})
+					// stdOut, stdErr, err = helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
+					// Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+					// Expect(stdOut.String()).To(ContainSubstring("hello"))
+				})
+			})
 
-			// 		It("mounts the specified directories", func() {
-			// 			stdOut, _, err := execute(exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")))
-			// 			Expect(err).ToNot(HaveOccurred())
-			// 			Expect(stdOut.String()).To(ContainSubstring("hello"))
-			// 		})
+			It("the mounted directories are read only", func() {
+				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
+				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+				Expect(stdErr.String()).To(ContainSubstring("Access is denied"))
+			})
 
-			// 		Context("when calling the mounted executable", func() {
-			// 			BeforeEach(func() {
-			// 				Expect(copy(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")).To(Succeed())
+			Context("when the destination is /tmp/", func() {
+				BeforeEach(func() {
+					mountDest = "/tmp/mountdest"
 
-			// 			})
-			// 			Context("when using the windows path", func() {
-			// 				It("mounts the specified directories", func() {
-			// 					stdOut, _, err := execute(exec.Command(wincBin, "exec", containerId, filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel")))
-			// 					Expect(err).ToNot(HaveOccurred())
-			// 					Expect(stdOut.String()).To(ContainSubstring("hello"))
-			// 				})
-			// 			})
-			// 			Context("when using the unix path", func() {
-			// 				It("mounts the specified directories", func() {
-			// 					stdOut, _, err := execute(exec.Command(wincBin, "exec", containerId, mountDest+"/cmd", "/C", "type", filepath.Join(mountDest, "sentinel")))
-			// 					Expect(err).ToNot(HaveOccurred())
-			// 					Expect(stdOut.String()).To(ContainSubstring("hello"))
-			// 				})
-			// 			})
-			// 		})
+					mount := specs.Mount{Destination: mountDest, Source: mountSource}
+					bundleSpec.Mounts = []specs.Mount{mount}
+				})
+
+				It("mounts the specified directories", func() {
+					wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+
+					stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")})
+					Expect(stdOut.String()).To(ContainSubstring("hello"))
+				})
+				Context("when calling the mounted executable", func() {
+					BeforeEach(func() {
+						wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+
+						Expect(helpers.CopyFile(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")).To(Succeed())
+
+					})
+					Context("when using the windows path", func() {
+						It("mounts the specified directories", func() {
+							stdOut := wincBinGenericExecInContainer(containerId, []string{filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel")})
+							Expect(stdOut.String()).To(ContainSubstring("hello"))
+						})
+					})
+					Context("when using the unix path", func() {
+						It("mounts the specified directories", func() {
+							stdOut := wincBinGenericExecInContainer(containerId, []string{mountDest + "/cmd", "/C", "type", filepath.Join(mountDest, "sentinel")})
+							Expect(stdOut.String()).To(ContainSubstring("hello"))
+						})
+					})
+				})
+			})
+
+			Context("when a file is supplied as a mount", func() {
+				var (
+					logFile   string
+					mountFile string
+				)
+
+				BeforeEach(func() {
+					l, err := ioutil.TempFile("", "winc.log")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(l.Close()).To(Succeed())
+					logFile = l.Name()
+
+					m, err := ioutil.TempFile("", "mountfile")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(m.Close()).To(Succeed())
+					mountFile = m.Name()
+
+					bundleSpec.Mounts = append(bundleSpec.Mounts, specs.Mount{
+						Source:      mountFile,
+						Destination: "C:\\foobar",
+					})
+				})
+
+				AfterEach(func() {
+					Expect(os.RemoveAll(logFile)).To(Succeed())
+					Expect(os.RemoveAll(mountFile)).To(Succeed())
+				})
+
+				It("ignores it and logs that it did so", func() {
+					generateBundle(bundleSpec, bundlePath, containerId)
+					stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId))
+					Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+
+					contents, err := ioutil.ReadFile(logFile)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(string(contents)).To(ContainSubstring("mount is not a directory, ignoring"))
+					Expect(string(contents)).To(ContainSubstring(fmt.Sprintf(`"mount":"%s"`, strings.Replace(mountFile, `\`, `\\`, -1))))
+				})
+			})
 		})
 
-		// 	Context("when a file is supplied as a mount", func() {
-		// 		var (
-		// 			logFile   string
-		// 			mountFile string
-		// 		)
+		Context("when the bundle config.json specifies a container memory limit", func() {
+			var memLimitMB = uint64(128)
 
-		// 		BeforeEach(func() {
-		// 			l, err := ioutil.TempFile("", "winc.log")
-		// 			Expect(err).ToNot(HaveOccurred())
-		// 			Expect(l.Close()).To(Succeed())
-		// 			logFile = l.Name()
+			BeforeEach(func() {
+				memLimitBytes := memLimitMB * 1024 * 1024
+				bundleSpec.Windows.Resources = &specs.WindowsResources{
+					Memory: &specs.WindowsMemoryResources{
+						Limit: &memLimitBytes,
+					},
+				}
+			})
 
-		// 			m, err := ioutil.TempFile("", "mountfile")
-		// 			Expect(err).ToNot(HaveOccurred())
-		// 			Expect(m.Close()).To(Succeed())
-		// 			mountFile = m.Name()
+			grabMemory := func(mem int, exitCode int) string {
+				cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(mem*1024*1024))
+				stdErr := new(bytes.Buffer)
+				session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
+				return stdErr.String()
+			}
 
-		// 			bundleSpec.Mounts = append(bundleSpec.Mounts, specs.Mount{
-		// 				Source:      mountFile,
-		// 				Destination: "C:\\foobar",
-		// 			})
+			It("is not constrained by smaller memory limit", func() {
+				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-		// 			createCmd = exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId)
-		// 		})
+				pid := helpers.GetContainerState(wincBin, containerId).Pid
+				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
+				Expect(err).NotTo(HaveOccurred())
 
-		// 		AfterEach(func() {
-		// 			Expect(os.RemoveAll(logFile)).To(Succeed())
-		// 			Expect(os.RemoveAll(mountFile)).To(Succeed())
-		// 		})
+				Expect(grabMemory(10, 0)).To(Equal(""))
+			})
 
-		// 		It("ignores it and logs that it did so", func() {
-		// 			contents, err := ioutil.ReadFile(logFile)
-		// 			Expect(err).ToNot(HaveOccurred())
-		// 			Expect(string(contents)).To(ContainSubstring("mount is not a directory, ignoring"))
-		// 			Expect(string(contents)).To(ContainSubstring(fmt.Sprintf(`"mount":"%s"`, strings.Replace(mountFile, `\`, `\\`, -1))))
-		// 		})
-		// 	})
-		// })
+			It("is constrained by hitting the memory limit", func() {
+				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-		// Context("when the bundle config.json specifies a container memory limit", func() {
-		// 	var memLimitMB = uint64(128)
+				pid := helpers.GetContainerState(wincBin, containerId).Pid
+				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
+				Expect(err).NotTo(HaveOccurred())
 
-		// 	BeforeEach(func() {
-		// 		memLimitBytes := memLimitMB * 1024 * 1024
-		// 		bundleSpec.Windows.Resources = &specs.WindowsResources{
-		// 			Memory: &specs.WindowsMemoryResources{
-		// 				Limit: &memLimitBytes,
-		// 			},
-		// 		}
-		// 	})
-
-		// 	JustBeforeEach(func() {
-		// 		pid := getContainerState(containerId).Pid
-		// 		err := copy(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
-		// 		Expect(err).NotTo(HaveOccurred())
-		// 	})
-
-		// 	grabMemory := func(mem int, exitCode int) string {
-		// 		cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(mem*1024*1024))
-		// 		stdErr := new(bytes.Buffer)
-		// 		session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
-		// 		Expect(err).ToNot(HaveOccurred())
-		// 		Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
-		// 		return stdErr.String()
-		// 	}
-
-		// 	It("is not constrained by smaller memory limit", func() {
-		// 		Expect(grabMemory(10, 0)).To(Equal(""))
-		// 	})
-
-		// 	It("is constrained by hitting the memory limit", func() {
-		// 		Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: out of memory"))
-		// 	})
-		// })
+				Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: out of memory"))
+			})
+		})
 	})
 
-	// Context("when the mount source does not exist", func() {
-	// 	BeforeEach(func() {
-	// 		mountDest := "C:\\mnt"
-	// 		mountSource := "C:\\not\\a\\directory\\mountsource"
+	Context("when the mount source does not exist", func() {
+		BeforeEach(func() {
+			mountDest := "C:\\mnt"
+			mountSource := "C:\\not\\a\\directory\\mountsource"
 
-	// 		mount := specs.Mount{Destination: mountDest, Source: mountSource}
-	// 		bundleSpec.Mounts = []specs.Mount{mount}
-	// 	})
+			mount := specs.Mount{Destination: mountDest, Source: mountSource}
+			bundleSpec.Mounts = []specs.Mount{mount}
+		})
 
-	// 	It("errors and does not create the container", func() {
-	// 		cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-	// 		session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-	// 		Expect(err).ToNot(HaveOccurred())
-	// 		Eventually(session).Should(gexec.Exit(1))
+		It("errors and does not create the container", func() {
+			generateBundle(bundleSpec, bundlePath, containerId)
+			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+			Expect(stdErr.String()).To(ContainSubstring(`CreateFile C:\not\a\directory\mountsource: The system cannot find the path specified`))
 
-	// 		Expect(containerExists(containerId)).To(BeFalse())
-	// 	})
-	// })
+			Expect(helpers.ContainerExists(containerId)).To(BeFalse())
+		})
+	})
 
-	// Context("when provided a container id that already exists", func() {
-	// 	JustBeforeEach(func() {
-	// 		_, _, err := execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-	// 		Expect(err).NotTo(HaveOccurred())
-	// 	})
+	Context("when provided a container id that already exists", func() {
+		It("errors", func() {
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-	// 	AfterEach(func() {
-	// 		_, _, err := execute(exec.Command(wincBin, "delete", containerId))
-	// 		Expect(err).ToNot(HaveOccurred())
-	// 	})
+			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+			expectedErrorMsg := fmt.Sprintf("container with id already exists: %s", containerId)
+			Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
+		})
+	})
 
-	// 	It("errors", func() {
-	// 		cmd := exec.Command(wincBin, "create", "-b", bundlePath, containerId)
-	// 		stdErr := new(bytes.Buffer)
-	// 		session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
-	// 		Expect(err).ToNot(HaveOccurred())
+	Context("when the bundle directory name and container id do not match", func() {
+		It("errors and does not create the container", func() {
+			newContainerId := helpers.RandomContainerId()
 
-	// 		Eventually(session).Should(gexec.Exit(1))
-	// 		expectedErrorMsg := fmt.Sprintf("container with id already exists: %s", containerId)
-	// 		Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
-	// 	})
-	// })
+			generateBundle(bundleSpec, bundlePath, containerId)
+			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, newContainerId))
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-	// Context("when the bundle directory name and container id do not match", func() {
-	// 	It("errors and does not create the container", func() {
-	// 		newContainerId := randomContainerId()
-	// 		cmd := exec.Command(wincBin, "create", "-b", bundlePath, newContainerId)
-	// 		stdErr := new(bytes.Buffer)
-	// 		session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
-	// 		Expect(err).ToNot(HaveOccurred())
+			expectedErrorMsg := fmt.Sprintf("container id does not match bundle directory name: %s", newContainerId)
+			Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
 
-	// 		Eventually(session).Should(gexec.Exit(1))
-	// 		expectedErrorMsg := fmt.Sprintf("container id does not match bundle directory name: %s", newContainerId)
-	// 		Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
-
-	// 		Expect(containerExists(newContainerId)).To(BeFalse())
-	// 	})
-	// })
+			Expect(helpers.ContainerExists(newContainerId)).To(BeFalse())
+		})
+	})
 })
+
+func generateBundle(bundleSpec specs.Spec, bundlePath, id string) {
+	config, err := json.Marshal(&bundleSpec)
+	Expect(err).NotTo(HaveOccurred())
+	configFile := filepath.Join(bundlePath, "config.json")
+	Expect(ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
+}
+
+func wincBinGenericCreate(bundleSpec specs.Spec, bundlePath, containerId string) {
+	generateBundle(bundleSpec, bundlePath, containerId)
+	stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+}
+
+func wincBinGenericExecInContainer(containerId string, args []string) *bytes.Buffer {
+	stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, false)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+	return stdOut
+}
