@@ -64,7 +64,7 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 			return err
 		}
 
-		return runProcess(containerId, spec.Process, detach, "")
+		return runProcess(containerId, spec.Process, detach, "", true)
 	},
 	SkipArgReorder: true,
 }

@@ -97,7 +97,7 @@ following will output a list of processes running in the container:
 			"detach":        detach,
 		}).Debug("executing process in container")
 
-		return runProcess(containerId, spec, detach, pidFile)
+		return runProcess(containerId, spec, detach, pidFile, false)
 	},
 	SkipArgReorder: true,
 }

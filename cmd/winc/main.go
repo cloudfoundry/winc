@@ -225,7 +225,7 @@ func createContainer(logger *logrus.Entry, bundlePath, imageStore, containerId, 
 	return spec, nil
 }
 
-func runProcess(containerId string, spec *specs.Process, detach bool, pidFile string) error {
+func runProcess(containerId string, spec *specs.Process, detach bool, pidFile string, deleteContainer bool) error {
 	cm, err := wireContainerManager("", "", containerId)
 	if err != nil {
 		return err
@@ -278,6 +278,12 @@ func runProcess(containerId string, spec *specs.Process, detach bool, pidFile st
 		waitWithTimeout(&wg, 1*time.Second)
 		if err != nil {
 			return err
+		}
+
+		if deleteContainer {
+			if err := cm.Delete(); err != nil {
+				return err
+			}
 		}
 
 		exitCode, err := process.ExitCode()

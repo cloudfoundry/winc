@@ -73,7 +73,7 @@ var _ = Describe("Run", func() {
 	})
 
 	Context("when the --detach flag is not passed", func() {
-		It("the process runs in the container and returns the exit code when the process finishes", func() {
+		It("the process runs in the container, returns the exit code when the process finishes, and deletes the container", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "exit /B 5"}
 			writeSpec(bundlePath, bundleSpec)
 			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
@@ -81,8 +81,7 @@ var _ = Describe("Run", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(session).Should(gexec.Exit(5))
 
-			pl := containerProcesses(containerId, "cmd.exe")
-			Expect(len(pl)).To(Equal(0))
+			Expect(containerExists(containerId)).To(BeFalse())
 		})
 
 		It("passes stdin through to the process", func() {
@@ -133,8 +132,7 @@ var _ = Describe("Run", func() {
 
 			sendCtrlBreak(session)
 			Eventually(session).Should(gexec.Exit(1067))
-			pl = containerProcesses(containerId, "cmd.exe")
-			Expect(len(pl)).To(Equal(0))
+			Expect(containerExists(containerId)).To(BeFalse())
 		})
 	})
 
