@@ -22,7 +22,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var _ = FDescribe("Exec", func() {
+var _ = Describe("Exec", func() {
 	Context("when the container exists", func() {
 		var (
 			containerId string

@@ -38,6 +38,23 @@ var (
 	sleepBin     string
 )
 
+type wincStats struct {
+	Data struct {
+		CPUStats struct {
+			CPUUsage struct {
+				Usage  uint64 `json:"total"`
+				System uint64 `json:"kernel"`
+				User   uint64 `json:"user"`
+			} `json:"usage"`
+		} `json:"cpu"`
+		Memory struct {
+			Stats struct {
+				TotalRss uint64 `json:"total_rss"`
+			} `json:"raw"`
+		} `json:"memory"`
+	} `json:"data"`
+}
+
 func TestWinc(t *testing.T) {
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(defaultTimeout)
@@ -144,6 +161,14 @@ func sendCtrlBreak(s *gexec.Session) {
 	Expect(err).ToNot(HaveOccurred())
 	r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(s.Command.Process.Pid))
 	Expect(r).ToNot(Equal(0), fmt.Sprintf("GenerateConsoleCtrlEvent: %v\n", err))
+}
+
+func getStats(containerId string) wincStats {
+	var stats wincStats
+	stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "events", "--stats", containerId))
+	Expect(err).To(Succeed(), stdOut.String(), stdErr.String())
+	Expect(json.Unmarshal(stdOut.Bytes(), &stats)).To(Succeed())
+	return stats
 }
 
 func generateBundle(bundleSpec specs.Spec, bundlePath, id string) {

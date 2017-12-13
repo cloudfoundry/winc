@@ -1,63 +1,75 @@
 package main_test
 
-// . "github.com/onsi/ginkgo"
-// . "github.com/onsi/gomega"
+import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
 
-// var _ = Describe("State", func() {
-// 	Context("given an existing container id", func() {
-// 		var (
-// 			containerId string
-// 			actualState *specs.State
-// 		)
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
+	acl "github.com/hectane/go-acl"
+	ps "github.com/mitchellh/go-ps"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/windows"
+)
 
-// 		BeforeEach(func() {
-// 			containerId = filepath.Base(bundlePath)
+var _ = Describe("State", func() {
+	Context("given an existing container id", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
 
-// 			bundleSpec := runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
-// 			config, err := json.Marshal(&bundleSpec)
-// 			Expect(err).NotTo(HaveOccurred())
+		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
 
-// 			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
-// 			_, _, err = execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-// 			Expect(err).NotTo(HaveOccurred())
-// 		})
+			containerId = filepath.Base(bundlePath)
 
-// 		AfterEach(func() {
-// 			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
-// 			Expect(err).ToNot(HaveOccurred())
-// 			_, _, err = execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
-// 			Expect(err).ToNot(HaveOccurred())
-// 		})
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
+			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+		})
 
-// 		Context("when the container has been created", func() {
-// 			It("prints the state of the container to stdout", func() {
-// 				stdOut, _, err := execute(exec.Command(wincBin, "state", containerId))
-// 				Expect(err).ToNot(HaveOccurred())
+		AfterEach(func() {
+			helpers.DeleteContainer(wincBin, containerId)
+			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		})
 
-// 				actualState = &specs.State{}
-// 				Expect(json.Unmarshal(stdOut.Bytes(), actualState)).To(Succeed())
+		Context("when the container has been created", func() {
+			It("prints the state of the container to stdout", func() {
+				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "state", containerId))
+				Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
-// 				Expect(actualState.Status).To(Equal("created"))
-// 				Expect(actualState.Version).To(Equal(specs.Version))
-// 				Expect(actualState.ID).To(Equal(containerId))
-// 				Expect(actualState.Bundle).To(Equal(bundlePath))
+				actualState := &specs.State{}
+				Expect(json.Unmarshal(stdOut.Bytes(), actualState)).To(Succeed())
 
-// 				p, err := ps.FindProcess(actualState.Pid)
-// 				Expect(err).ToNot(HaveOccurred())
-// 				Expect(p.Executable()).To(Equal("wininit.exe"))
-// 			})
-// 		})
-// 	})
+				Expect(actualState.Status).To(Equal("created"))
+				Expect(actualState.Version).To(Equal(specs.Version))
+				Expect(actualState.ID).To(Equal(containerId))
+				Expect(actualState.Bundle).To(Equal(bundlePath))
 
-// 	Context("given a nonexistent container id", func() {
-// 		It("errors", func() {
-// 			cmd := exec.Command(wincBin, "state", "doesntexist")
-// 			stdErr := new(bytes.Buffer)
-// 			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
-// 			Expect(err).ToNot(HaveOccurred())
+				p, err := ps.FindProcess(actualState.Pid)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(p.Executable()).To(Equal("wininit.exe"))
+			})
+		})
+	})
 
-// 			Eventually(session).Should(gexec.Exit(1))
-// 			Expect(stdErr.String()).To(ContainSubstring("container not found: doesntexist"))
-// 		})
-// 	})
-// })
+	Context("given a nonexistent container id", func() {
+		It("errors", func() {
+			cmd := exec.Command(wincBin, "state", "doesntexist")
+			stdOut, stdErr, err := helpers.Execute(cmd)
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+
+			Expect(stdErr.String()).To(ContainSubstring("container not found: doesntexist"))
+		})
+	})
+})

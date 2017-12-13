@@ -29,7 +29,7 @@ func GetContainerState(binaryPath, containerId string) specs.State {
 func DeleteContainer(binaryPath, id string) {
 	if ContainerExists(id) {
 		output, err := exec.Command(binaryPath, "delete", id).CombinedOutput()
-		Expect(err).NotTo(HaveOccurred(), string(output))
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }
 

@@ -1,73 +1,73 @@
 package main_test
 
-// . "github.com/onsi/ginkgo"
-// . "github.com/onsi/gomega"
+import (
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 
-// var _ = Describe("Delete", func() {
-// 	Context("when provided an existing container id", func() {
-// 		var containerId string
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+)
 
-// 		BeforeEach(func() {
-// 			containerId = filepath.Base(bundlePath)
+var _ = Describe("Delete", func() {
+	Context("when provided an existing container id", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
 
-// 			bundleSpec := runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
-// 			config, err := json.Marshal(&bundleSpec)
-// 			Expect(err).NotTo(HaveOccurred())
+		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
 
-// 			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
-// 			_, _, err = execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-// 			Expect(err).NotTo(HaveOccurred())
-// 		})
+			containerId = filepath.Base(bundlePath)
 
-// 		AfterEach(func() {
-// 			_, _, err := execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
-// 			Expect(err).NotTo(HaveOccurred())
-// 		})
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+		})
 
-// 		JustBeforeEach(func() {
-// 			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
-// 			Expect(err).ToNot(HaveOccurred())
-// 		})
+		AfterEach(func() {
+			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		})
 
-// 		Context("when the container is running", func() {
-// 			var (
-// 				rootPath string
-// 			)
+		Context("when the container is running", func() {
+			It("deletes the container", func() {
+				helpers.DeleteContainer(wincBin, containerId)
+				Expect(helpers.ContainerExists(containerId)).To(BeFalse())
+			})
 
-// 			BeforeEach(func() {
-// 				pid := getContainerState(containerId).Pid
-// 				rootPath = filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
-// 				_, err := os.Lstat(rootPath)
-// 				Expect(err).NotTo(HaveOccurred())
-// 			})
+			It("does not delete the bundle directory", func() {
+				helpers.DeleteContainer(wincBin, containerId)
+				Expect(bundlePath).To(BeADirectory())
+			})
 
-// 			It("deletes the container", func() {
-// 				Expect(containerExists(containerId)).To(BeFalse())
-// 			})
+			It("unmounts sandbox.vhdx", func() {
+				pid := helpers.GetContainerState(wincBin, containerId).Pid
+				helpers.DeleteContainer(wincBin, containerId)
+				rootPath := filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
+				Expect(rootPath).NotTo(BeADirectory())
 
-// 			It("does not delete the bundle directory", func() {
-// 				Expect(bundlePath).To(BeADirectory())
-// 			})
+				// if not cleanly unmounted, the mount point is left as a symlink
+				_, err := os.Lstat(rootPath)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
 
-// 			It("unmounts sandbox.vhdx", func() {
-// 				Expect(rootPath).NotTo(BeADirectory())
+	Context("when provided a nonexistent container id", func() {
+		It("errors", func() {
+			cmd := exec.Command(wincBin, "delete", "nonexistentcontainer")
+			stdOut, stdErr, err := helpers.Execute(cmd)
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-// 				// if not cleanly unmounted, the mount point is left as a symlink
-// 				_, err := os.Lstat(rootPath)
-// 				Expect(err).NotTo(BeNil())
-// 			})
-// 		})
-// 	})
-
-// 	Context("when provided a nonexistent container id", func() {
-// 		It("errors", func() {
-// 			cmd := exec.Command(wincBin, "delete", "nonexistentcontainer")
-// 			stdErr := new(bytes.Buffer)
-// 			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
-// 			Expect(err).ToNot(HaveOccurred())
-
-// 			Eventually(session).Should(gexec.Exit(1))
-// 			Expect(stdErr.String()).To(ContainSubstring("container not found: nonexistentcontainer"))
-// 		})
-// 	})
-// })
+			Expect(stdErr.String()).To(ContainSubstring("container not found: nonexistentcontainer"))
+		})
+	})
+})
