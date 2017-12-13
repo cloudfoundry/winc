@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -355,22 +354,3 @@ var _ = Describe("Create", func() {
 		})
 	})
 })
-
-func generateBundle(bundleSpec specs.Spec, bundlePath, id string) {
-	config, err := json.Marshal(&bundleSpec)
-	Expect(err).NotTo(HaveOccurred())
-	configFile := filepath.Join(bundlePath, "config.json")
-	Expect(ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
-}
-
-func wincBinGenericCreate(bundleSpec specs.Spec, bundlePath, containerId string) {
-	generateBundle(bundleSpec, bundlePath, containerId)
-	stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
-}
-
-func wincBinGenericExecInContainer(containerId string, args []string) *bytes.Buffer {
-	stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, false)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
-	return stdOut
-}

@@ -1,7 +1,10 @@
 package main_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
@@ -9,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -31,6 +35,7 @@ var (
 	rootfsPath   string
 	readBin      string
 	consumeBin   string
+	sleepBin     string
 )
 
 func TestWinc(t *testing.T) {
@@ -70,6 +75,8 @@ var _ = BeforeSuite(func() {
 	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/consume")
 	Expect(err).ToNot(HaveOccurred())
 	readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
+	Expect(err).ToNot(HaveOccurred())
+	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
 })
 
@@ -137,4 +144,23 @@ func sendCtrlBreak(s *gexec.Session) {
 	Expect(err).ToNot(HaveOccurred())
 	r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(s.Command.Process.Pid))
 	Expect(r).ToNot(Equal(0), fmt.Sprintf("GenerateConsoleCtrlEvent: %v\n", err))
+}
+
+func generateBundle(bundleSpec specs.Spec, bundlePath, id string) {
+	config, err := json.Marshal(&bundleSpec)
+	Expect(err).NotTo(HaveOccurred())
+	configFile := filepath.Join(bundlePath, "config.json")
+	Expect(ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
+}
+
+func wincBinGenericCreate(bundleSpec specs.Spec, bundlePath, containerId string) {
+	generateBundle(bundleSpec, bundlePath, containerId)
+	stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+}
+
+func wincBinGenericExecInContainer(containerId string, args []string) *bytes.Buffer {
+	stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, false)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+	return stdOut
 }
