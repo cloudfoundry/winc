@@ -578,9 +578,12 @@ var _ = Describe("networking", func() {
 			It("allows traffic to those servers", func() {
 				networkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`)
 
-				stdout, _, err := execInContainer(containerId, []string{"powershell.exe", "-Command", `test-netconnection -computername 8.8.8.8 -port 53`}, false)
+				pid := getContainerState(containerId).Pid
+				Expect(copyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+
+				stdout, _, err := execInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(ContainSubstring("TcpTestSucceeded : True"))
+				Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 			})
 		})
 	})
