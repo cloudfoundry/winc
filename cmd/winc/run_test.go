@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,48 +22,51 @@ import (
 var _ = Describe("Run", func() {
 	var (
 		containerId string
+		bundlePath  string
 		bundleSpec  specs.Spec
 	)
 
 	BeforeEach(func() {
+		var err error
+		bundlePath, err = ioutil.TempDir("", "winccontainer")
+		Expect(err).To(Succeed())
+
 		containerId = filepath.Base(bundlePath)
-		bundleSpec = runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
+
+		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
 	})
 
 	AfterEach(func() {
-		execute(exec.Command(wincBin, "delete", containerId))
-		_, _, err := execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
-		Expect(err).NotTo(HaveOccurred())
+		helpers.DeleteContainer(wincBin, containerId)
+		helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	It("creates a container and runs the init process", func() {
-		writeSpec(bundlePath, bundleSpec)
-		_, _, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+		generateBundle(bundleSpec, bundlePath, containerId)
+		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(containerExists(containerId)).To(BeTrue())
+		Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 
 		pl := containerProcesses(containerId, "powershell.exe")
 		Expect(len(pl)).To(Equal(1))
 
-		containerPid := getContainerState(containerId).Pid
+		containerPid := helpers.GetContainerState(wincBin, containerId).Pid
 		Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 	})
 
 	Context("when the --detach flag is passed", func() {
-		BeforeEach(func() {
-			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor fivesec /T 5 >NULL & exit /B 0"}
-		})
-
 		It("the process runs in the container and returns immediately", func() {
-			writeSpec(bundlePath, bundleSpec)
-			_, _, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor fivesec /T 5 >NULL & exit /B 0"}
+			generateBundle(bundleSpec, bundlePath, containerId)
+			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 			Expect(err).ToNot(HaveOccurred())
 
 			pl := containerProcesses(containerId, "cmd.exe")
 			Expect(len(pl)).To(Equal(1))
 
-			containerPid := getContainerState(containerId).Pid
+			containerPid := helpers.GetContainerState(wincBin, containerId).Pid
 			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 
 			Eventually(func() []hcsshim.ProcessListItem {
@@ -75,13 +78,12 @@ var _ = Describe("Run", func() {
 	Context("when the --detach flag is not passed", func() {
 		It("the process runs in the container, returns the exit code when the process finishes, and deletes the container", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "exit /B 5"}
-			writeSpec(bundlePath, bundleSpec)
-			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(session).Should(gexec.Exit(5))
+			generateBundle(bundleSpec, bundlePath, containerId)
+			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
+			Expect(err).To(HaveOccurred())
+			Expect(helpers.ExitCode(err)).To(Equal(5))
 
-			Expect(containerExists(containerId)).To(BeFalse())
+			Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 		})
 
 		It("passes stdin through to the process", func() {
@@ -92,33 +94,33 @@ var _ = Describe("Run", func() {
 					Destination: "C:\\temp",
 				},
 			}
-			writeSpec(bundlePath, bundleSpec)
+			generateBundle(bundleSpec, bundlePath, containerId)
 			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
 			cmd.Stdin = strings.NewReader("hey-winc\n")
-			stdOut, _, err := execute(cmd)
+			stdOut, _, err := helpers.Execute(cmd)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("hey-winc"))
 		})
 
 		It("captures the stdout", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc"}
-			writeSpec(bundlePath, bundleSpec)
-			stdOut, _, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
+			generateBundle(bundleSpec, bundlePath, containerId)
+			stdOut, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("hey-winc"))
 		})
 
 		It("captures the stderr", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc 1>&2"}
-			writeSpec(bundlePath, bundleSpec)
-			_, stdErr, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
-			Expect(err).ToNot(HaveOccurred())
+			generateBundle(bundleSpec, bundlePath, containerId)
+			_, stdErr, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
+			Expect(err).NotTo(HaveOccurred())
 			Expect(stdErr.String()).To(ContainSubstring("hey-winc"))
 		})
 
 		It("captures the CTRL+C", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc & waitfor ever /T 9999"}
-			writeSpec(bundlePath, bundleSpec)
+			generateBundle(bundleSpec, bundlePath, containerId)
 			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
@@ -132,83 +134,75 @@ var _ = Describe("Run", func() {
 
 			sendCtrlBreak(session)
 			Eventually(session).Should(gexec.Exit(1067))
-			Expect(containerExists(containerId)).To(BeFalse())
-		})
-	})
-
-	Context("when the '--pid-file' flag is provided", func() {
-		var pidFile string
-
-		BeforeEach(func() {
-			f, err := ioutil.TempFile("", "pid")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(f.Close()).To(Succeed())
-			pidFile = f.Name()
+			Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 		})
 
-		AfterEach(func() {
-			Expect(os.RemoveAll(pidFile)).To(Succeed())
+		Context("when the '--pid-file' flag is provided", func() {
+			var pidFile string
+
+			BeforeEach(func() {
+				f, err := ioutil.TempFile("", "pid")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(f.Close()).To(Succeed())
+				pidFile = f.Name()
+			})
+
+			AfterEach(func() {
+				Expect(os.RemoveAll(pidFile)).To(Succeed())
+			})
+
+			It("places the container pid in the specified file", func() {
+				bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor ever /T 9999"}
+				generateBundle(bundleSpec, bundlePath, containerId)
+				_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--pid-file", pidFile, containerId))
+				Expect(err).ToNot(HaveOccurred())
+
+				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+
+				pidBytes, err := ioutil.ReadFile(pidFile)
+				Expect(err).ToNot(HaveOccurred())
+				pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(int(pid)).To(Equal(containerPid))
+			})
 		})
 
-		It("places the container pid in the specified file", func() {
-			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor ever /T 9999"}
-			writeSpec(bundlePath, bundleSpec)
-			_, _, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--pid-file", pidFile, containerId))
-			Expect(err).ToNot(HaveOccurred())
-
-			containerPid := getContainerState(containerId).Pid
-
-			pidBytes, err := ioutil.ReadFile(pidFile)
-			Expect(err).ToNot(HaveOccurred())
-			pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(int(pid)).To(Equal(containerPid))
-		})
-	})
-
-	Context("when the '--no-new-keyring' flag is provided", func() {
-		It("ignores it and creates and starts a container", func() {
-			writeSpec(bundlePath, bundleSpec)
-			_, _, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--no-new-keyring", containerId))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(containerExists(containerId)).To(BeTrue())
-		})
-	})
-
-	Context("when the container exists", func() {
-		BeforeEach(func() {
-			writeSpec(bundlePath, bundleSpec)
-			_, _, err := execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-			Expect(err).NotTo(HaveOccurred())
+		Context("when the '--no-new-keyring' flag is provided", func() {
+			It("ignores it and creates and starts a container", func() {
+				generateBundle(bundleSpec, bundlePath, containerId)
+				_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--no-new-keyring", containerId))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+			})
 		})
 
-		AfterEach(func() {
-			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
-			Expect(err).ToNot(HaveOccurred())
+		Context("when the container exists", func() {
+			BeforeEach(func() {
+				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+			})
+
+			AfterEach(func() {
+				helpers.DeleteContainer(wincBin, containerId)
+				helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			})
+
+			It("errors", func() {
+				_, stdErr, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+				Expect(err).To(HaveOccurred())
+				expectedErrorMsg := fmt.Sprintf("container with id already exists: %s", containerId)
+				Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
+			})
 		})
 
-		It("errors", func() {
-			_, stdErr, err := execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
-			Expect(err).To(HaveOccurred())
-			expectedErrorMsg := fmt.Sprintf("container with id already exists: %s", containerId)
-			Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
-		})
-	})
-
-	Context("when the bundlePath is not specified", func() {
-		It("uses the current directory as the bundlePath", func() {
-			writeSpec(bundlePath, bundleSpec)
-			createCmd := exec.Command(wincBin, "run", "--detach", containerId)
-			createCmd.Dir = bundlePath
-			_, _, err := execute(createCmd)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(containerExists(containerId)).To(BeTrue())
+		Context("when the bundlePath is not specified", func() {
+			It("uses the current directory as the bundlePath", func() {
+				generateBundle(bundleSpec, bundlePath, containerId)
+				createCmd := exec.Command(wincBin, "run", "--detach", containerId)
+				createCmd.Dir = bundlePath
+				_, _, err := helpers.Execute(createCmd)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+			})
 		})
 	})
 })
-
-func writeSpec(path string, spec specs.Spec) {
-	config, err := json.Marshal(&spec)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(filepath.Join(path, "config.json"), config, 0666)).To(Succeed())
-}

@@ -1,81 +1,57 @@
 package main_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 
-	"github.com/Microsoft/hcsshim"
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Delete", func() {
 	Context("when provided an existing container id", func() {
-		var containerId string
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
 
 		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec := runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
-			config, err := json.Marshal(&bundleSpec)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
-			_, _, err = execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-			Expect(err).NotTo(HaveOccurred())
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			_, _, err := execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		JustBeforeEach(func() {
-			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
-			Expect(err).ToNot(HaveOccurred())
+			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		Context("when the container is running", func() {
-			var (
-				containerEndpoints []string
-				rootPath           string
-			)
-
-			BeforeEach(func() {
-				containerEndpoints = allEndpoints(containerId)
-				pid := getContainerState(containerId).Pid
-				rootPath = filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
-				_, err := os.Lstat(rootPath)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
 			It("deletes the container", func() {
-				Expect(containerExists(containerId)).To(BeFalse())
-			})
-
-			It("deletes the container endpoints", func() {
-				existingEndpoints, err := hcsshim.HNSListEndpointRequest()
-				Expect(err).NotTo(HaveOccurred())
-
-				for _, ep := range containerEndpoints {
-					for _, existing := range existingEndpoints {
-						Expect(ep).NotTo(Equal(existing.Id))
-					}
-				}
+				helpers.DeleteContainer(wincBin, containerId)
+				Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 			})
 
 			It("does not delete the bundle directory", func() {
+				helpers.DeleteContainer(wincBin, containerId)
 				Expect(bundlePath).To(BeADirectory())
 			})
 
 			It("unmounts sandbox.vhdx", func() {
+				pid := helpers.GetContainerState(wincBin, containerId).Pid
+				helpers.DeleteContainer(wincBin, containerId)
+				rootPath := filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
 				Expect(rootPath).NotTo(BeADirectory())
 
 				// if not cleanly unmounted, the mount point is left as a symlink
@@ -88,11 +64,9 @@ var _ = Describe("Delete", func() {
 	Context("when provided a nonexistent container id", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincBin, "delete", "nonexistentcontainer")
-			stdErr := new(bytes.Buffer)
-			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
-			Expect(err).ToNot(HaveOccurred())
+			stdOut, stdErr, err := helpers.Execute(cmd)
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			Eventually(session).Should(gexec.Exit(1))
 			Expect(stdErr.String()).To(ContainSubstring("container not found: nonexistentcontainer"))
 		})
 	})

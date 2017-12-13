@@ -1,55 +1,60 @@
 package main_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
+	acl "github.com/hectane/go-acl"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/windows"
 )
 
 var _ = Describe("Events", func() {
 	Context("given an existing container id", func() {
-		var containerId string
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
 
 		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec := runtimeSpecGenerator(createSandbox(imageStore, rootfsPath, containerId))
-			config, err := json.Marshal(&bundleSpec)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
-			_, _, err = execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
-			Expect(err).NotTo(HaveOccurred())
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
+			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
+			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			_, _, err := execute(exec.Command(wincBin, "delete", containerId))
-			Expect(err).NotTo(HaveOccurred())
-			_, _, err = execute(exec.Command(wincImageBin, "--store", imageStore, "delete", containerId))
-			Expect(err).NotTo(HaveOccurred())
+			helpers.DeleteContainer(wincBin, containerId)
+			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		Context("when the container has been created", func() {
 			It("exits without error", func() {
 				cmd := exec.Command(wincBin, "events", containerId)
-				_, _, err := execute(cmd)
-				Expect(err).NotTo(HaveOccurred())
+				stdOut, stdErr, err := helpers.Execute(cmd)
+				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 			})
 
 			Context("when passed the --stats flag", func() {
 				BeforeEach(func() {
-					pid := getContainerState(containerId).Pid
-					err := copy(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
+					pid := helpers.GetContainerState(wincBin, containerId).Pid
+					err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -83,8 +88,9 @@ var _ = Describe("Events", func() {
 					cpuUsageBefore := getStats(containerId).Data.CPUStats.CPUUsage.Usage
 					Expect(cpuUsageBefore).To(BeNumerically(">", 0))
 
-					_, _, err := execute(exec.Command(wincBin, "exec", "-d", containerId, "powershell.exe", "-Command", "$result = 1; foreach ($number in 1..2147483647) {$result = $result * $number};"))
-					Expect(err).ToNot(HaveOccurred())
+					args := []string{"powershell.exe", "-Command", "$result = 1; foreach ($number in 1..2147483647) {$result = $result * $number};"}
+					stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, true)
+					Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
 					cpuUsageAfter := getStats(containerId).Data.CPUStats.CPUUsage.Usage
 					Expect(cpuUsageAfter).To(BeNumerically(">", cpuUsageBefore))
@@ -96,37 +102,10 @@ var _ = Describe("Events", func() {
 	Context("given a nonexistent container id", func() {
 		It("errors", func() {
 			cmd := exec.Command(wincBin, "events", "doesntexist")
-			stdErr := new(bytes.Buffer)
-			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(GinkgoWriter, stdErr))
-			Expect(err).ToNot(HaveOccurred())
+			stdOut, stdErr, err := helpers.Execute(cmd)
+			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			Eventually(session).Should(gexec.Exit(1))
 			Expect(stdErr.String()).To(ContainSubstring("container not found: doesntexist"))
 		})
 	})
 })
-
-type wincStats struct {
-	Data struct {
-		CPUStats struct {
-			CPUUsage struct {
-				Usage  uint64 `json:"total"`
-				System uint64 `json:"kernel"`
-				User   uint64 `json:"user"`
-			} `json:"usage"`
-		} `json:"cpu"`
-		Memory struct {
-			Stats struct {
-				TotalRss uint64 `json:"total_rss"`
-			} `json:"raw"`
-		} `json:"memory"`
-	} `json:"data"`
-}
-
-func getStats(containerId string) wincStats {
-	var stats wincStats
-	stdOut, _, err := execute(exec.Command(wincBin, "events", "--stats", containerId))
-	Expect(err).To(Succeed())
-	Expect(json.Unmarshal(stdOut.Bytes(), &stats)).To(Succeed())
-	return stats
-}

@@ -2,19 +2,17 @@ package main_test
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"math"
-	"math/big"
+	mathrand "math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
 
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -35,10 +33,27 @@ var (
 	wincBin      string
 	wincImageBin string
 	rootfsPath   string
-	bundlePath   string
 	readBin      string
 	consumeBin   string
+	sleepBin     string
 )
+
+type wincStats struct {
+	Data struct {
+		CPUStats struct {
+			CPUUsage struct {
+				Usage  uint64 `json:"total"`
+				System uint64 `json:"kernel"`
+				User   uint64 `json:"user"`
+			} `json:"usage"`
+		} `json:"cpu"`
+		Memory struct {
+			Stats struct {
+				TotalRss uint64 `json:"total_rss"`
+			} `json:"raw"`
+		} `json:"memory"`
+	} `json:"data"`
+}
 
 func TestWinc(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -48,6 +63,7 @@ func TestWinc(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	mathrand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
 	var (
 		present bool
 		err     error
@@ -77,56 +93,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
 	Expect(err).ToNot(HaveOccurred())
+	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/sleep")
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
-
-var _ = BeforeEach(func() {
-	var err error
-	bundlePath, err = ioutil.TempDir("", "winccontainer")
-	Expect(err).To(Succeed())
-})
-
-var _ = AfterEach(func() {
-	Expect(os.RemoveAll(bundlePath)).To(Succeed())
-})
-
-func getContainerState(containerId string) specs.State {
-	stdOut, _, err := execute(exec.Command(wincBin, "state", containerId))
-	Expect(err).ToNot(HaveOccurred())
-
-	var state specs.State
-	Expect(json.Unmarshal(stdOut.Bytes(), &state)).To(Succeed())
-	return state
-}
-
-func createSandbox(storePath, rootfsPath, containerId string) specs.Spec {
-	stdOut := new(bytes.Buffer)
-	cmd := exec.Command(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
-	cmd.Stdout = stdOut
-	Expect(cmd.Run()).To(Succeed(), "winc-image output: "+stdOut.String())
-	var spec specs.Spec
-	Expect(json.Unmarshal(stdOut.Bytes(), &spec)).To(Succeed())
-	return spec
-}
-
-func runtimeSpecGenerator(baseSpec specs.Spec) specs.Spec {
-	return specs.Spec{
-		Version: specs.Version,
-		Process: &specs.Process{
-			Args: []string{"powershell"},
-			Cwd:  "C:\\",
-		},
-		Root: &specs.Root{
-			Path: baseSpec.Root.Path,
-		},
-		Windows: &specs.Windows{
-			LayerFolders: baseSpec.Windows.LayerFolders,
-		},
-	}
-}
 
 func processSpecGenerator() specs.Process {
 	return specs.Process{
@@ -134,41 +107,6 @@ func processSpecGenerator() specs.Process {
 		Args: []string{"cmd.exe"},
 		Env:  []string{"var1=foo", "var2=bar"},
 	}
-}
-
-func execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
-	stdOut := new(bytes.Buffer)
-	stdErr := new(bytes.Buffer)
-	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
-	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
-	err := c.Run()
-
-	return stdOut, stdErr, err
-}
-
-func allEndpoints(containerID string) []string {
-	container, err := hcsshim.OpenContainer(containerID)
-	Expect(err).To(Succeed())
-
-	stats, err := container.Statistics()
-	Expect(err).To(Succeed())
-
-	var endpointIDs []string
-	for _, network := range stats.Network {
-		endpointIDs = append(endpointIDs, network.EndpointId)
-	}
-
-	return endpointIDs
-}
-
-func containerExists(containerId string) bool {
-	query := hcsshim.ComputeSystemQuery{
-		Owners: []string{"winc"},
-		IDs:    []string{containerId},
-	}
-	containers, err := hcsshim.GetContainers(query)
-	Expect(err).ToNot(HaveOccurred())
-	return len(containers) > 0
 }
 
 func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
@@ -190,14 +128,6 @@ func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
 	}
 
 	return pl
-}
-
-func randomContainerId() string {
-	max := big.NewInt(math.MaxInt64)
-	r, err := rand.Int(rand.Reader, max)
-	Expect(err).NotTo(HaveOccurred())
-
-	return fmt.Sprintf("%d", r.Int64())
 }
 
 func isParentOf(parentPid, childPid int) bool {
@@ -224,25 +154,6 @@ func isParentOf(parentPid, childPid int) bool {
 	return foundParent
 }
 
-func copy(dst, src string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	cerr := out.Close()
-	if err != nil {
-		return err
-	}
-	return cerr
-}
-
 func sendCtrlBreak(s *gexec.Session) {
 	d, err := syscall.LoadDLL("kernel32.dll")
 	Expect(err).ToNot(HaveOccurred())
@@ -250,4 +161,31 @@ func sendCtrlBreak(s *gexec.Session) {
 	Expect(err).ToNot(HaveOccurred())
 	r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(s.Command.Process.Pid))
 	Expect(r).ToNot(Equal(0), fmt.Sprintf("GenerateConsoleCtrlEvent: %v\n", err))
+}
+
+func getStats(containerId string) wincStats {
+	var stats wincStats
+	stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "events", "--stats", containerId))
+	Expect(err).To(Succeed(), stdOut.String(), stdErr.String())
+	Expect(json.Unmarshal(stdOut.Bytes(), &stats)).To(Succeed())
+	return stats
+}
+
+func generateBundle(bundleSpec specs.Spec, bundlePath, id string) {
+	config, err := json.Marshal(&bundleSpec)
+	Expect(err).NotTo(HaveOccurred())
+	configFile := filepath.Join(bundlePath, "config.json")
+	Expect(ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
+}
+
+func wincBinGenericCreate(bundleSpec specs.Spec, bundlePath, containerId string) {
+	generateBundle(bundleSpec, bundlePath, containerId)
+	stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+}
+
+func wincBinGenericExecInContainer(containerId string, args []string) *bytes.Buffer {
+	stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, false)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+	return stdOut
 }
