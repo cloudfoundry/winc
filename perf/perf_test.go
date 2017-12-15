@@ -53,29 +53,31 @@ var _ = Describe("Perf", func() {
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 
-	It("can create, run, and delete many sandboxes, containers, and network endpoints concurrently", func() {
-		var wg sync.WaitGroup
-		for i := 0; i < 15; i++ {
-			wg.Add(1)
-			go func() {
-				defer GinkgoRecover()
-				defer wg.Done()
+	It("image, runtime, and network plugins are performant", func() {
+		By(fmt.Sprintf("creating, running, and deleting %d sandboxes, containers, and network endpoints concurrently", concurrentContainers), func() {
+			var wg sync.WaitGroup
+			for i := 0; i < concurrentContainers; i++ {
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
 
-				containerId := "perf-" + strconv.Itoa(rand.Int())
+					containerId := "perf-" + strconv.Itoa(rand.Int())
 
-				bundleSpec := createSandbox(imageStore, rootfsPath, containerId)
-				createContainer(imageStore, bundleDepot, bundleSpec, containerId)
-				networkUp(networkConfigFile, containerId)
+					bundleSpec := createSandbox(imageStore, rootfsPath, containerId)
+					createContainer(imageStore, bundleDepot, bundleSpec, containerId)
+					networkUp(networkConfigFile, containerId)
 
-				containerRun(containerId, "whoami")
-				containerRun(containerId, "ipconfig")
+					containerRun(containerId, "whoami")
+					containerRun(containerId, "ipconfig")
 
-				networkDown(networkConfigFile, containerId)
-				deleteContainer(imageStore, bundleDepot, containerId)
-				deleteSandbox(imageStore, containerId)
-			}()
-		}
-		wg.Wait()
+					networkDown(networkConfigFile, containerId)
+					deleteContainer(imageStore, bundleDepot, containerId)
+					deleteSandbox(imageStore, containerId)
+				}()
+			}
+			wg.Wait()
+		})
 	})
 })
 
@@ -95,8 +97,8 @@ func execute(cmd *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
 	return stdOut, stdErr, err
 }
 
-func containerRun(containerId, command string) {
-	_, _, err := execute(exec.Command(wincBin, "exec", containerId, command))
+func containerRun(containerId string, command ...string) {
+	_, _, err := execute(exec.Command(wincBin, append([]string{"exec", containerId}, command...)...))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -15,15 +16,17 @@ import (
 )
 
 const (
-	defaultTimeout  = time.Second * 10
-	defaultInterval = time.Millisecond * 200
+	defaultTimeout              = time.Second * 10
+	defaultInterval             = time.Millisecond * 200
+	defaultConcurrentContainers = 15
 )
 
 var (
-	wincBin        string
-	wincNetworkBin string
-	wincImageBin   string
-	rootfsPath     string
+	wincBin              string
+	wincNetworkBin       string
+	wincImageBin         string
+	rootfsPath           string
+	concurrentContainers int
 )
 
 func TestPerf(t *testing.T) {
@@ -34,13 +37,23 @@ func TestPerf(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	var (
+		present bool
+		err     error
+	)
+
 	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
 
-	var present bool
 	rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
 
-	var err error
+	concurrentContainers = defaultConcurrentContainers
+	concurrentContainersStr, present := os.LookupEnv("WINC_TEST_PERF_CONCURRENT_CONTAINERS")
+	if present {
+		concurrentContainers, err = strconv.Atoi(concurrentContainersStr)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 	Expect(err).ToNot(HaveOccurred())
 
