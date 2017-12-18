@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,7 +25,7 @@ var _ = Describe("WincImage", func() {
 
 	BeforeEach(func() {
 		var err error
-		containerId = randomContainerId()
+		containerId = helpers.RandomContainerId()
 		storePath, err = ioutil.TempDir("", "container-store")
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -34,25 +35,21 @@ var _ = Describe("WincImage", func() {
 	})
 
 	It("creates and deletes a sandbox", func() {
-		stdout, _, err := execute(wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
-		Expect(err).NotTo(HaveOccurred())
+		createdSpec := helpers.CreateSandbox(wincImageBin, storePath, rootfsPath, containerId)
 
-		var desiredSpec specs.Spec
-		Expect(json.Unmarshal(stdout.Bytes(), &desiredSpec)).To(Succeed())
 		volumeGuid := getVolumeGuid(storePath, containerId)
-		Expect(desiredSpec.Version).To(Equal(specs.Version))
-		Expect(desiredSpec.Root.Path).To(Equal(volumeGuid))
-		Expect(desiredSpec.Windows.LayerFolders).ToNot(BeEmpty())
-		Expect(desiredSpec.Windows.LayerFolders[0]).To(Equal(rootfsPath))
-		for _, layer := range desiredSpec.Windows.LayerFolders {
+		Expect(createdSpec.Version).To(Equal(specs.Version))
+		Expect(createdSpec.Root.Path).To(Equal(volumeGuid))
+		Expect(createdSpec.Windows.LayerFolders).ToNot(BeEmpty())
+		Expect(createdSpec.Windows.LayerFolders[0]).To(Equal(rootfsPath))
+		for _, layer := range createdSpec.Windows.LayerFolders {
 			Expect(layer).To(BeADirectory())
 		}
 
 		driverInfo := hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeTrue())
 
-		_, _, err = execute(wincImageBin, "--store", storePath, "delete", containerId)
-		Expect(err).To(Succeed())
+		helpers.DeleteSandbox(wincImageBin, storePath, containerId)
 
 		Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
 		Expect(filepath.Join(driverInfo.HomeDir, containerId)).NotTo(BeADirectory())
@@ -73,8 +70,7 @@ var _ = Describe("WincImage", func() {
 		})
 
 		AfterEach(func() {
-			_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
-			Expect(err).To(Succeed())
+			helpers.DeleteSandbox(wincImageBin, storePath, containerId)
 			Expect(os.RemoveAll(tempDir)).To(Succeed())
 		})
 
@@ -84,7 +80,7 @@ var _ = Describe("WincImage", func() {
 			})
 
 			It("creates the full path", func() {
-				_, _, err := execute(wincImageBin, "--log", logFile, "--store", storePath, "create", rootfsPath, containerId)
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--log", logFile, "--store", storePath, "create", rootfsPath, containerId))
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(logFile).To(BeAnExistingFile())
@@ -93,7 +89,7 @@ var _ = Describe("WincImage", func() {
 
 		Context("when it runs successfully", func() {
 			It("does not log to the specified file", func() {
-				_, _, err := execute(wincImageBin, "--log", logFile, "--store", storePath, "create", rootfsPath, containerId)
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--log", logFile, "--store", storePath, "create", rootfsPath, containerId))
 				Expect(err).NotTo(HaveOccurred())
 
 				contents, err := ioutil.ReadFile(logFile)
@@ -104,7 +100,7 @@ var _ = Describe("WincImage", func() {
 
 			Context("when provided --debug", func() {
 				It("outputs debug level logs", func() {
-					_, _, err := execute(wincImageBin, "--log", logFile, "--debug", "--store", storePath, "create", rootfsPath, containerId)
+					_, _, err := helpers.Execute(exec.Command(wincImageBin, "--log", logFile, "--debug", "--store", storePath, "create", rootfsPath, containerId))
 					Expect(err).NotTo(HaveOccurred())
 
 					contents, err := ioutil.ReadFile(logFile)
@@ -117,7 +113,7 @@ var _ = Describe("WincImage", func() {
 
 		Context("when it errors", func() {
 			It("logs errors to the specified file", func() {
-				execute(wincImageBin, "--log", logFile, "--store", storePath, "create", "garbage-something", containerId)
+				helpers.Execute(exec.Command(wincImageBin, "--log", logFile, "--store", storePath, "create", "garbage-something", containerId))
 
 				contents, err := ioutil.ReadFile(logFile)
 				Expect(err).NotTo(HaveOccurred())
@@ -159,7 +155,7 @@ var _ = Describe("WincImage", func() {
 		}
 
 		It("creates and deletes a sandbox with unix rootfsPath", func() {
-			stdout, _, err := execute(wincImageBin, "--store", storePath, "create", tempRootfs, containerId)
+			stdout, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "create", tempRootfs, containerId))
 			Expect(err).NotTo(HaveOccurred())
 
 			var desiredSpec specs.Spec
@@ -176,7 +172,7 @@ var _ = Describe("WincImage", func() {
 			driverInfo := hcsshim.DriverInfo{HomeDir: storePath, Flavour: 1}
 			Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeTrue())
 
-			_, _, err = execute(wincImageBin, "--store", storePath, "delete", containerId)
+			_, _, err = helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "delete", containerId))
 			Expect(err).To(Succeed())
 
 			Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
@@ -184,33 +180,25 @@ var _ = Describe("WincImage", func() {
 	})
 
 	Context("when provided a disk limit", func() {
-		Context("when the disk limit is valid", func() {
+		Context("when the disk limit is greater than 0", func() {
 			var (
-				mountPath          string
-				diskLimitSizeBytes int
-				volumeGuid         string
+				mountPath string
 			)
 
 			BeforeEach(func() {
-				diskLimitSizeBytes = 50 * 1024 * 1024
-			})
-
-			JustBeforeEach(func() {
-				_, _, err := execute(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", strconv.Itoa(diskLimitSizeBytes), rootfsPath, containerId)
+				diskLimitSizeBytes := 50 * 1024 * 1024
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", strconv.Itoa(diskLimitSizeBytes), rootfsPath, containerId))
 				Expect(err).NotTo(HaveOccurred())
 
 				mountPath, err = ioutil.TempDir("", "")
 				Expect(err).NotTo(HaveOccurred())
 
-				volumeGuid = getVolumeGuid(storePath, containerId)
+				volumeGuid := getVolumeGuid(storePath, containerId)
 				Expect(exec.Command("mountvol", mountPath, volumeGuid).Run()).To(Succeed())
 			})
 
 			AfterEach(func() {
-				Expect(exec.Command("mountvol", mountPath, "/D").Run()).To(Succeed())
-				Expect(os.RemoveAll(mountPath)).To(Succeed())
-				_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
-				Expect(err).To(Succeed())
+				deleteMount(mountPath)
 			})
 
 			It("doesn't allow files large than the limit to be created", func() {
@@ -224,23 +212,35 @@ var _ = Describe("WincImage", func() {
 				Expect(exec.Command("fsutil", "file", "createnew", largeFilePath, strconv.Itoa(diskLimitSizeBytes)).Run()).To(Succeed())
 				Expect(largeFilePath).To(BeAnExistingFile())
 			})
+		})
 
-			Context("when the provided disk limit is 0", func() {
-				BeforeEach(func() {
-					diskLimitSizeBytes = 0
-				})
+		Context("when the provided disk limit is 0", func() {
+			BeforeEach(func() {
+				diskLimitSizeBytes = 0
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", strconv.Itoa(diskLimitSizeBytes), rootfsPath, containerId))
+				Expect(err).NotTo(HaveOccurred())
 
-				It("does not set a limit", func() {
-					output, err := exec.Command("dirquota", "quota", "list", fmt.Sprintf("/Path:%s", mountPath)).CombinedOutput()
-					Expect(err).To(HaveOccurred())
-					Expect(string(output)).To(ContainSubstring("The requested object was not found"))
-				})
+				mountPath, err = ioutil.TempDir("", "")
+				Expect(err).NotTo(HaveOccurred())
+
+				volumeGuid := getVolumeGuid(storePath, containerId)
+				Expect(exec.Command("mountvol", mountPath, volumeGuid).Run()).To(Succeed())
+			})
+
+			AfterEach(func() {
+				deleteMount(mountPath)
+			})
+
+			It("does not set a limit", func() {
+				output, err := exec.Command("dirquota", "quota", "list", fmt.Sprintf("/Path:%s", mountPath)).CombinedOutput()
+				Expect(err).To(HaveOccurred())
+				Expect(string(output)).To(ContainSubstring("The requested object was not found"))
 			})
 		})
 
 		Context("when the provided disk limit is below 0", func() {
 			It("errors", func() {
-				_, _, err := execute(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", "-5", rootfsPath, containerId)
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", "-5", rootfsPath, containerId))
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -248,7 +248,7 @@ var _ = Describe("WincImage", func() {
 
 	Context("when creating the sandbox layer fails", func() {
 		It("errors", func() {
-			_, stderr, err := execute(wincImageBin, "create", "some-bad-rootfs", "")
+			_, stderr, err := helpers.Execute(exec.Command(wincImageBin, "create", "some-bad-rootfs", ""))
 			Expect(err).To(HaveOccurred())
 			Expect(stderr.String()).To(ContainSubstring("rootfs layer does not exist"))
 		})
@@ -269,7 +269,7 @@ var _ = Describe("WincImage", func() {
 		})
 
 		It("logs a warning", func() {
-			_, _, err := execute(wincImageBin, "--log", logFile, "delete", "some-bad-container-id")
+			_, _, err := helpers.Execute(exec.Command(wincImageBin, "--log", logFile, "delete", "some-bad-container-id"))
 			Expect(err).ToNot(HaveOccurred())
 
 			contents, err := ioutil.ReadFile(logFile)
@@ -279,7 +279,7 @@ var _ = Describe("WincImage", func() {
 
 	Context("when create is called with the wrong number of args", func() {
 		It("prints the usage", func() {
-			stdOut, _, err := execute(wincImageBin, "create")
+			stdOut, _, err := helpers.Execute(exec.Command(wincImageBin, "create"))
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("Incorrect Usage"))
 		})
@@ -287,7 +287,7 @@ var _ = Describe("WincImage", func() {
 
 	Context("when delete is called with the wrong number of args", func() {
 		It("prints the usage", func() {
-			stdOut, _, err := execute(wincImageBin, "delete")
+			stdOut, _, err := helpers.Execute(exec.Command(wincImageBin, "delete"))
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("Incorrect Usage"))
 		})
@@ -314,7 +314,7 @@ var _ = Describe("WincImage", func() {
 			It("destroys the layer", func() {
 				Expect(hcsshim.CreateSandboxLayer(driverInfo, containerId, rootfsPath, sandboxLayers)).To(Succeed())
 
-				_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "delete", containerId))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
 			})
@@ -325,7 +325,7 @@ var _ = Describe("WincImage", func() {
 				Expect(hcsshim.CreateSandboxLayer(driverInfo, containerId, rootfsPath, sandboxLayers)).To(Succeed())
 				Expect(hcsshim.ActivateLayer(driverInfo, containerId)).To(Succeed())
 
-				_, _, err := execute(wincImageBin, "--store", storePath, "delete", containerId)
+				_, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "delete", containerId))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(hcsshim.LayerExists(driverInfo, containerId)).To(BeFalse())
 			})

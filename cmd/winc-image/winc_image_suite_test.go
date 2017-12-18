@@ -1,12 +1,6 @@
 package main_test
 
 import (
-	"bytes"
-	"crypto/rand"
-	"fmt"
-	"io"
-	"math"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,20 +62,12 @@ func getVolumeGuid(storePath, id string) string {
 	return volumePath
 }
 
-func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
-	stdOut := new(bytes.Buffer)
-	stdErr := new(bytes.Buffer)
-	command := exec.Command(cmd, args...)
-	command.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
-	command.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
-	err := command.Run()
-	return stdOut, stdErr, err
-}
-
-func randomContainerId() string {
-	max := big.NewInt(math.MaxInt64)
-	r, err := rand.Int(rand.Reader, max)
-	Expect(err).NotTo(HaveOccurred())
-
-	return fmt.Sprintf("%d", r.Int64())
+func deleteMount(mountPath string) {
+	_, _, err := helpers.Execute(exec.Command("mountvol", mountPath, "/L"))
+	if err == nil {
+		Expect(exec.Command("mountvol", mountPath, "/D").Run()).To(Succeed())
+	}
+	Expect(os.RemoveAll(mountPath)).To(Succeed())
+	_, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "delete", containerId))
+	Expect(err).To(Succeed())
 }
