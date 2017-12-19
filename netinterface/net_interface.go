@@ -15,6 +15,22 @@ import (
 
 type NetInterface struct{}
 
+type InterfaceNotFoundError struct {
+	alias string
+}
+
+func (e *InterfaceNotFoundError) Error() string {
+	return fmt.Sprintf("interface %s not found", e.alias)
+}
+
+type InterfaceForIPNotFoundError struct {
+	ip string
+}
+
+func (e *InterfaceForIPNotFoundError) Error() string {
+	return fmt.Sprintf("interface for ip %s not found", e.ip)
+}
+
 var (
 	iphlpapi            = windows.NewLazySystemDLL("iphlpapi.dll")
 	getIpInterfaceEntry = iphlpapi.NewProc("GetIpInterfaceEntry")
@@ -134,7 +150,7 @@ func (n *NetInterface) ByIP(ipStr string) (*net.Interface, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("unable to find interface for IP: %s", ipStr)
+	return nil, &InterfaceForIPNotFoundError{ip: ipStr}
 }
 
 func (n *NetInterface) SetMTU(alias string, mtu int) error {
@@ -183,7 +199,7 @@ func (n *NetInterface) SetMTU(alias string, mtu int) error {
 func InterfaceExists(alias string) (bool, error) {
 	_, _, err := getLuidAndCompartment(alias)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("interface %s not found", alias) {
+		if _, ok := err.(*InterfaceNotFoundError); ok {
 			return false, nil
 		}
 		return false, err
@@ -219,5 +235,5 @@ func getLuidAndCompartment(alias string) (NET_LUID, uint32, error) {
 		}
 	}
 
-	return NET_LUID{}, 0, fmt.Errorf("interface %s not found", alias)
+	return NET_LUID{}, 0, &InterfaceNotFoundError{alias: alias}
 }
