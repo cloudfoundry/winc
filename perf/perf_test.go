@@ -157,7 +157,7 @@ func randomSubnetAddress() (string, string) {
 		subnet, gateway := randomValidSubnetAddress()
 		_, err := hcsshim.GetHNSNetworkByName(subnet)
 		if err != nil {
-			ExpectWithOffset(1, err).To(MatchError(ContainSubstring("Network " + subnet + " not found")))
+			ExpectWithOffset(1, err).To(BeAssignableToTypeOf(hcsshim.NetworkNotFoundError{}))
 			return subnet, gateway
 		}
 	}

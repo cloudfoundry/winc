@@ -196,7 +196,7 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 func (e *EndpointManager) Delete() error {
 	endpoint, err := e.hcsClient.GetHNSEndpointByName(e.containerId)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("Endpoint %s not found", e.containerId) {
+		if _, ok := err.(hcsshim.EndpointNotFoundError); ok {
 			return nil
 		}
 

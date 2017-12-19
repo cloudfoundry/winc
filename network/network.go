@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/netrules"
@@ -79,8 +78,10 @@ func NewNetworkManager(client HCSClient, applier NetRuleApplier, endpointManager
 
 func (n *NetworkManager) CreateHostNATNetwork() error {
 	existingNetwork, err := n.hcsClient.GetHNSNetworkByName(n.config.NetworkName)
-	if err != nil && !strings.Contains(err.Error(), "Network "+n.config.NetworkName+" not found") {
-		return err
+	if err != nil {
+		if _, isNotExist := err.(hcsshim.NetworkNotFoundError); !isNotExist {
+			return err
+		}
 	}
 
 	subnets := []hcsshim.Subnet{{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}}
@@ -114,7 +115,7 @@ func subnetsMatch(a, b hcsshim.Subnet) bool {
 func (n *NetworkManager) DeleteHostNATNetwork() error {
 	network, err := n.hcsClient.GetHNSNetworkByName(n.config.NetworkName)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("Network %s not found", n.config.NetworkName) {
+		if _, ok := err.(hcsshim.NetworkNotFoundError); ok {
 			return nil
 		}
 

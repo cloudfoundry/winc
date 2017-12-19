@@ -44,7 +44,7 @@ var _ = Describe("NetworkManager", func() {
 
 	Describe("CreateHostNATNetwork", func() {
 		BeforeEach(func() {
-			hcsClient.GetHNSNetworkByNameReturns(nil, errors.New("Network unit-test-name not found"))
+			hcsClient.GetHNSNetworkByNameReturns(nil, hcsshim.NetworkNotFoundError{NetworkName: "unit-test-name"})
 		})
 
 		It("creates the network with the correct values", func() {
@@ -162,7 +162,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("the network does not exist", func() {
 			BeforeEach(func() {
-				hcsClient.GetHNSNetworkByNameReturnsOnCall(0, nil, errors.New("Network unit-test-name not found"))
+				hcsClient.GetHNSNetworkByNameReturnsOnCall(0, nil, hcsshim.NetworkNotFoundError{NetworkName: "unit-test-name"})
 			})
 
 			It("returns success", func() {

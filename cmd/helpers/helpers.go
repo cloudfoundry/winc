@@ -292,7 +292,7 @@ func (h *Helpers) natNetworkInUse(name string, inuse []string) bool {
 
 	_, err := hcsshim.GetHNSNetworkByName(name)
 	if err != nil {
-		ExpectWithOffset(2, err).To(MatchError(ContainSubstring("Network " + name + " not found")))
+		ExpectWithOffset(2, err).To(MatchError(hcsshim.NetworkNotFoundError{NetworkName: name}))
 		return false
 	}
 

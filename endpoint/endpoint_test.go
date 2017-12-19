@@ -3,7 +3,6 @@ package endpoint_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/endpoint"
@@ -77,12 +76,12 @@ var _ = Describe("EndpointManager", func() {
 
 		Context("the network does not already exist", func() {
 			BeforeEach(func() {
-				hcsClient.GetHNSNetworkByNameReturns(nil, fmt.Errorf("Network %s not found", networkName))
+				hcsClient.GetHNSNetworkByNameReturns(nil, hcsshim.NetworkNotFoundError{NetworkName: networkName})
 			})
 
 			It("returns an error", func() {
 				_, err := endpointManager.Create()
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(BeAssignableToTypeOf(hcsshim.NetworkNotFoundError{}))
 			})
 		})
 
@@ -331,7 +330,7 @@ var _ = Describe("EndpointManager", func() {
 
 		Context("the endpoint doesn't exist", func() {
 			BeforeEach(func() {
-				hcsClient.GetHNSEndpointByNameReturns(nil, fmt.Errorf("Endpoint %s not found", containerId))
+				hcsClient.GetHNSEndpointByNameReturns(nil, hcsshim.EndpointNotFoundError{EndpointName: containerId})
 			})
 
 			It("returns immediately without an error", func() {

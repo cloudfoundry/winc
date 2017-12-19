@@ -39,7 +39,7 @@ var _ = Describe("NetInterface", func() {
 		Context("when no physical adapter was found", func() {
 			It("returns a descriptive error", func() {
 				_, err := netIface.ByIP("1.1.1.1")
-				Expect(err).To(MatchError("unable to find interface for IP: 1.1.1.1"))
+				Expect(err).To(BeAssignableToTypeOf(&netinterface.InterfaceForIPNotFoundError{}))
 			})
 		})
 	})

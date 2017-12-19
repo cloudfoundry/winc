@@ -862,7 +862,7 @@ func randomPort() int {
 func endpointExists(endpointName string) bool {
 	_, err := hcsshim.GetHNSEndpointByName(endpointName)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("Endpoint %s not found", endpointName) {
+		if _, ok := err.(hcsshim.EndpointNotFoundError); ok {
 			return false
 		}
 
