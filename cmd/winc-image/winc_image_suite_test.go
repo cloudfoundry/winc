@@ -1,16 +1,11 @@
 package main_test
 
 import (
-	"bytes"
-	"crypto/rand"
-	"fmt"
-	"io"
-	"math"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
 
+	testhelpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,6 +17,7 @@ import (
 var (
 	wincImageBin string
 	rootfsPath   string
+	helpers      *testhelpers.Helpers
 )
 
 func TestWincImage(t *testing.T) {
@@ -49,6 +45,8 @@ func TestWincImage(t *testing.T) {
 			filepath.Join(wincImageDir, "quota.o"),
 			"-lole32", "-loleaut32").Run()
 		Expect(err).NotTo(HaveOccurred())
+
+		helpers = testhelpers.NewHelpers("", wincImageBin, "")
 	})
 
 	AfterSuite(func() {
@@ -68,20 +66,8 @@ func getVolumeGuid(storePath, id string) string {
 	return volumePath
 }
 
-func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
-	stdOut := new(bytes.Buffer)
-	stdErr := new(bytes.Buffer)
-	command := exec.Command(cmd, args...)
-	command.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
-	command.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
-	err := command.Run()
-	return stdOut, stdErr, err
-}
-
-func randomContainerId() string {
-	max := big.NewInt(math.MaxInt64)
-	r, err := rand.Int(rand.Reader, max)
+func unmount(mountPath string) {
+	_, _, err := helpers.Execute(exec.Command("mountvol", mountPath, "/D"))
 	Expect(err).NotTo(HaveOccurred())
-
-	return fmt.Sprintf("%d", r.Int64())
+	Expect(os.RemoveAll(mountPath)).To(Succeed())
 }
