@@ -48,24 +48,25 @@ var _ = Describe("Create", func() {
 		})
 
 		It("creates and starts a container", func() {
-			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 			Expect(ps.FindProcess(helpers.GetContainerState(containerId).Pid)).ToNot(BeNil())
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
-			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 			pid := helpers.GetContainerState(containerId).Pid
 			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
 
-			stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"})
+			stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"}, false)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("contents"))
 		})
 
 		Context("when the bundle path is not provided", func() {
 			It("uses the current directory as the bundle path", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 				createCmd := exec.Command(wincBin, "create", containerId)
 				createCmd.Dir = bundlePath
 				stdOut, stdErr, err := helpers.Execute(createCmd)
@@ -77,7 +78,7 @@ var _ = Describe("Create", func() {
 
 		Context("when the bundle path ends with a \\", func() {
 			It("creates a container sucessfully", func() {
-				wincBinGenericCreate(bundleSpec, bundlePath+"\\", containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath+"\\", containerId)
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 			})
 		})
@@ -97,7 +98,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates and starts the container and writes the container pid to the specified file", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--pid-file", pidFile, containerId))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
@@ -113,7 +114,7 @@ var _ = Describe("Create", func() {
 
 		Context("when the '--no-new-keyring' flag is provided", func() {
 			It("ignores it and creates and starts a container", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
@@ -127,11 +128,12 @@ var _ = Describe("Create", func() {
 			})
 
 			It("sets it as the container hostname", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
-				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId))
-				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+				helpers.GenerateBundle(bundleSpec, bundlePath)
+				_, _, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId))
+				Expect(err).NotTo(HaveOccurred())
 
-				stdOut = wincBinGenericExecInContainer(containerId, []string{"hostname"})
+				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"hostname"}, false)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(strings.TrimSpace(stdOut.String())).To(Equal("some-random-hostname"))
 			})
 		})
@@ -160,15 +162,16 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates a container with the specified directories as mounts", func() {
-				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
-				stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")})
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(stdOut.String()).To(ContainSubstring("hello"))
 			})
 
 			It("the mounted directories are read only", func() {
-				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
-				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
-				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				_, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
+				Expect(err).To(HaveOccurred())
 				Expect(stdErr.String()).To(ContainSubstring("Access is denied"))
 			})
 
@@ -181,27 +184,30 @@ var _ = Describe("Create", func() {
 				})
 
 				It("mounts the specified directories", func() {
-					wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
-					stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")})
+					stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
+					Expect(err).NotTo(HaveOccurred())
 					Expect(stdOut.String()).To(ContainSubstring("hello"))
 				})
 				Context("when calling the mounted executable", func() {
 					BeforeEach(func() {
-						wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+						helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 						Expect(helpers.CopyFile(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")).To(Succeed())
 
 					})
 					Context("when using the windows path", func() {
 						It("mounts the specified directories", func() {
-							stdOut := wincBinGenericExecInContainer(containerId, []string{filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel")})
+							stdOut, _, err := helpers.ExecInContainer(containerId, []string{filepath.Join(mountDest, "cmd"), "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
+							Expect(err).NotTo(HaveOccurred())
 							Expect(stdOut.String()).To(ContainSubstring("hello"))
 						})
 					})
 					Context("when using the unix path", func() {
 						It("mounts the specified directories", func() {
-							stdOut := wincBinGenericExecInContainer(containerId, []string{mountDest + "/cmd", "/C", "type", filepath.Join(mountDest, "sentinel")})
+							stdOut, _, err := helpers.ExecInContainer(containerId, []string{mountDest + "/cmd", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
+							Expect(err).NotTo(HaveOccurred())
 							Expect(stdOut.String()).To(ContainSubstring("hello"))
 						})
 					})
@@ -237,7 +243,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("ignores it and logs that it did so", func() {
-					generateBundle(bundleSpec, bundlePath, containerId)
+					helpers.GenerateBundle(bundleSpec, bundlePath)
 					stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId))
 					Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
@@ -271,7 +277,7 @@ var _ = Describe("Create", func() {
 			}
 
 			It("is not constrained by smaller memory limit", func() {
-				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 				pid := helpers.GetContainerState(containerId).Pid
 				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
@@ -281,7 +287,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("is constrained by hitting the memory limit", func() {
-				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 				pid := helpers.GetContainerState(containerId).Pid
 				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
@@ -302,7 +308,7 @@ var _ = Describe("Create", func() {
 		})
 
 		It("errors and does not create the container", func() {
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 			Expect(stdErr.String()).To(ContainSubstring(`CreateFile C:\not\a\directory\mountsource: The system cannot find the path specified`))
@@ -313,7 +319,7 @@ var _ = Describe("Create", func() {
 
 	Context("when provided a container id that already exists", func() {
 		It("errors", func() {
-			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
@@ -326,7 +332,7 @@ var _ = Describe("Create", func() {
 		It("errors and does not create the container", func() {
 			newContainerId := helpers.RandomContainerId()
 
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, newContainerId))
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 

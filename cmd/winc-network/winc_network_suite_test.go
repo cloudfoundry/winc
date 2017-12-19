@@ -18,6 +18,7 @@ import (
 const (
 	defaultTimeout  = time.Second * 10
 	defaultInterval = time.Millisecond * 200
+	imageStore      = "C:\\run\\winc"
 )
 
 var (

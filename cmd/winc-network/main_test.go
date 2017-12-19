@@ -20,6 +20,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var (
@@ -34,7 +35,6 @@ const gatewayFileName = "c:\\var\\vcap\\data\\winc-network\\gateways.json"
 
 var _ = Describe("networking", func() {
 	BeforeEach(func() {
-
 		var err error
 		tempDir, err = ioutil.TempDir("", "winc-network.config")
 		Expect(err).NotTo(HaveOccurred())
@@ -162,9 +162,29 @@ var _ = Describe("networking", func() {
 	})
 
 	Describe("Up", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
+
+		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
+			containerId = filepath.Base(bundlePath)
+
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+		})
+
+		AfterEach(func() {
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		})
+
 		Context("default network config", func() {
 			BeforeEach(func() {
-				createContainer(containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				networkConfig = helpers.GenerateNetworkConfig()
 				helpers.CreateNetwork(networkConfig, networkConfigFile)
 
@@ -538,7 +558,7 @@ var _ = Describe("networking", func() {
 
 		Context("custom MTU", func() {
 			BeforeEach(func() {
-				createContainer(containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				networkConfig = helpers.GenerateNetworkConfig()
 				networkConfig.MTU = 1405
 				helpers.CreateNetwork(networkConfig, networkConfigFile)
@@ -560,7 +580,7 @@ var _ = Describe("networking", func() {
 
 		Context("custom DNS Servers", func() {
 			BeforeEach(func() {
-				createContainer(containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				networkConfig = helpers.GenerateNetworkConfig()
 				networkConfig.DNSServers = []string{"8.8.8.8", "8.8.4.4"}
 				helpers.CreateNetwork(networkConfig, networkConfigFile)
@@ -593,8 +613,22 @@ var _ = Describe("networking", func() {
 	})
 
 	Describe("Down", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
+
 		BeforeEach(func() {
-			createContainer(containerId)
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
+			containerId = filepath.Base(bundlePath)
+
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			networkConfig = helpers.GenerateNetworkConfig()
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
 
@@ -607,6 +641,7 @@ var _ = Describe("networking", func() {
 
 		AfterEach(func() {
 			deleteContainerAndNetwork(containerId, networkConfig)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		It("deletes the endpoint", func() {
@@ -643,16 +678,30 @@ var _ = Describe("networking", func() {
 
 	Context("two containers are running", func() {
 		var (
+			bundlePath  string
+			bundleSpec  specs.Spec
+			containerId string
+
 			bundlePath2   string
+			bundleSpec2   specs.Spec
 			containerId2  string
 			containerPort string
 		)
 
 		BeforeEach(func() {
 			var err error
-			bundlePath2, err = ioutil.TempDir("", "win-container-2")
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
+			containerId = filepath.Base(bundlePath)
+
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+
+			bundlePath2, err = ioutil.TempDir("", "winccontainer-2")
 			Expect(err).NotTo(HaveOccurred())
 			containerId2 = filepath.Base(bundlePath2)
+
+			bundleSpec2 = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId2))
 
 			containerPort = "12345"
 
@@ -662,15 +711,16 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			helpers.NetworkDown(containerId2)
+			helpers.NetworkDown(containerId2, networkConfigFile)
 			helpers.DeleteContainer(containerId2)
-			helpers.DeleteSandbox(`C:\run\winc`, containerId2)
+			helpers.DeleteSandbox(imageStore, containerId2)
 			deleteContainerAndNetwork(containerId, networkConfig)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			Expect(os.RemoveAll(bundlePath2)).To(Succeed())
 		})
 
 		It("does not allow traffic between containers", func() {
-			createContainer(containerId)
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 			containerIp := outputs.Properties.ContainerIP
 
@@ -680,7 +730,7 @@ var _ = Describe("networking", func() {
 			_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 			Expect(err).NotTo(HaveOccurred())
 
-			createContainer(containerId2)
+			helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
 			helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 			pid = helpers.GetContainerState(containerId2).Pid
@@ -768,15 +818,15 @@ var _ = Describe("networking", func() {
 	})
 })
 
-func createContainer(id string) {
-	bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateSandbox("C:\\run\\winc", rootfsPath, id))
-	containerConfig, err := json.Marshal(&bundleSpec)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(filepath.Join(os.TempDir(), id, "config.json"), containerConfig, 0666)).To(Succeed())
+// func createContainer(id string) {
+// 	bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateSandbox("C:\\run\\winc", rootfsPath, id))
+// 	containerConfig, err := json.Marshal(&bundleSpec)
+// 	Expect(err).NotTo(HaveOccurred())
+// 	Expect(ioutil.WriteFile(filepath.Join(os.TempDir(), id, "config.json"), containerConfig, 0666)).To(Succeed())
 
-	output, err := exec.Command(wincBin, "create", "-b", filepath.Join(os.TempDir(), id), id).CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
-}
+// 	output, err := exec.Command(wincBin, "create", "-b", filepath.Join(os.TempDir(), id), id).CombinedOutput()
+// 	Expect(err).NotTo(HaveOccurred(), string(output))
+// }
 
 func deleteContainerAndNetwork(id string, config network.Config) {
 	helpers.NetworkDown(id, networkConfigFile)

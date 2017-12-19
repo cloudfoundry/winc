@@ -28,7 +28,7 @@ var _ = Describe("Delete", func() {
 			containerId = filepath.Base(bundlePath)
 
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
-			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {

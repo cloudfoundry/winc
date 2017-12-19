@@ -92,7 +92,7 @@ var _ = Describe("Flags", func() {
 				containerId = filepath.Base(bundlePath)
 
 				bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 			})
 
 			AfterEach(func() {
@@ -191,7 +191,7 @@ var _ = Describe("Flags", func() {
 			containerId = filepath.Base(bundlePath)
 
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 		})
 
 		AfterEach(func() {

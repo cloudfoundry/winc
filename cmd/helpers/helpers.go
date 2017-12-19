@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"math/big"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -49,6 +51,19 @@ func (h *Helpers) GetContainerState(containerId string) specs.State {
 	return state
 }
 
+func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
+	config, err := json.Marshal(&bundleSpec)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	configFile := filepath.Join(bundlePath, "config.json")
+	ExpectWithOffset(1, ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
+}
+
+func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
+	h.GenerateBundle(bundleSpec, bundlePath)
+	_, _, err := h.Execute(exec.Command(h.wincBin, "create", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+}
+
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
 		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
@@ -75,25 +90,25 @@ func (h *Helpers) DeleteSandbox(imageStore, id string) {
 
 func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
 	file, err := os.Create(networkConfigFile)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	data, err := json.Marshal(networkConfig)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	_, err = file.Write(data)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	file.Close()
 
 	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
 	args = append(args, extraArgs...)
 	_, _, err = h.Execute(exec.Command(h.wincNetworkBin, args...))
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile string) {
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
 	defer f.Close()
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	oldGatewaysInUse := h.loadGatewaysInUse(f)
 	var newGatewaysInUse []string
@@ -107,7 +122,7 @@ func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile 
 	h.writeGatewaysInUse(f, newGatewaysInUse)
 	args := []string{"--action", "delete", "--configFile", networkConfigFile}
 	_, _, err = h.Execute(exec.Command(h.wincNetworkBin, args...))
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutputs {
@@ -115,16 +130,16 @@ func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutpu
 	cmd := exec.Command(h.wincNetworkBin, args...)
 	cmd.Stdin = strings.NewReader(input)
 	stdOut, _, err := h.Execute(cmd)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	var upOutput network.UpOutputs
-	Expect(json.Unmarshal(stdOut.Bytes(), &upOutput)).To(Succeed())
+	ExpectWithOffset(1, json.Unmarshal(stdOut.Bytes(), &upOutput)).To(Succeed())
 	return upOutput
 }
 
 func (h *Helpers) NetworkDown(id, networkConfigFile string) {
 	_, _, err := h.Execute(exec.Command(h.wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id))
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) GenerateNetworkConfig() network.Config {
@@ -133,7 +148,7 @@ func (h *Helpers) GenerateNetworkConfig() network.Config {
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
 	defer f.Close()
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	gatewaysInUse := h.loadGatewaysInUse(f)
 
@@ -245,27 +260,27 @@ func (h *Helpers) loadGatewaysInUse(f filelock.LockedFile) []string {
 	data := make([]byte, 10240)
 	n, err := f.Read(data)
 	if err != nil {
-		Expect(err).To(Equal(io.EOF))
+		ExpectWithOffset(2, err).To(Equal(io.EOF))
 		data = []byte("[]")
 		n = 2
 	}
 
 	gateways := []string{}
-	Expect(json.Unmarshal(data[:n], &gateways)).To(Succeed())
+	ExpectWithOffset(2, json.Unmarshal(data[:n], &gateways)).To(Succeed())
 
 	return gateways
 }
 
 func (h *Helpers) writeGatewaysInUse(f filelock.LockedFile, gateways []string) {
 	data, err := json.Marshal(gateways)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 
 	_, err = f.Seek(0, io.SeekStart)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(f.Truncate(0)).To(Succeed())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, f.Truncate(0)).To(Succeed())
 
 	_, err = f.Write(data)
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) natNetworkInUse(name string, inuse []string) bool {
@@ -277,7 +292,7 @@ func (h *Helpers) natNetworkInUse(name string, inuse []string) bool {
 
 	_, err := hcsshim.GetHNSNetworkByName(name)
 	if err != nil {
-		Expect(err).To(MatchError(ContainSubstring("Network " + name + " not found")))
+		ExpectWithOffset(2, err).To(MatchError(ContainSubstring("Network " + name + " not found")))
 		return false
 	}
 
@@ -286,7 +301,7 @@ func (h *Helpers) natNetworkInUse(name string, inuse []string) bool {
 
 func (h *Helpers) collideWithHost(gateway string) bool {
 	hostip, err := localip.LocalIP()
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 
 	hostbytes := strings.Split(hostip, ".")
 	gatewaybytes := strings.Split(gateway, ".")

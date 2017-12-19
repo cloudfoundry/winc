@@ -42,7 +42,7 @@ var _ = Describe("Run", func() {
 	})
 
 	It("creates a container and runs the init process", func() {
-		generateBundle(bundleSpec, bundlePath, containerId)
+		helpers.GenerateBundle(bundleSpec, bundlePath)
 		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
@@ -58,7 +58,7 @@ var _ = Describe("Run", func() {
 	Context("when the --detach flag is passed", func() {
 		It("the process runs in the container and returns immediately", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor fivesec /T 5 >NULL & exit /B 0"}
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 			Expect(err).ToNot(HaveOccurred())
 
@@ -77,7 +77,7 @@ var _ = Describe("Run", func() {
 	Context("when the --detach flag is not passed", func() {
 		It("the process runs in the container, returns the exit code when the process finishes, and deletes the container", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "exit /B 5"}
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
 			Expect(err).To(HaveOccurred())
 			Expect(helpers.ExitCode(err)).To(Equal(5))
@@ -93,7 +93,7 @@ var _ = Describe("Run", func() {
 					Destination: "C:\\temp",
 				},
 			}
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
 			cmd.Stdin = strings.NewReader("hey-winc\n")
 			stdOut, _, err := helpers.Execute(cmd)
@@ -103,7 +103,7 @@ var _ = Describe("Run", func() {
 
 		It("captures the stdout", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc"}
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			stdOut, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("hey-winc"))
@@ -111,7 +111,7 @@ var _ = Describe("Run", func() {
 
 		It("captures the stderr", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc 1>&2"}
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			_, stdErr, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdErr.String()).To(ContainSubstring("hey-winc"))
@@ -119,7 +119,7 @@ var _ = Describe("Run", func() {
 
 		It("captures the CTRL+C", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc & waitfor ever /T 9999"}
-			generateBundle(bundleSpec, bundlePath, containerId)
+			helpers.GenerateBundle(bundleSpec, bundlePath)
 			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
@@ -152,7 +152,7 @@ var _ = Describe("Run", func() {
 
 			It("places the container pid in the specified file", func() {
 				bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor ever /T 9999"}
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 				_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--pid-file", pidFile, containerId))
 				Expect(err).ToNot(HaveOccurred())
 
@@ -168,7 +168,7 @@ var _ = Describe("Run", func() {
 
 		Context("when the '--no-new-keyring' flag is provided", func() {
 			It("ignores it and creates and starts a container", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 				_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--no-new-keyring", containerId))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
@@ -177,7 +177,7 @@ var _ = Describe("Run", func() {
 
 		Context("when the container exists", func() {
 			BeforeEach(func() {
-				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			})
 
 			AfterEach(func() {
@@ -195,7 +195,7 @@ var _ = Describe("Run", func() {
 
 		Context("when the bundlePath is not specified", func() {
 			It("uses the current directory as the bundlePath", func() {
-				generateBundle(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
 				createCmd := exec.Command(wincBin, "run", "--detach", containerId)
 				createCmd.Dir = bundlePath
 				_, _, err := helpers.Execute(createCmd)

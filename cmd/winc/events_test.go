@@ -34,7 +34,7 @@ var _ = Describe("Events", func() {
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
 			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
-			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
