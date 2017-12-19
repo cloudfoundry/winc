@@ -36,7 +36,7 @@ var (
 	readBin      string
 	consumeBin   string
 	sleepBin     string
-	helpers      testhelpers.Helpers
+	helpers      *testhelpers.Helpers
 )
 
 type wincStats struct {
@@ -97,7 +97,7 @@ var _ = BeforeSuite(func() {
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
 
-	helpers = testhelpers.Helpers{WincBin: wincBin, WincImageBin: wincImageBin}
+	helpers = testhelpers.NewHelpers(wincBin, wincImageBin, "")
 })
 
 var _ = AfterSuite(func() {

@@ -9,10 +9,15 @@ import (
 	"io"
 	"math"
 	"math/big"
+	mathrand "math/rand"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
+	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/filelock"
+	"code.cloudfoundry.org/winc/network"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,13 +25,23 @@ import (
 )
 
 type Helpers struct {
-	WincBin        string
-	WincImageBin   string
-	WincNetworkBin string
+	wincBin         string
+	wincImageBin    string
+	wincNetworkBin  string
+	gatewayFileName string
+}
+
+func NewHelpers(wincBin, wincImageBin, wincNetworkBin string) *Helpers {
+	return &Helpers{
+		wincBin:         wincBin,
+		wincImageBin:    wincImageBin,
+		wincNetworkBin:  wincNetworkBin,
+		gatewayFileName: "c:\\var\\vcap\\data\\winc-network\\gateways.json",
+	}
 }
 
 func (h *Helpers) GetContainerState(containerId string) specs.State {
-	stdOut, _, err := h.Execute(exec.Command(h.WincBin, "state", containerId))
+	stdOut, _, err := h.Execute(exec.Command(h.wincBin, "state", containerId))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	var state specs.State
@@ -36,7 +51,7 @@ func (h *Helpers) GetContainerState(containerId string) specs.State {
 
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
-		output, err := exec.Command(h.WincBin, "delete", id).CombinedOutput()
+		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }
@@ -44,7 +59,7 @@ func (h *Helpers) DeleteContainer(id string) {
 func (h *Helpers) CreateSandbox(storePath, rootfsPath, containerId string) specs.Spec {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
-	cmd := exec.Command(h.WincImageBin, "--store", storePath, "create", rootfsPath, containerId)
+	cmd := exec.Command(h.wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
 	cmd.Stdout = stdOut
 	cmd.Stderr = stdErr
 	ExpectWithOffset(1, cmd.Run()).To(Succeed(), fmt.Sprintf("winc-image stdout: %s\n\n winc-image stderr: %s\n\n", stdOut.String(), stdErr.String()))
@@ -54,8 +69,84 @@ func (h *Helpers) CreateSandbox(storePath, rootfsPath, containerId string) specs
 }
 
 func (h *Helpers) DeleteSandbox(imageStore, id string) {
-	output, err := exec.Command(h.WincImageBin, "--store", imageStore, "delete", id).CombinedOutput()
+	output, err := exec.Command(h.wincImageBin, "--store", imageStore, "delete", id).CombinedOutput()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
+}
+
+func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
+	file, err := os.Create(networkConfigFile)
+	Expect(err).NotTo(HaveOccurred())
+
+	data, err := json.Marshal(networkConfig)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = file.Write(data)
+	Expect(err).NotTo(HaveOccurred())
+	file.Close()
+
+	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
+	args = append(args, extraArgs...)
+	_, _, err = h.Execute(exec.Command(h.wincNetworkBin, args...))
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile string) {
+	gatewayFile := filelock.NewLocker(h.gatewayFileName)
+	f, err := gatewayFile.Open()
+	defer f.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	oldGatewaysInUse := h.loadGatewaysInUse(f)
+	var newGatewaysInUse []string
+
+	for _, gateway := range oldGatewaysInUse {
+		if gateway != networkConfig.GatewayAddress {
+			newGatewaysInUse = append(newGatewaysInUse, gateway)
+		}
+	}
+
+	h.writeGatewaysInUse(f, newGatewaysInUse)
+	args := []string{"--action", "delete", "--configFile", networkConfigFile}
+	_, _, err = h.Execute(exec.Command(h.wincNetworkBin, args...))
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutputs {
+	args := []string{"--action", "up", "--configFile", networkConfigFile, "--handle", id}
+	cmd := exec.Command(h.wincNetworkBin, args...)
+	cmd.Stdin = strings.NewReader(input)
+	stdOut, _, err := h.Execute(cmd)
+	Expect(err).NotTo(HaveOccurred())
+
+	var upOutput network.UpOutputs
+	Expect(json.Unmarshal(stdOut.Bytes(), &upOutput)).To(Succeed())
+	return upOutput
+}
+
+func (h *Helpers) GenerateNetworkConfig() network.Config {
+	var subnet, gateway string
+
+	gatewayFile := filelock.NewLocker(h.gatewayFileName)
+	f, err := gatewayFile.Open()
+	defer f.Close()
+	Expect(err).NotTo(HaveOccurred())
+
+	gatewaysInUse := h.loadGatewaysInUse(f)
+
+	for {
+		subnet, gateway = h.randomValidSubnetAddress()
+		if !h.natNetworkInUse(gateway, gatewaysInUse) && !h.collideWithHost(gateway) {
+			gatewaysInUse = append(gatewaysInUse, gateway)
+			break
+		}
+	}
+
+	h.writeGatewaysInUse(f, gatewaysInUse)
+
+	return network.Config{
+		SubnetRange:    subnet,
+		GatewayAddress: gateway,
+		NetworkName:    gateway,
+	}
 }
 
 func (h *Helpers) ContainerExists(containerId string) bool {
@@ -77,7 +168,7 @@ func (h *Helpers) ExecInContainer(id string, args []string, detach bool) (*bytes
 		defaultArgs = []string{"exec", "-u", "vcap", id}
 	}
 
-	return h.Execute(exec.Command(h.WincBin, append(defaultArgs, args...)...))
+	return h.Execute(exec.Command(h.wincBin, append(defaultArgs, args...)...))
 }
 
 func (h *Helpers) GenerateRuntimeSpec(baseSpec specs.Spec) specs.Spec {
@@ -143,4 +234,67 @@ func (h *Helpers) ExitCode(err error) (int, error) {
 	} else {
 		return -1, errors.New("Error was not an exec.ExitError")
 	}
+}
+
+func (h *Helpers) loadGatewaysInUse(f filelock.LockedFile) []string {
+	data := make([]byte, 10240)
+	n, err := f.Read(data)
+	if err != nil {
+		Expect(err).To(Equal(io.EOF))
+		data = []byte("[]")
+		n = 2
+	}
+
+	gateways := []string{}
+	Expect(json.Unmarshal(data[:n], &gateways)).To(Succeed())
+
+	return gateways
+}
+
+func (h *Helpers) writeGatewaysInUse(f filelock.LockedFile, gateways []string) {
+	data, err := json.Marshal(gateways)
+	Expect(err).NotTo(HaveOccurred())
+
+	_, err = f.Seek(0, io.SeekStart)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(f.Truncate(0)).To(Succeed())
+
+	_, err = f.Write(data)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func (h *Helpers) natNetworkInUse(name string, inuse []string) bool {
+	for _, n := range inuse {
+		if name == n {
+			return true
+		}
+	}
+
+	_, err := hcsshim.GetHNSNetworkByName(name)
+	if err != nil {
+		Expect(err).To(MatchError(ContainSubstring("Network " + name + " not found")))
+		return false
+	}
+
+	return true
+}
+
+func (h *Helpers) collideWithHost(gateway string) bool {
+	hostip, err := localip.LocalIP()
+	Expect(err).NotTo(HaveOccurred())
+
+	hostbytes := strings.Split(hostip, ".")
+	gatewaybytes := strings.Split(gateway, ".")
+
+	// only need to compare first 3 bytes since mask is /24
+	return hostbytes[0] == gatewaybytes[0] &&
+		hostbytes[1] == gatewaybytes[1] &&
+		hostbytes[2] == gatewaybytes[2]
+}
+
+func (h *Helpers) randomValidSubnetAddress() (string, string) {
+	randomOctet := mathrand.Intn(256)
+	gatewayAddress := fmt.Sprintf("172.16.%d.1", randomOctet)
+	subnet := fmt.Sprintf("172.16.%d.0/24", randomOctet)
+	return subnet, gatewayAddress
 }
