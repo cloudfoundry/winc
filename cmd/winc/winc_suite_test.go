@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
+	testhelpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -36,6 +36,7 @@ var (
 	readBin      string
 	consumeBin   string
 	sleepBin     string
+	helpers      testhelpers.Helpers
 )
 
 type wincStats struct {
@@ -95,6 +96,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
+
+	helpers = testhelpers.Helpers{WincBin: wincBin, WincImageBin: wincImageBin}
 })
 
 var _ = AfterSuite(func() {
@@ -185,7 +188,7 @@ func wincBinGenericCreate(bundleSpec specs.Spec, bundlePath, containerId string)
 }
 
 func wincBinGenericExecInContainer(containerId string, args []string) *bytes.Buffer {
-	stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, false)
+	stdOut, stdErr, err := helpers.ExecInContainer(containerId, args, false)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 	return stdOut
 }

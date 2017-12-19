@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -28,29 +27,29 @@ var _ = Describe("Delete", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			helpers.DeleteSandbox(imageStore, containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		Context("when the container is running", func() {
 			It("deletes the container", func() {
-				helpers.DeleteContainer(wincBin, containerId)
+				helpers.DeleteContainer(containerId)
 				Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 			})
 
 			It("does not delete the bundle directory", func() {
-				helpers.DeleteContainer(wincBin, containerId)
+				helpers.DeleteContainer(containerId)
 				Expect(bundlePath).To(BeADirectory())
 			})
 
 			It("unmounts sandbox.vhdx", func() {
-				pid := helpers.GetContainerState(wincBin, containerId).Pid
-				helpers.DeleteContainer(wincBin, containerId)
+				pid := helpers.GetContainerState(containerId).Pid
+				helpers.DeleteContainer(containerId)
 				rootPath := filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
 				Expect(rootPath).NotTo(BeADirectory())
 

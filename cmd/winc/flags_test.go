@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -92,13 +91,13 @@ var _ = Describe("Flags", func() {
 
 				containerId = filepath.Base(bundlePath)
 
-				bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+				bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 				generateBundle(bundleSpec, bundlePath, containerId)
 			})
 
 			AfterEach(func() {
-				helpers.DeleteContainer(wincBin, containerId)
-				helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+				helpers.DeleteContainer(containerId)
+				helpers.DeleteSandbox(imageStore, containerId)
 				Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			})
 
@@ -191,13 +190,13 @@ var _ = Describe("Flags", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 			generateBundle(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			helpers.DeleteContainer(wincBin, containerId)
-			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			helpers.DeleteContainer(containerId)
+			helpers.DeleteSandbox(imageStore, containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 

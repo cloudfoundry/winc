@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	acl "github.com/hectane/go-acl"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -31,15 +30,15 @@ var _ = Describe("State", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
 			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			helpers.DeleteContainer(wincBin, containerId)
-			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			helpers.DeleteContainer(containerId)
+			helpers.DeleteSandbox(imageStore, containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 

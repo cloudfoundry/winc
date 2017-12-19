@@ -10,7 +10,6 @@ import (
 	"strings"
 	"syscall"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,12 +32,12 @@ var _ = Describe("Run", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 	})
 
 	AfterEach(func() {
-		helpers.DeleteContainer(wincBin, containerId)
-		helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+		helpers.DeleteContainer(containerId)
+		helpers.DeleteSandbox(imageStore, containerId)
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
@@ -52,7 +51,7 @@ var _ = Describe("Run", func() {
 		pl := containerProcesses(containerId, "powershell.exe")
 		Expect(len(pl)).To(Equal(1))
 
-		containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+		containerPid := helpers.GetContainerState(containerId).Pid
 		Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 	})
 
@@ -66,7 +65,7 @@ var _ = Describe("Run", func() {
 			pl := containerProcesses(containerId, "cmd.exe")
 			Expect(len(pl)).To(Equal(1))
 
-			containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+			containerPid := helpers.GetContainerState(containerId).Pid
 			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 
 			Eventually(func() []hcsshim.ProcessListItem {
@@ -157,7 +156,7 @@ var _ = Describe("Run", func() {
 				_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--pid-file", pidFile, containerId))
 				Expect(err).ToNot(HaveOccurred())
 
-				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+				containerPid := helpers.GetContainerState(containerId).Pid
 
 				pidBytes, err := ioutil.ReadFile(pidFile)
 				Expect(err).ToNot(HaveOccurred())
@@ -182,8 +181,8 @@ var _ = Describe("Run", func() {
 			})
 
 			AfterEach(func() {
-				helpers.DeleteContainer(wincBin, containerId)
-				helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+				helpers.DeleteContainer(containerId)
+				helpers.DeleteSandbox(imageStore, containerId)
 			})
 
 			It("errors", func() {

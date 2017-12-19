@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	acl "github.com/hectane/go-acl"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -32,15 +31,15 @@ var _ = Describe("Events", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
 			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			helpers.DeleteContainer(wincBin, containerId)
-			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			helpers.DeleteContainer(containerId)
+			helpers.DeleteSandbox(imageStore, containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
@@ -53,7 +52,7 @@ var _ = Describe("Events", func() {
 
 			Context("when passed the --stats flag", func() {
 				BeforeEach(func() {
-					pid := helpers.GetContainerState(wincBin, containerId).Pid
+					pid := helpers.GetContainerState(containerId).Pid
 					err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -89,7 +88,7 @@ var _ = Describe("Events", func() {
 					Expect(cpuUsageBefore).To(BeNumerically(">", 0))
 
 					args := []string{"powershell.exe", "-Command", "$result = 1; foreach ($number in 1..2147483647) {$result = $result * $number};"}
-					stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, args, true)
+					stdOut, stdErr, err := helpers.ExecInContainer(containerId, args, true)
 					Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
 					cpuUsageAfter := getStats(containerId).Data.CPUStats.CPUUsage.Usage

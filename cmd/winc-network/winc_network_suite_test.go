@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	testhelpers "code.cloudfoundry.org/winc/cmd/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -26,6 +27,7 @@ var (
 	serverBin      string
 	netoutBin      string
 	rootfsPath     string
+	helpers        testhelpers.Helpers
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -68,6 +70,8 @@ var _ = BeforeSuite(func() {
 
 	netoutBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network/fixtures/netout")
 	Expect(err).ToNot(HaveOccurred())
+
+	helpers = testhelpers.Helpers{WincBin: wincBin, WincNetworkBin: wincNetworkBin, WincImageBin: wincImageBin}
 })
 
 var _ = AfterSuite(func() {

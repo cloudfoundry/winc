@@ -11,7 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	acl "github.com/hectane/go-acl"
 	. "github.com/onsi/ginkgo"
@@ -37,49 +36,49 @@ var _ = Describe("Exec", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
 			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
-			helpers.DeleteContainer(wincBin, containerId)
-			helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+			helpers.DeleteContainer(containerId)
+			helpers.DeleteSandbox(imageStore, containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		It("the process runs in the container", func() {
-			stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"C:\\tmp\\sleep.exe"}, true)
+			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\tmp\\sleep.exe"}, true)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
 			pl := containerProcesses(containerId, "sleep.exe")
 			Expect(len(pl)).To(Equal(1))
 
-			containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+			containerPid := helpers.GetContainerState(containerId).Pid
 			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 		})
 
 		It("runs an executible given a unix path in the container", func() {
-			stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"/tmp/sleep"}, true)
+			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"/tmp/sleep"}, true)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
 			pl := containerProcesses(containerId, "sleep.exe")
 			Expect(len(pl)).To(Equal(1))
 
-			containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+			containerPid := helpers.GetContainerState(containerId).Pid
 			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 		})
 
 		Context("when there is cmd.exe and cmd", func() {
 			BeforeEach(func() {
-				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+				containerPid := helpers.GetContainerState(containerId).Pid
 				cmdPath := filepath.Join("c:\\", "proc", strconv.Itoa(containerPid), "root", "Windows", "System32", "cmd")
 				Expect(ioutil.WriteFile(cmdPath, []byte("xxx"), 0644)).To(Succeed())
 			})
 
 			It("runs the .exe for windows", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"/Windows/System32/cmd", "/C", "echo app is running"}, false)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"/Windows/System32/cmd", "/C", "echo app is running"}, false)
 				Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 				Expect(stdOut.String()).To(ContainSubstring("app is running"))
 			})
@@ -112,7 +111,7 @@ var _ = Describe("Exec", func() {
 				pl := containerProcesses(containerId, "sleep.exe")
 				Expect(len(pl)).To(Equal(1))
 
-				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+				containerPid := helpers.GetContainerState(containerId).Pid
 				Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 			})
 		})
@@ -129,7 +128,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the '--user' flag is provided", func() {
 			It("runs the process as the specified user", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "echo %USERNAME%"}, false)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo %USERNAME%"}, false)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
 				Expect(stdOut.String()).To(ContainSubstring("vcap"))
@@ -176,13 +175,13 @@ var _ = Describe("Exec", func() {
 
 		Context("when the --detach flag is passed", func() {
 			It("the process runs in the container and returns immediately", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"/tmp/sleep", "5"}, true)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"/tmp/sleep", "5"}, true)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
 				pl := containerProcesses(containerId, "sleep.exe")
 				Expect(len(pl)).To(Equal(1))
 
-				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+				containerPid := helpers.GetContainerState(containerId).Pid
 				Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 
 				Eventually(func() []hcsshim.ProcessListItem {
@@ -203,7 +202,7 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("passes stdin through to the process", func() {
-				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+				containerPid := helpers.GetContainerState(containerId).Pid
 				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(containerPid), "root", "read.exe"), readBin)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -215,13 +214,13 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("captures the stdout", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "echo hey-winc"}, false)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hey-winc"}, false)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 				Expect(stdOut.String()).To(ContainSubstring("hey-winc"))
 			})
 
 			It("captures the stderr", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "echo hey-winc 1>&2"}, false)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hey-winc 1>&2"}, false)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 				Expect(stdErr.String()).To(ContainSubstring("hey-winc"))
 			})
@@ -277,7 +276,7 @@ var _ = Describe("Exec", func() {
 
 		Context("when the command is invalid", func() {
 			It("errors", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"invalid.exe"}, false)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"invalid.exe"}, false)
 				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
 				expectedErrorMsg := fmt.Sprintf("could not start command 'invalid.exe' in container: %s", containerId)
@@ -288,7 +287,7 @@ var _ = Describe("Exec", func() {
 
 	Context("given a nonexistent container id", func() {
 		It("errors", func() {
-			stdOut, stdErr, err := helpers.ExecInContainer(wincBin, "doesntexist", []string{"cmd.exe"}, false)
+			stdOut, stdErr, err := helpers.ExecInContainer("doesntexist", []string{"cmd.exe"}, false)
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
 			Expect(stdErr.String()).To(ContainSubstring("container not found: doesntexist"))

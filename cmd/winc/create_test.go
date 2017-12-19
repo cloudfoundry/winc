@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	helpers "code.cloudfoundry.org/winc/cmd/helpers"
 	acl "github.com/hectane/go-acl"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -35,29 +34,29 @@ var _ = Describe("Create", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(wincImageBin, imageStore, rootfsPath, containerId))
+		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
 	})
 
 	AfterEach(func() {
-		helpers.DeleteSandbox(wincImageBin, imageStore, containerId)
+		helpers.DeleteSandbox(imageStore, containerId)
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	Context("when provided valid arguments", func() {
 		AfterEach(func() {
-			helpers.DeleteContainer(wincBin, containerId)
+			helpers.DeleteContainer(containerId)
 		})
 
 		It("creates and starts a container", func() {
 			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
-			Expect(ps.FindProcess(helpers.GetContainerState(wincBin, containerId).Pid)).ToNot(BeNil())
+			Expect(ps.FindProcess(helpers.GetContainerState(containerId).Pid)).ToNot(BeNil())
 		})
 
 		It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
 			wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-			pid := helpers.GetContainerState(wincBin, containerId).Pid
+			pid := helpers.GetContainerState(containerId).Pid
 			Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
 
 			stdOut := wincBinGenericExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"})
@@ -102,7 +101,7 @@ var _ = Describe("Create", func() {
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--pid-file", pidFile, containerId))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
-				containerPid := helpers.GetContainerState(wincBin, containerId).Pid
+				containerPid := helpers.GetContainerState(containerId).Pid
 
 				pidBytes, err := ioutil.ReadFile(pidFile)
 				Expect(err).ToNot(HaveOccurred())
@@ -168,7 +167,7 @@ var _ = Describe("Create", func() {
 
 			It("the mounted directories are read only", func() {
 				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
-				stdOut, stdErr, err := helpers.ExecInContainer(wincBin, containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
+				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
 				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 				Expect(stdErr.String()).To(ContainSubstring("Access is denied"))
 			})
@@ -274,7 +273,7 @@ var _ = Describe("Create", func() {
 			It("is not constrained by smaller memory limit", func() {
 				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-				pid := helpers.GetContainerState(wincBin, containerId).Pid
+				pid := helpers.GetContainerState(containerId).Pid
 				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -284,7 +283,7 @@ var _ = Describe("Create", func() {
 			It("is constrained by hitting the memory limit", func() {
 				wincBinGenericCreate(bundleSpec, bundlePath, containerId)
 
-				pid := helpers.GetContainerState(wincBin, containerId).Pid
+				pid := helpers.GetContainerState(containerId).Pid
 				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 				Expect(err).NotTo(HaveOccurred())
 
