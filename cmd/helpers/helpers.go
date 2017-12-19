@@ -122,6 +122,11 @@ func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutpu
 	return upOutput
 }
 
+func (h *Helpers) NetworkDown(id, networkConfigFile string) {
+	_, _, err := h.Execute(exec.Command(h.wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id))
+	Expect(err).NotTo(HaveOccurred())
+}
+
 func (h *Helpers) GenerateNetworkConfig() network.Config {
 	var subnet, gateway string
 

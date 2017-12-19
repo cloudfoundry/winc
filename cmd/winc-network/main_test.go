@@ -662,7 +662,7 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			endpointDown(containerId2)
+			helpers.NetworkDown(containerId2)
 			helpers.DeleteContainer(containerId2)
 			helpers.DeleteSandbox(`C:\run\winc`, containerId2)
 			deleteContainerAndNetwork(containerId, networkConfig)
@@ -778,13 +778,8 @@ func createContainer(id string) {
 	Expect(err).NotTo(HaveOccurred(), string(output))
 }
 
-func endpointDown(id string) {
-	output, err := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id).CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
-}
-
 func deleteContainerAndNetwork(id string, config network.Config) {
-	endpointDown(id)
+	helpers.NetworkDown(id, networkConfigFile)
 	helpers.DeleteContainer(id)
 	helpers.DeleteSandbox(`C:\run\winc`, id)
 	helpers.DeleteNetwork(config, networkConfigFile)
