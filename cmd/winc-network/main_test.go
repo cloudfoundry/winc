@@ -740,6 +740,34 @@ var _ = Describe("networking", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("An attempt was made to access a socket in a way forbidden by its access permissions"))
 		})
+
+		Context("when the containers share a network namespace", func() {
+			BeforeEach(func() {
+				bundleSpec2.Windows.Network = &specs.WindowsNetwork{NetworkSharedContainerName: containerId}
+				containerPort = "23456"
+			})
+
+			It("allows traffic between the containers", func() {
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
+
+				pid := helpers.GetContainerState(containerId).Pid
+				Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
+
+				_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+				helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+				pid = helpers.GetContainerState(containerId2).Pid
+				Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+
+				stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "127.0.0.1", "--port", containerPort}, false)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(stdOut.String()).To(Equal(fmt.Sprintf("connected to 127.0.0.1:%s over tcp", containerPort)))
+			})
+		})
 	})
 
 	Context("when provided --log <log-file>", func() {

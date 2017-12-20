@@ -54,6 +54,7 @@ type HCSClient interface {
 	CreateContainer(string, *hcsshim.ContainerConfig) (hcs.Container, error)
 	OpenContainer(string) (hcs.Container, error)
 	IsPending(error) bool
+	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
 func NewManager(hcsClient HCSClient, mounter Mounter, imageStore, bundlePath string) *Manager {
@@ -137,6 +138,17 @@ func (m *Manager) Create(spec *specs.Spec) error {
 				if spec.Windows.Resources.CPU.Shares != nil {
 					containerConfig.ProcessorWeight = uint64(*spec.Windows.Resources.CPU.Shares)
 				}
+			}
+		}
+
+		if spec.Windows.Network != nil {
+			if spec.Windows.Network.NetworkSharedContainerName != "" {
+				containerConfig.NetworkSharedContainerName = spec.Windows.Network.NetworkSharedContainerName
+				endpoint, err := m.hcsClient.GetHNSEndpointByName(spec.Windows.Network.NetworkSharedContainerName)
+				if err != nil {
+					return err
+				}
+				containerConfig.EndpointList = []string{endpoint.Id}
 			}
 		}
 	}

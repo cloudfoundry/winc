@@ -254,6 +254,58 @@ var _ = Describe("Create", func() {
 			})
 		})
 
+		Context("when network settings are specified in the spec", func() {
+			Context("when NetworkSharedContainerName is specified", func() {
+				var (
+					networkSharedContainerName string
+					sharedEndpointId           string
+				)
+
+				BeforeEach(func() {
+					networkSharedContainerName = "some-networked-container"
+					sharedEndpointId = "some-shared-endpoint-id"
+					spec.Windows.Network = &specs.WindowsNetwork{NetworkSharedContainerName: networkSharedContainerName}
+					hcsClient.GetHNSEndpointByNameReturns(&hcsshim.HNSEndpoint{Id: sharedEndpointId}, nil)
+				})
+
+				It("creates the container with a NetworkSharedContainerName and EndpointList", func() {
+					Expect(containerManager.Create(spec)).To(Succeed())
+
+					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(containerConfig.NetworkSharedContainerName).To(Equal(networkSharedContainerName))
+					Expect(containerConfig.EndpointList).To(Equal([]string{sharedEndpointId}))
+
+					Expect(hcsClient.GetHNSEndpointByNameArgsForCall(0)).To(Equal(networkSharedContainerName))
+				})
+
+				Context("when getting the endpoint fails", func() {
+					BeforeEach(func() {
+						hcsClient.GetHNSEndpointByNameReturns(nil, errors.New("couldn't get endpoint"))
+					})
+
+					It("returns an error", func() {
+						Expect(containerManager.Create(spec)).To(MatchError("couldn't get endpoint"))
+					})
+				})
+			})
+
+			Context("when NetworkSharedContainerName is empty", func() {
+				BeforeEach(func() {
+					spec.Windows.Network = &specs.WindowsNetwork{}
+				})
+
+				It("creates a container without a NetworkSharedContainerName or EndpointList", func() {
+					Expect(containerManager.Create(spec)).To(Succeed())
+
+					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(containerConfig.NetworkSharedContainerName).To(BeEmpty())
+					Expect(containerConfig.EndpointList).To(BeEmpty())
+				})
+			})
+		})
+
 		Context("when CreateContainer fails", func() {
 			BeforeEach(func() {
 				hcsClient.CreateContainerReturns(nil, errors.New("couldn't create"))
