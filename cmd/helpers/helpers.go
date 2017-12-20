@@ -215,23 +215,17 @@ func (h *Helpers) RandomContainerId() string {
 	return fmt.Sprintf("%d", r.Int64())
 }
 
-func (h *Helpers) CopyFile(dst, src string) error {
+func (h *Helpers) CopyFile(dst, src string) {
 	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	defer in.Close()
 	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	defer out.Close()
 	_, err = io.Copy(out, in)
-	cerr := out.Close()
-	if err != nil {
-		return err
-	}
-	return cerr
+	closeErr := out.Close()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, closeErr).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) Execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {

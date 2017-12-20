@@ -53,8 +53,7 @@ var _ = Describe("Events", func() {
 			Context("when passed the --stats flag", func() {
 				BeforeEach(func() {
 					pid := helpers.GetContainerState(containerId).Pid
-					err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
-					Expect(err).NotTo(HaveOccurred())
+					helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 				})
 
 				It("prints the container memory stats to stdout", func() {

@@ -194,8 +194,7 @@ var _ = Describe("Create", func() {
 					BeforeEach(func() {
 						helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
-						Expect(helpers.CopyFile(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")).To(Succeed())
-
+						helpers.CopyFile(filepath.Join(mountSource, "cmd.exe"), "C:\\Windows\\System32\\cmd.exe")
 					})
 					Context("when using the windows path", func() {
 						It("mounts the specified directories", func() {
@@ -280,8 +279,7 @@ var _ = Describe("Create", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 				pid := helpers.GetContainerState(containerId).Pid
-				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
-				Expect(err).NotTo(HaveOccurred())
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 
 				Expect(grabMemory(10, 0)).To(Equal(""))
 			})
@@ -290,8 +288,7 @@ var _ = Describe("Create", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
 				pid := helpers.GetContainerState(containerId).Pid
-				err := helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
-				Expect(err).NotTo(HaveOccurred())
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
 
 				Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: out of memory"))
 			})

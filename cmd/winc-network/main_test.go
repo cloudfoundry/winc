@@ -228,7 +228,7 @@ var _ = Describe("networking", func() {
 					client.Timeout = 5 * time.Second
 
 					pid := helpers.GetContainerState(containerId).Pid
-					Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
+					helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
 
 					_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", strconv.Itoa(int(containerPort1))}, true)
 					Expect(err).NotTo(HaveOccurred())
@@ -330,7 +330,7 @@ var _ = Describe("networking", func() {
 			Context("stdin does not contain net out rules", func() {
 				BeforeEach(func() {
 					pid := helpers.GetContainerState(containerId).Pid
-					Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+					helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 				})
 
 				It("cannot resolve DNS", func() {
@@ -389,7 +389,7 @@ var _ = Describe("networking", func() {
 					}
 
 					pid := helpers.GetContainerState(containerId).Pid
-					Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+					helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 				})
 
 				Context("netout allows udp", func() {
@@ -603,7 +603,7 @@ var _ = Describe("networking", func() {
 				helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
 				pid := helpers.GetContainerState(containerId).Pid
-				Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
 				stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 				Expect(err).NotTo(HaveOccurred())
@@ -725,7 +725,7 @@ var _ = Describe("networking", func() {
 			containerIp := outputs.Properties.ContainerIP
 
 			pid := helpers.GetContainerState(containerId).Pid
-			Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
+			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
 
 			_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -734,7 +734,7 @@ var _ = Describe("networking", func() {
 			helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 			pid = helpers.GetContainerState(containerId2).Pid
-			Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
 			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", containerIp, "--port", containerPort}, false)
 			Expect(err).To(HaveOccurred())
@@ -752,7 +752,7 @@ var _ = Describe("networking", func() {
 				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 
 				pid := helpers.GetContainerState(containerId).Pid
-				Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)).To(Succeed())
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
 
 				_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -761,7 +761,7 @@ var _ = Describe("networking", func() {
 				helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 				pid = helpers.GetContainerState(containerId2).Pid
-				Expect(helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)).To(Succeed())
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
 				stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "127.0.0.1", "--port", containerPort}, false)
 				Expect(err).NotTo(HaveOccurred())
