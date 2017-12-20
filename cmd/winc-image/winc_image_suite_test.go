@@ -1,16 +1,13 @@
 package main_test
 
 import (
-	"bytes"
-	"crypto/rand"
-	"fmt"
-	"io"
-	"math"
-	"math/big"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
+	testhelpers "code.cloudfoundry.org/winc/cmd/helpers"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,6 +19,7 @@ import (
 var (
 	wincImageBin string
 	rootfsPath   string
+	helpers      *testhelpers.Helpers
 )
 
 func TestWincImage(t *testing.T) {
@@ -49,6 +47,8 @@ func TestWincImage(t *testing.T) {
 			filepath.Join(wincImageDir, "quota.o"),
 			"-lole32", "-loleaut32").Run()
 		Expect(err).NotTo(HaveOccurred())
+
+		helpers = testhelpers.NewHelpers("", wincImageBin, "")
 	})
 
 	AfterSuite(func() {
@@ -68,20 +68,40 @@ func getVolumeGuid(storePath, id string) string {
 	return volumePath
 }
 
-func execute(cmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
-	stdOut := new(bytes.Buffer)
-	stdErr := new(bytes.Buffer)
-	command := exec.Command(cmd, args...)
-	command.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
-	command.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
-	err := command.Run()
-	return stdOut, stdErr, err
+func mountSandboxVolume(storePath, containerId, mountPath string) {
+	volumeGuid := getVolumeGuid(storePath, containerId)
+	Expect(exec.Command("mountvol", mountPath, volumeGuid).Run()).To(Succeed())
 }
 
-func randomContainerId() string {
-	max := big.NewInt(math.MaxInt64)
-	r, err := rand.Int(rand.Reader, max)
-	Expect(err).NotTo(HaveOccurred())
+func unmountSandboxVolume(mountPath string) {
+	if _, _, err := helpers.Execute(exec.Command("mountvol", mountPath, "/L")); err != nil {
+		return
+	}
 
-	return fmt.Sprintf("%d", r.Int64())
+	_, _, err := helpers.Execute(exec.Command("mountvol", mountPath, "/D"))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.RemoveAll(mountPath)).To(Succeed())
+}
+
+func createWithDiskLimit(storePath, rootfsPath, containerId string, diskLimitSizeBytes int) {
+	createCommand := exec.Command(wincImageBin, "--store", storePath, "create", "--disk-limit-size-bytes", strconv.Itoa(diskLimitSizeBytes), rootfsPath, containerId)
+	_, _, err := helpers.Execute(createCommand)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+type DiskUsage struct {
+	TotalBytesUsed     uint64 `json:"total_bytes_used"`
+	ExclusiveBytesUsed uint64 `json:"exclusive_bytes_used"`
+}
+
+type ImageStats struct {
+	Disk DiskUsage `json:"disk_usage"`
+}
+
+func getImageStats(storePath, containerId string) ImageStats {
+	stdout, _, err := helpers.Execute(exec.Command(wincImageBin, "--store", storePath, "stats", containerId))
+	Expect(err).NotTo(HaveOccurred())
+	var imageStats ImageStats
+	Expect(json.Unmarshal(stdout.Bytes(), &imageStats)).To(Succeed())
+	return imageStats
 }
