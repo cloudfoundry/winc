@@ -32,6 +32,7 @@ var _ = Describe("Delete", func() {
 		})
 
 		AfterEach(func() {
+			helpers.DeleteContainer(containerId)
 			helpers.DeleteSandbox(imageStore, containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})

@@ -1,9 +1,6 @@
 package main
 
 import (
-	"sync"
-	"time"
-
 	"code.cloudfoundry.org/winc/config"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -100,17 +97,4 @@ following will output a list of processes running in the container:
 		return runProcess(containerId, spec, detach, pidFile, false)
 	},
 	SkipArgReorder: true,
-}
-
-func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
-	wgEmpty := make(chan interface{}, 1)
-	go func() {
-		wg.Wait()
-		wgEmpty <- nil
-	}()
-
-	select {
-	case <-time.After(timeout):
-	case <-wgEmpty:
-	}
 }

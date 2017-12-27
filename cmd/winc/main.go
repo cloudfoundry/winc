@@ -295,3 +295,16 @@ func runProcess(containerId string, spec *specs.Process, detach bool, pidFile st
 
 	return nil
 }
+
+func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
+	wgEmpty := make(chan interface{}, 1)
+	go func() {
+		wg.Wait()
+		wgEmpty <- nil
+	}()
+
+	select {
+	case <-time.After(timeout):
+	case <-wgEmpty:
+	}
+}
