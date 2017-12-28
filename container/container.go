@@ -106,10 +106,15 @@ func (m *Manager) Create(spec *specs.Spec) error {
 			continue
 		}
 
+		readOnly, err := m.parseMountOptions(d.Options)
+		if err != nil {
+			return err
+		}
+
 		mappedDirs = append(mappedDirs, hcsshim.MappedDir{
 			HostPath:      d.Source,
 			ContainerPath: destToWindowsPath(d.Destination),
-			ReadOnly:      true,
+			ReadOnly:      readOnly,
 		})
 	}
 
@@ -181,6 +186,29 @@ func (m *Manager) Create(spec *specs.Spec) error {
 	}
 
 	return nil
+}
+
+func (m *Manager) parseMountOptions(options []string) (bool, error) {
+	hasReadOnly := false
+	hasReadWrite := false
+	for _, option := range options {
+		if option == "rw" {
+			hasReadWrite = true
+		} else if option == "ro" {
+			hasReadOnly = true
+		}
+	}
+
+	if hasReadOnly && hasReadWrite {
+		return false, &InvalidMountOptionsError{Id: m.id, Options: options}
+	}
+
+	readOnly := true
+	if hasReadWrite {
+		readOnly = false
+	}
+
+	return readOnly, nil
 }
 
 func (m *Manager) Delete() error {

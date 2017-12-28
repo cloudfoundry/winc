@@ -34,3 +34,12 @@ type CouldNotCreateProcessError struct {
 func (e *CouldNotCreateProcessError) Error() string {
 	return fmt.Sprintf("could not start command '%s' in container: %s", e.Command, e.Id)
 }
+
+type InvalidMountOptionsError struct {
+	Id      string
+	Options []string
+}
+
+func (e *InvalidMountOptionsError) Error() string {
+	return fmt.Sprintf("invalid mount options for container %s: %+v", e.Id, e.Options)
+}

@@ -161,13 +161,64 @@ var _ = Describe("Create", func() {
 				Expect(os.RemoveAll(mount)).To(Succeed())
 			})
 
-			It("creates the container with the specified mounts", func() {
-				Expect(containerManager.Create(spec)).To(Succeed())
+			Context("mount options do not specify ro or rw", func() {
+				BeforeEach(func() {
+					spec.Mounts[0].Options = []string{"bind"}
+					expectedMappedDirs[0].ReadOnly = true
+				})
 
-				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
-				actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
-				Expect(actualContainerId).To(Equal(containerId))
-				Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+				It("creates the container with the specified mounts", func() {
+					Expect(containerManager.Create(spec)).To(Succeed())
+
+					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(actualContainerId).To(Equal(containerId))
+					Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+				})
+			})
+
+			Context("mount options specify ro", func() {
+				BeforeEach(func() {
+					spec.Mounts[0].Options = []string{"bind", "ro"}
+					expectedMappedDirs[0].ReadOnly = true
+				})
+
+				It("creates the container with the specified mounts", func() {
+					Expect(containerManager.Create(spec)).To(Succeed())
+
+					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(actualContainerId).To(Equal(containerId))
+					Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+				})
+			})
+
+			Context("mount options specify rw", func() {
+				BeforeEach(func() {
+					spec.Mounts[0].Options = []string{"bind", "rw"}
+					expectedMappedDirs[0].ReadOnly = false
+				})
+
+				It("creates the container with the specified mounts", func() {
+					Expect(containerManager.Create(spec)).To(Succeed())
+
+					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+					Expect(actualContainerId).To(Equal(containerId))
+					Expect(containerConfig.MappedDirectories).To(ConsistOf(expectedMappedDirs))
+				})
+			})
+
+			Context("mount options specify both rw and ro", func() {
+				BeforeEach(func() {
+					spec.Mounts[0].Options = []string{"bind", "rw", "ro"}
+				})
+
+				It("errors", func() {
+					err := containerManager.Create(spec)
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(BeAssignableToTypeOf(&container.InvalidMountOptionsError{}))
+				})
 			})
 
 			Context("when the mount does not exist", func() {

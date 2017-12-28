@@ -168,11 +168,55 @@ var _ = Describe("Create", func() {
 				Expect(stdOut.String()).To(ContainSubstring("hello"))
 			})
 
-			It("the mounted directories are read only", func() {
-				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
-				_, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
-				Expect(err).To(HaveOccurred())
-				Expect(stdErr.String()).To(ContainSubstring("Access is denied"))
+			Context("no mount options are specified", func() {
+				It("the mounted directories are read only", func() {
+					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+					_, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
+					Expect(err).To(HaveOccurred())
+					Expect(stdErr.String()).To(ContainSubstring("Access is denied"))
+				})
+			})
+
+			Context("the read-only mount option is specified", func() {
+				BeforeEach(func() {
+					bundleSpec.Mounts[0].Options = []string{"bind", "ro"}
+				})
+
+				It("the mounted directories are read only", func() {
+					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+					_, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello > " + filepath.Join(mountDest, "sentinel2")}, false)
+					Expect(err).To(HaveOccurred())
+					Expect(stdErr.String()).To(ContainSubstring("Access is denied"))
+				})
+			})
+
+			Context("the read/write mount option is specified", func() {
+				BeforeEach(func() {
+					bundleSpec.Mounts[0].Options = []string{"bind", "rw"}
+				})
+
+				It("the mounted directories can be written to", func() {
+					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+					_, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo hello2 > " + filepath.Join(mountDest, "sentinel2")}, false)
+					Expect(err).ToNot(HaveOccurred())
+
+					stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel2")}, false)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(stdOut.String()).To(ContainSubstring("hello2"))
+				})
+			})
+
+			Context("both read/write and read-only are specified", func() {
+				BeforeEach(func() {
+					bundleSpec.Mounts[0].Options = []string{"bind", "rw", "ro"}
+				})
+
+				It("errors", func() {
+					helpers.GenerateBundle(bundleSpec, bundlePath)
+					_, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
+					Expect(err).To(HaveOccurred())
+					Expect(stdErr.String()).To(ContainSubstring(fmt.Sprintf("invalid mount options for container %s: [bind rw ro]", containerId)))
+				})
 			})
 
 			Context("when the destination is /tmp/", func() {
