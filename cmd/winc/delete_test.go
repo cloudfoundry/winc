@@ -58,6 +58,15 @@ var _ = Describe("Delete", func() {
 				_, err := os.Lstat(rootPath)
 				Expect(err).NotTo(BeNil())
 			})
+
+			Context("when passed the -force flag", func() {
+				It("deletes the container", func() {
+					cmd := exec.Command(wincBin, "delete", "-force", containerId)
+					stdOut, stdErr, err := helpers.Execute(cmd)
+					Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+					Expect(helpers.ContainerExists(containerId)).To(BeFalse())
+				})
+			})
 		})
 	})
 
@@ -68,6 +77,14 @@ var _ = Describe("Delete", func() {
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
 			Expect(stdErr.String()).To(ContainSubstring("container not found: nonexistentcontainer"))
+		})
+
+		Context("when passed the -force flag", func() {
+			It("does not error", func() {
+				cmd := exec.Command(wincBin, "delete", "-force", "nonexistentcontainer")
+				stdOut, stdErr, err := helpers.Execute(cmd)
+				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+			})
 		})
 	})
 })

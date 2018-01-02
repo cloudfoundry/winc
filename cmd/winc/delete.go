@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -18,18 +19,20 @@ status of "windows01" as "stopped" the following will delete resources held for
 "windows01" removing "windows01" from the winc list of containers:
 
        # winc delete windows01`,
-	// Flags: []cli.Flag{
-	// 	cli.BoolFlag{
-	// 		Name:  "force, f",
-	// 		Usage: "Forcibly deletes the container if it is still running (uses SIGKILL)",
-	// 	},
-	// },
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "force, f",
+			Usage: "Do not return an error if <container-id> does not exist",
+		},
+	},
+
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, exactArgs); err != nil {
 			return err
 		}
 
 		containerId := context.Args().First()
+		force := context.Bool("force")
 
 		logrus.WithFields(logrus.Fields{
 			"containerId": containerId,
@@ -37,6 +40,13 @@ status of "windows01" as "stopped" the following will delete resources held for
 
 		cm, err := wireContainerManager("", "", containerId)
 		if err != nil {
+			if force {
+				_, ok := err.(*hcs.NotFoundError)
+				if ok {
+					return nil
+				}
+			}
+
 			return err
 		}
 
