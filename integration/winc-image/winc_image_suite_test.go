@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	testhelpers "code.cloudfoundry.org/winc/cmd/helpers"
+	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

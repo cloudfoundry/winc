@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	testhelpers "code.cloudfoundry.org/winc/cmd/helpers"
+	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	"github.com/Microsoft/hcsshim"
 	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
@@ -88,11 +88,11 @@ var _ = BeforeSuite(func() {
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
 
-	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/consume")
+	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/consume")
 	Expect(err).ToNot(HaveOccurred())
-	readBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/read")
+	readBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/read")
 	Expect(err).ToNot(HaveOccurred())
-	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc/fixtures/sleep")
+	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
 
 	helpers = testhelpers.NewHelpers(wincBin, wincImageBin, "")
