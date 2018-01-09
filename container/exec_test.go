@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/containerfakes"
-	"code.cloudfoundry.org/winc/hcs/hcsfakes"
+	"code.cloudfoundry.org/winc/container/fakes"
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -20,10 +20,10 @@ var _ = Describe("Exec", func() {
 	var (
 		containerId      string
 		bundlePath       string
-		hcsClient        *containerfakes.FakeHCSClient
-		mounter          *containerfakes.FakeMounter
+		hcsClient        *fakes.HCSClient
+		mounter          *fakes.Mounter
 		containerManager *container.Manager
-		fakeContainer    *hcsfakes.FakeContainer
+		fakeContainer    *hcsfakes.Container
 		processSpec      specs.Process
 	)
 
@@ -34,10 +34,10 @@ var _ = Describe("Exec", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		hcsClient = &containerfakes.FakeHCSClient{}
-		mounter = &containerfakes.FakeMounter{}
+		hcsClient = &fakes.HCSClient{}
+		mounter = &fakes.Mounter{}
 		containerManager = container.NewManager(hcsClient, mounter, "", containerId)
-		fakeContainer = &hcsfakes.FakeContainer{}
+		fakeContainer = &hcsfakes.Container{}
 	})
 
 	AfterEach(func() {
@@ -195,7 +195,7 @@ var _ = Describe("Exec", func() {
 		var missingContainerError = errors.New("container does not exist")
 
 		BeforeEach(func() {
-			hcsClient.OpenContainerReturns(&hcsfakes.FakeContainer{}, missingContainerError)
+			hcsClient.OpenContainerReturns(&hcsfakes.Container{}, missingContainerError)
 		})
 
 		It("errors", func() {

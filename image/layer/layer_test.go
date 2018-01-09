@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/image/layer"
-	"code.cloudfoundry.org/winc/image/layer/layerfakes"
+	"code.cloudfoundry.org/winc/image/layer/fakes"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("Manager", func() {
 	var (
-		client       *layerfakes.FakeHCSClient
+		client       *fakes.HCSClient
 		m            *layer.Manager
 		parentLayers []string
 		storeDir     string
@@ -34,7 +34,7 @@ var _ = Describe("Manager", func() {
 		rootfsPath = "rootfs"
 		parentLayers = []string{"rootfs", "layer-2", "layer-1"}
 
-		client = &layerfakes.FakeHCSClient{}
+		client = &fakes.HCSClient{}
 		m = layer.NewManager(client, storeDir)
 	})
 

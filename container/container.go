@@ -41,13 +41,13 @@ type Statistics struct {
 	} `json:"data,omitempty"`
 }
 
-//go:generate counterfeiter . Mounter
+//go:generate counterfeiter -o fakes/mounter.go --fake-name Mounter . Mounter
 type Mounter interface {
 	Mount(pid int, volumePath string) error
 	Unmount(pid int) error
 }
 
-//go:generate counterfeiter . HCSClient
+//go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	GetContainerProperties(string) (hcsshim.ContainerProperties, error)
 	NameToGuid(string) (hcsshim.GUID, error)

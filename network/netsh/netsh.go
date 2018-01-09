@@ -12,7 +12,7 @@ import (
 
 const CMD_TIMEOUT = time.Second * 2
 
-//go:generate counterfeiter . HCSClient
+//go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	OpenContainer(string) (hcs.Container, error)
 }

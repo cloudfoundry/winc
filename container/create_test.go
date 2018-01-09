@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/containerfakes"
+	"code.cloudfoundry.org/winc/container/fakes"
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/hcs/hcsfakes"
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,8 +24,8 @@ var _ = Describe("Create", func() {
 		containerId      string
 		bundlePath       string
 		layerFolders     []string
-		hcsClient        *containerfakes.FakeHCSClient
-		mounter          *containerfakes.FakeMounter
+		hcsClient        *fakes.HCSClient
+		mounter          *fakes.Mounter
 		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
@@ -39,8 +39,8 @@ var _ = Describe("Create", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		hcsClient = &containerfakes.FakeHCSClient{}
-		mounter = &containerfakes.FakeMounter{}
+		hcsClient = &fakes.HCSClient{}
+		mounter = &fakes.Mounter{}
 		containerManager = container.NewManager(hcsClient, mounter, rootPath, bundlePath)
 
 		layerFolders = []string{
@@ -67,11 +67,11 @@ var _ = Describe("Create", func() {
 	Context("when the specified container does not already exist", func() {
 		var (
 			expectedHcsshimLayers []hcsshim.Layer
-			fakeContainer         hcsfakes.FakeContainer
+			fakeContainer         hcsfakes.Container
 		)
 
 		BeforeEach(func() {
-			fakeContainer = hcsfakes.FakeContainer{}
+			fakeContainer = hcsfakes.Container{}
 			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, &hcs.NotFoundError{})
 
 			expectedHcsshimLayers = []hcsshim.Layer{}

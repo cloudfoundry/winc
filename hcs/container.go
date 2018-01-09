@@ -6,7 +6,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
-//go:generate counterfeiter . Container
+//go:generate counterfeiter -o fakes/container.go --fake-name Container . Container
 type Container interface {
 	Start() error
 	Shutdown() error

@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//go:generate counterfeiter . HCSClient
+//go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	GetHNSNetworkByName(string) (*hcsshim.HNSNetwork, error)
 	CreateEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
@@ -25,7 +25,7 @@ type HCSClient interface {
 	HotDetachEndpoint(containerID string, endpointID string) error
 }
 
-//go:generate counterfeiter . NetShRunner
+//go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
 type NetShRunner interface {
 	RunHost([]string) ([]byte, error)
 }

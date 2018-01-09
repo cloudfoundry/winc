@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/endpoint"
-	"code.cloudfoundry.org/winc/network/endpoint/endpointfakes"
+	"code.cloudfoundry.org/winc/network/endpoint/fakes"
 	"code.cloudfoundry.org/winc/network/netrules"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -25,13 +25,13 @@ var _ = Describe("EndpointManager", func() {
 
 	var (
 		endpointManager *endpoint.EndpointManager
-		hcsClient       *endpointfakes.FakeHCSClient
-		netsh           *endpointfakes.FakeNetShRunner
+		hcsClient       *fakes.HCSClient
+		netsh           *fakes.NetShRunner
 	)
 
 	BeforeEach(func() {
-		hcsClient = &endpointfakes.FakeHCSClient{}
-		netsh = &endpointfakes.FakeNetShRunner{}
+		hcsClient = &fakes.HCSClient{}
+		netsh = &fakes.NetShRunner{}
 		config := network.Config{
 			NetworkName: networkName,
 			DNSServers:  []string{"1.1.1.1", "2.2.2.2"},

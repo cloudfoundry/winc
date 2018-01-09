@@ -7,19 +7,19 @@ import (
 	"code.cloudfoundry.org/localip"
 )
 
-//go:generate counterfeiter . NetShRunner
+//go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
 type NetShRunner interface {
 	RunContainer([]string) error
 	RunHost([]string) ([]byte, error)
 }
 
-//go:generate counterfeiter . PortAllocator
+//go:generate counterfeiter -o fakes/port_allocator.go --fake-name PortAllocator . PortAllocator
 type PortAllocator interface {
 	AllocatePort(handle string, port int) (int, error)
 	ReleaseAllPorts(handle string) error
 }
 
-//go:generate counterfeiter . NetInterface
+//go:generate counterfeiter -o fakes/netinterface.go --fake-name NetInterface . NetInterface
 type NetInterface interface {
 	ByName(string) (*net.Interface, error)
 	ByIP(string) (*net.Interface, error)

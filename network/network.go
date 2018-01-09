@@ -11,7 +11,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
-//go:generate counterfeiter . NetRuleApplier
+//go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
 	In(netrules.NetIn, string) (netrules.PortMapping, error)
 	Out(netrules.NetOut, string) error
@@ -20,14 +20,14 @@ type NetRuleApplier interface {
 	Cleanup() error
 }
 
-//go:generate counterfeiter . EndpointManager
+//go:generate counterfeiter -o fakes/endpoint_manager.go --fake-name EndpointManager . EndpointManager
 type EndpointManager interface {
 	Create() (hcsshim.HNSEndpoint, error)
 	Delete() error
 	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
 }
 
-//go:generate counterfeiter . HCSClient
+//go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	GetHNSNetworkByName(string) (*hcsshim.HNSNetwork, error)
 	CreateNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)

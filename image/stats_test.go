@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/image"
-	"code.cloudfoundry.org/winc/image/imagefakes"
+	"code.cloudfoundry.org/winc/image/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -18,9 +18,9 @@ var _ = Describe("Stats", func() {
 	var (
 		storePath     string
 		rootfs        string
-		layerManager  *imagefakes.FakeLayerManager
-		limiter       *imagefakes.FakeLimiter
-		statser       *imagefakes.FakeStatser
+		layerManager  *fakes.LayerManager
+		limiter       *fakes.Limiter
+		statser       *fakes.Statser
 		imageManager  *image.Manager
 		rootfsParents []byte
 	)
@@ -33,10 +33,10 @@ var _ = Describe("Stats", func() {
 		storePath, err = ioutil.TempDir("", "sandbox-store")
 		Expect(err).ToNot(HaveOccurred())
 
-		layerManager = &imagefakes.FakeLayerManager{}
+		layerManager = &fakes.LayerManager{}
 		layerManager.HomeDirReturns(storePath)
-		limiter = &imagefakes.FakeLimiter{}
-		statser = &imagefakes.FakeStatser{}
+		limiter = &fakes.Limiter{}
+		statser = &fakes.Statser{}
 		imageManager = image.NewManager(layerManager, limiter, statser, containerId)
 
 		rootfsParents = []byte(`["path1", "path2"]`)

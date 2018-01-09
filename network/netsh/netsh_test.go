@@ -4,9 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/winc/hcs/hcsfakes"
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"code.cloudfoundry.org/winc/network/netsh"
-	"code.cloudfoundry.org/winc/network/netsh/netshfakes"
+	"code.cloudfoundry.org/winc/network/netsh/fakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -17,24 +17,24 @@ var _ = Describe("Netsh", func() {
 
 	var (
 		runner    *netsh.Runner
-		hcsClient *netshfakes.FakeHCSClient
+		hcsClient *fakes.HCSClient
 	)
 
 	BeforeEach(func() {
-		hcsClient = &netshfakes.FakeHCSClient{}
+		hcsClient = &fakes.HCSClient{}
 		runner = netsh.NewRunner(hcsClient, containerId)
 	})
 
 	Describe("RunContainer", func() {
 		var (
-			fakeContainer *hcsfakes.FakeContainer
-			fakeProcess   *hcsfakes.FakeProcess
+			fakeContainer *hcsfakes.Container
+			fakeProcess   *hcsfakes.Process
 		)
 
 		BeforeEach(func() {
-			fakeContainer = &hcsfakes.FakeContainer{}
+			fakeContainer = &hcsfakes.Container{}
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
-			fakeProcess = &hcsfakes.FakeProcess{}
+			fakeProcess = &hcsfakes.Process{}
 			fakeContainer.CreateProcessReturns(fakeProcess, nil)
 		})
 

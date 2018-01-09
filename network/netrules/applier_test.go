@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/netrules"
-	"code.cloudfoundry.org/winc/network/netrules/netrulesfakes"
+	"code.cloudfoundry.org/winc/network/netrules/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -18,16 +18,16 @@ var _ = Describe("Applier", func() {
 	const networkName = "my-network"
 
 	var (
-		netSh         *netrulesfakes.FakeNetShRunner
-		portAllocator *netrulesfakes.FakePortAllocator
-		netInterface  *netrulesfakes.FakeNetInterface
+		netSh         *fakes.NetShRunner
+		portAllocator *fakes.PortAllocator
+		netInterface  *fakes.NetInterface
 		applier       *netrules.Applier
 	)
 
 	BeforeEach(func() {
-		netSh = &netrulesfakes.FakeNetShRunner{}
-		portAllocator = &netrulesfakes.FakePortAllocator{}
-		netInterface = &netrulesfakes.FakeNetInterface{}
+		netSh = &fakes.NetShRunner{}
+		portAllocator = &fakes.PortAllocator{}
+		netInterface = &fakes.NetInterface{}
 
 		applier = netrules.NewApplier(netSh, containerId, networkName, portAllocator, netInterface)
 	})

@@ -6,7 +6,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
-//go:generate counterfeiter . HCSClient
+//go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	CreateLayer(hcsshim.DriverInfo, string, string, []string) error
 	RemoveLayer(hcsshim.DriverInfo, string) error

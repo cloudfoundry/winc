@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-//go:generate counterfeiter . Process
+//go:generate counterfeiter -o fakes/process.go --fake-name Process . Process
 type Process interface {
 	Pid() int
 	Kill() error

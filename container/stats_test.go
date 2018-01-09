@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/containerfakes"
-	"code.cloudfoundry.org/winc/hcs/hcsfakes"
+	"code.cloudfoundry.org/winc/container/fakes"
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
@@ -17,10 +17,10 @@ import (
 var _ = Describe("Stats", func() {
 	var (
 		bundlePath       string
-		hcsClient        *containerfakes.FakeHCSClient
-		mounter          *containerfakes.FakeMounter
+		hcsClient        *fakes.HCSClient
+		mounter          *fakes.Mounter
 		containerManager *container.Manager
-		fakeContainer    *hcsfakes.FakeContainer
+		fakeContainer    *hcsfakes.Container
 	)
 
 	BeforeEach(func() {
@@ -28,10 +28,10 @@ var _ = Describe("Stats", func() {
 		bundlePath, err = ioutil.TempDir("", "bundlePath")
 		Expect(err).ToNot(HaveOccurred())
 
-		hcsClient = &containerfakes.FakeHCSClient{}
-		mounter = &containerfakes.FakeMounter{}
+		hcsClient = &fakes.HCSClient{}
+		mounter = &fakes.Mounter{}
 		containerManager = container.NewManager(hcsClient, mounter, "", bundlePath)
-		fakeContainer = &hcsfakes.FakeContainer{}
+		fakeContainer = &hcsfakes.Container{}
 		hcsClient.OpenContainerReturns(fakeContainer, nil)
 	})
 

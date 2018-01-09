@@ -7,8 +7,8 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/fakes"
 	"code.cloudfoundry.org/winc/network/netrules"
-	"code.cloudfoundry.org/winc/network/networkfakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,16 +20,16 @@ var _ = Describe("NetworkManager", func() {
 
 	var (
 		networkManager  *network.NetworkManager
-		netRuleApplier  *networkfakes.FakeNetRuleApplier
-		hcsClient       *networkfakes.FakeHCSClient
-		endpointManager *networkfakes.FakeEndpointManager
+		netRuleApplier  *fakes.NetRuleApplier
+		hcsClient       *fakes.HCSClient
+		endpointManager *fakes.EndpointManager
 		hnsNetwork      *hcsshim.HNSNetwork
 	)
 
 	BeforeEach(func() {
-		hcsClient = &networkfakes.FakeHCSClient{}
-		netRuleApplier = &networkfakes.FakeNetRuleApplier{}
-		endpointManager = &networkfakes.FakeEndpointManager{}
+		hcsClient = &fakes.HCSClient{}
+		netRuleApplier = &fakes.NetRuleApplier{}
+		endpointManager = &fakes.EndpointManager{}
 		config := network.Config{
 			MTU:            1434,
 			SubnetRange:    "123.45.0.0/67",

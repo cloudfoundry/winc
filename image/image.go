@@ -20,17 +20,17 @@ type ImageStats struct {
 	Disk DiskUsage `json:"disk_usage"`
 }
 
-//go:generate counterfeiter . Limiter
+//go:generate counterfeiter -o fakes/limiter.go --fake-name Limiter . Limiter
 type Limiter interface {
 	SetDiskLimit(volumePath string, size uint64) error
 }
 
-//go:generate counterfeiter . Statser
+//go:generate counterfeiter -o fakes/statser.go --fake-name Statser . Statser
 type Statser interface {
 	GetCurrentDiskUsage(string) (uint64, error)
 }
 
-//go:generate counterfeiter . LayerManager
+//go:generate counterfeiter -o fakes/layermanager.go --fake-name LayerManager . LayerManager
 type LayerManager interface {
 	CreateLayer(string, string, []string) (string, error)
 	RemoveLayer(string) error

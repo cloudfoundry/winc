@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/image"
-	"code.cloudfoundry.org/winc/image/imagefakes"
+	"code.cloudfoundry.org/winc/image/fakes"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 
 	. "github.com/onsi/ginkgo"
@@ -20,9 +20,9 @@ var _ = Describe("Create", func() {
 
 	var (
 		rootfs        string
-		layerManager  *imagefakes.FakeLayerManager
-		limiter       *imagefakes.FakeLimiter
-		statser       *imagefakes.FakeStatser
+		layerManager  *fakes.LayerManager
+		limiter       *fakes.Limiter
+		statser       *fakes.Statser
 		imageManager  *image.Manager
 		rootfsParents []byte
 		storePath     string
@@ -36,10 +36,10 @@ var _ = Describe("Create", func() {
 		storePath, err = ioutil.TempDir("", "store")
 		Expect(err).ToNot(HaveOccurred())
 
-		layerManager = &imagefakes.FakeLayerManager{}
+		layerManager = &fakes.LayerManager{}
 		layerManager.HomeDirReturns(storePath)
-		limiter = &imagefakes.FakeLimiter{}
-		statser = &imagefakes.FakeStatser{}
+		limiter = &fakes.Limiter{}
+		statser = &fakes.Statser{}
 		imageManager = image.NewManager(layerManager, limiter, statser, containerId)
 
 		rootfsParents = []byte(`["path1", "path2"]`)
