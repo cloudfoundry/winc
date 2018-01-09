@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/filelock"
-	"code.cloudfoundry.org/winc/netinterface"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	"github.com/Microsoft/hcsshim"
 )
 

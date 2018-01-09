@@ -8,14 +8,13 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"code.cloudfoundry.org/winc/config"
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/config"
+	"code.cloudfoundry.org/winc/container/mount"
 	"code.cloudfoundry.org/winc/hcs"
-	"code.cloudfoundry.org/winc/mount"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -33,21 +32,10 @@ implementation of the Open Container Initiative specification.`
 	maxArgs
 )
 
-// gitCommit will be the hash that the binary was built from
-// and will be populated by the build flags
-var gitCommit = ""
-
 func main() {
 	app := cli.NewApp()
 	app.Name = "winc.exe"
 	app.Usage = usage
-
-	var v []string
-	if gitCommit != "" {
-		v = append(v, fmt.Sprintf("commit: %s", gitCommit))
-	}
-	v = append(v, fmt.Sprintf("spec: %s", specs.Version))
-	app.Version = strings.Join(v, "\n")
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{

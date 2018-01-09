@@ -3,8 +3,8 @@ package main
 import (
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/image"
-	"code.cloudfoundry.org/winc/layer"
-	"code.cloudfoundry.org/winc/volume"
+	"code.cloudfoundry.org/winc/image/layer"
+	"code.cloudfoundry.org/winc/image/volume"
 
 	"github.com/urfave/cli"
 )

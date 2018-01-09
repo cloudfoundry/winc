@@ -64,7 +64,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	wincImageDir := filepath.Dir(wincImageBin)
-	err = exec.Command("gcc.exe", "-c", "..\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
+	err = exec.Command("gcc.exe", "-c", "..\\image\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
 	Expect(err).NotTo(HaveOccurred())
 
 	err = exec.Command("gcc.exe",

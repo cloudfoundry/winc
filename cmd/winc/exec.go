@@ -1,7 +1,7 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/config"
+	"code.cloudfoundry.org/winc/container/config"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"

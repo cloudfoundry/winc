@@ -1,7 +1,7 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/config"
+	"code.cloudfoundry.org/winc/container/config"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"

@@ -4,8 +4,8 @@ package networkfakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/winc/netrules"
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/netrules"
 )
 
 type FakeNetRuleApplier struct {
