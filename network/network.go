@@ -6,7 +6,7 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/localip"
-	"code.cloudfoundry.org/winc/netrules"
+	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
 )
