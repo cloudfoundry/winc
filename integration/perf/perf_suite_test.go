@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -27,6 +28,7 @@ var (
 	wincImageBin         string
 	rootfsPath           string
 	concurrentContainers int
+	helpers              *testhelpers.Helpers
 )
 
 func TestPerf(t *testing.T) {
@@ -73,6 +75,8 @@ var _ = BeforeSuite(func() {
 		filepath.Join(wincImageDir, "quota.o"),
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
+
+	helpers = testhelpers.NewHelpers(wincBin, wincImageBin, wincNetworkBin)
 })
 
 var _ = AfterSuite(func() {

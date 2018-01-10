@@ -52,6 +52,7 @@ func (h *Helpers) GetContainerState(containerId string) specs.State {
 }
 
 func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
+	ExpectWithOffset(1, os.MkdirAll(bundlePath, 0666)).To(Succeed())
 	config, err := json.Marshal(&bundleSpec)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	configFile := filepath.Join(bundlePath, "config.json")
@@ -64,9 +65,22 @@ func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
+func (h *Helpers) CreateContainerWithImageStore(bundleSpec specs.Spec, bundlePath, containerId, imageStore string) {
+	h.GenerateBundle(bundleSpec, bundlePath)
+	_, _, err := h.Execute(exec.Command(h.wincBin, "--image-store", imageStore, "create", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+}
+
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
 		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
+	}
+}
+
+func (h *Helpers) DeleteContainerWithImageStore(id, imageStore string) {
+	if h.ContainerExists(id) {
+		output, err := exec.Command(h.wincBin, "--image-store", imageStore, "delete", id).CombinedOutput()
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }
