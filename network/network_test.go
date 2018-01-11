@@ -54,7 +54,7 @@ var _ = Describe("NetworkManager", func() {
 			Expect(hcsClient.GetHNSNetworkByNameArgsForCall(0)).To(Equal("unit-test-name"))
 
 			Expect(hcsClient.CreateNetworkCallCount()).To(Equal(1))
-			net := hcsClient.CreateNetworkArgsForCall(0)
+			net, _ := hcsClient.CreateNetworkArgsForCall(0)
 			Expect(net.Name).To(Equal("unit-test-name"))
 			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
 

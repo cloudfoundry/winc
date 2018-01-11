@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
@@ -21,7 +22,7 @@ type HCSClient interface {
 	GetHNSEndpointByID(string) (*hcsshim.HNSEndpoint, error)
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 	DeleteEndpoint(*hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error)
-	HotAttachEndpoint(containerID string, endpointID string) error
+	HotAttachEndpoint(containerID string, endpointID string, endpointReady func() (bool, error)) error
 	HotDetachEndpoint(containerID string, endpointID string) error
 }
 
@@ -79,7 +80,12 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 }
 
 func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndpoint, error) {
-	if err := e.hcsClient.HotAttachEndpoint(e.containerId, endpoint.Id); err != nil {
+	endpointReady := func() (bool, error) {
+		interfaceAlias := fmt.Sprintf("vEthernet (%s)", e.containerId)
+		return netinterface.InterfaceExists(interfaceAlias)
+	}
+
+	if err := e.hcsClient.HotAttachEndpoint(e.containerId, endpoint.Id, endpointReady); err != nil {
 		return nil, err
 	}
 

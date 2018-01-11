@@ -22,10 +22,11 @@ type HCSClient struct {
 		result1 *hcsshim.HNSNetwork
 		result2 error
 	}
-	CreateNetworkStub        func(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
+	CreateNetworkStub        func(*hcsshim.HNSNetwork, func() (bool, error)) (*hcsshim.HNSNetwork, error)
 	createNetworkMutex       sync.RWMutex
 	createNetworkArgsForCall []struct {
 		arg1 *hcsshim.HNSNetwork
+		arg2 func() (bool, error)
 	}
 	createNetworkReturns struct {
 		result1 *hcsshim.HNSNetwork
@@ -103,16 +104,17 @@ func (fake *HCSClient) GetHNSNetworkByNameReturnsOnCall(i int, result1 *hcsshim.
 	}{result1, result2}
 }
 
-func (fake *HCSClient) CreateNetwork(arg1 *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
+func (fake *HCSClient) CreateNetwork(arg1 *hcsshim.HNSNetwork, arg2 func() (bool, error)) (*hcsshim.HNSNetwork, error) {
 	fake.createNetworkMutex.Lock()
 	ret, specificReturn := fake.createNetworkReturnsOnCall[len(fake.createNetworkArgsForCall)]
 	fake.createNetworkArgsForCall = append(fake.createNetworkArgsForCall, struct {
 		arg1 *hcsshim.HNSNetwork
-	}{arg1})
-	fake.recordInvocation("CreateNetwork", []interface{}{arg1})
+		arg2 func() (bool, error)
+	}{arg1, arg2})
+	fake.recordInvocation("CreateNetwork", []interface{}{arg1, arg2})
 	fake.createNetworkMutex.Unlock()
 	if fake.CreateNetworkStub != nil {
-		return fake.CreateNetworkStub(arg1)
+		return fake.CreateNetworkStub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -126,10 +128,10 @@ func (fake *HCSClient) CreateNetworkCallCount() int {
 	return len(fake.createNetworkArgsForCall)
 }
 
-func (fake *HCSClient) CreateNetworkArgsForCall(i int) *hcsshim.HNSNetwork {
+func (fake *HCSClient) CreateNetworkArgsForCall(i int) (*hcsshim.HNSNetwork, func() (bool, error)) {
 	fake.createNetworkMutex.RLock()
 	defer fake.createNetworkMutex.RUnlock()
-	return fake.createNetworkArgsForCall[i].arg1
+	return fake.createNetworkArgsForCall[i].arg1, fake.createNetworkArgsForCall[i].arg2
 }
 
 func (fake *HCSClient) CreateNetworkReturns(result1 *hcsshim.HNSNetwork, result2 error) {

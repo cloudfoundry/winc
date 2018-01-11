@@ -65,7 +65,7 @@ var _ = Describe("EndpointManager", func() {
 			Expect(endpointToCreate.DNSServerList).To(Equal("1.1.1.1,2.2.2.2"))
 
 			Expect(hcsClient.HotAttachEndpointCallCount()).To(Equal(1))
-			cId, eId := hcsClient.HotAttachEndpointArgsForCall(0)
+			cId, eId, _ := hcsClient.HotAttachEndpointArgsForCall(0)
 			Expect(cId).To(Equal(containerId))
 			Expect(eId).To(Equal(endpointId))
 

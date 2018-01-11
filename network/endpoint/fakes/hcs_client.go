@@ -87,11 +87,12 @@ type HCSClient struct {
 		result1 *hcsshim.HNSEndpoint
 		result2 error
 	}
-	HotAttachEndpointStub        func(containerID string, endpointID string) error
+	HotAttachEndpointStub        func(containerID string, endpointID string, endpointReady func() (bool, error)) error
 	hotAttachEndpointMutex       sync.RWMutex
 	hotAttachEndpointArgsForCall []struct {
-		containerID string
-		endpointID  string
+		containerID   string
+		endpointID    string
+		endpointReady func() (bool, error)
 	}
 	hotAttachEndpointReturns struct {
 		result1 error
@@ -421,17 +422,18 @@ func (fake *HCSClient) DeleteEndpointReturnsOnCall(i int, result1 *hcsshim.HNSEn
 	}{result1, result2}
 }
 
-func (fake *HCSClient) HotAttachEndpoint(containerID string, endpointID string) error {
+func (fake *HCSClient) HotAttachEndpoint(containerID string, endpointID string, endpointReady func() (bool, error)) error {
 	fake.hotAttachEndpointMutex.Lock()
 	ret, specificReturn := fake.hotAttachEndpointReturnsOnCall[len(fake.hotAttachEndpointArgsForCall)]
 	fake.hotAttachEndpointArgsForCall = append(fake.hotAttachEndpointArgsForCall, struct {
-		containerID string
-		endpointID  string
-	}{containerID, endpointID})
-	fake.recordInvocation("HotAttachEndpoint", []interface{}{containerID, endpointID})
+		containerID   string
+		endpointID    string
+		endpointReady func() (bool, error)
+	}{containerID, endpointID, endpointReady})
+	fake.recordInvocation("HotAttachEndpoint", []interface{}{containerID, endpointID, endpointReady})
 	fake.hotAttachEndpointMutex.Unlock()
 	if fake.HotAttachEndpointStub != nil {
-		return fake.HotAttachEndpointStub(containerID, endpointID)
+		return fake.HotAttachEndpointStub(containerID, endpointID, endpointReady)
 	}
 	if specificReturn {
 		return ret.result1
@@ -445,10 +447,10 @@ func (fake *HCSClient) HotAttachEndpointCallCount() int {
 	return len(fake.hotAttachEndpointArgsForCall)
 }
 
-func (fake *HCSClient) HotAttachEndpointArgsForCall(i int) (string, string) {
+func (fake *HCSClient) HotAttachEndpointArgsForCall(i int) (string, string, func() (bool, error)) {
 	fake.hotAttachEndpointMutex.RLock()
 	defer fake.hotAttachEndpointMutex.RUnlock()
-	return fake.hotAttachEndpointArgsForCall[i].containerID, fake.hotAttachEndpointArgsForCall[i].endpointID
+	return fake.hotAttachEndpointArgsForCall[i].containerID, fake.hotAttachEndpointArgsForCall[i].endpointID, fake.hotAttachEndpointArgsForCall[i].endpointReady
 }
 
 func (fake *HCSClient) HotAttachEndpointReturns(result1 error) {

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/filelock"
-	"code.cloudfoundry.org/winc/network/netinterface"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -80,30 +79,29 @@ func (c *Client) DeleteEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndp
 	return endpoint.Delete()
 }
 
-func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error) {
+func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork, networkReady func() (bool, error)) (*hcsshim.HNSNetwork, error) {
 	net, err := network.Create()
 	if err != nil {
 		return nil, err
 	}
 
-	interfaceUp := false
-	alias := fmt.Sprintf("vEthernet (%s)", net.Name)
+	networkUp := false
 
 	for i := 0; i < 10; i++ {
 		time.Sleep(200 * time.Duration(i) * time.Millisecond)
-		interfaceUp, err = netinterface.InterfaceExists(alias)
+		networkUp, err = networkReady()
 		if err != nil {
 			return nil, err
 		}
 
-		if interfaceUp {
+		if networkUp {
 			break
 		}
 
 	}
 
-	if !interfaceUp {
-		return nil, fmt.Errorf("interface %s not created in time", alias)
+	if !networkUp {
+		return nil, fmt.Errorf("network %s not ready in time", net.Name)
 	}
 
 	return net, nil
@@ -129,30 +127,29 @@ func (c *Client) GetHNSNetworkByName(name string) (*hcsshim.HNSNetwork, error) {
 	return hcsshim.GetHNSNetworkByName(name)
 }
 
-func (c *Client) HotAttachEndpoint(containerID string, endpointID string) error {
+func (c *Client) HotAttachEndpoint(containerID string, endpointID string, endpointReady func() (bool, error)) error {
 	if err := hcsshim.HotAttachEndpoint(containerID, endpointID); err != nil {
 		return err
 	}
 
-	containerInterfaceUp := false
-	alias := fmt.Sprintf("vEthernet (%s)", containerID)
+	endpointUp := false
 
 	for i := 0; i < 10; i++ {
 		var err error
-		containerInterfaceUp, err = netinterface.InterfaceExists(alias)
+		endpointUp, err = endpointReady()
 		if err != nil {
 			return err
 		}
 
-		if containerInterfaceUp {
+		if endpointUp {
 			break
 		}
 
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	if !containerInterfaceUp {
-		return fmt.Errorf("container interface %s not created in time", alias)
+	if !endpointUp {
+		return fmt.Errorf("endpoint %s not ready in time", endpointID)
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
@@ -30,7 +31,7 @@ type EndpointManager interface {
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	GetHNSNetworkByName(string) (*hcsshim.HNSNetwork, error)
-	CreateNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
+	CreateNetwork(*hcsshim.HNSNetwork, func() (bool, error)) (*hcsshim.HNSNetwork, error)
 	DeleteNetwork(*hcsshim.HNSNetwork) (*hcsshim.HNSNetwork, error)
 }
 
@@ -100,7 +101,12 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		Subnets: subnets,
 	}
 
-	_, err = n.hcsClient.CreateNetwork(network)
+	networkReady := func() (bool, error) {
+		interfaceAlias := fmt.Sprintf("vEthernet (%s)", network.Name)
+		return netinterface.InterfaceExists(interfaceAlias)
+	}
+
+	_, err = n.hcsClient.CreateNetwork(network, networkReady)
 	if err != nil {
 		return err
 	}
