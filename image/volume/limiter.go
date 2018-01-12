@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const DISK_QUOTA_OVERHEAD = 6 * 1024
+const DISK_QUOTA_OVERHEAD = 10 * 1024
 
 type Limiter struct{}
 
