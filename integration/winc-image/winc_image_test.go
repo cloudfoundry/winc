@@ -215,7 +215,7 @@ var _ = Describe("WincImage", func() {
 
 			It("doesn't allow files large than the limit to be created", func() {
 				largeFilePath := filepath.Join(mountPath, "file.txt")
-				Expect(exec.Command("fsutil", "file", "createnew", largeFilePath, strconv.Itoa(diskLimitSizeBytes+1)).Run()).ToNot(Succeed())
+				Expect(exec.Command("fsutil", "file", "createnew", largeFilePath, strconv.Itoa(diskLimitSizeBytes+6*1024)).Run()).ToNot(Succeed())
 				Expect(largeFilePath).ToNot(BeAnExistingFile())
 			})
 
