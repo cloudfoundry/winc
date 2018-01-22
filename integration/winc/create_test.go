@@ -158,6 +158,7 @@ var _ = Describe("Create", func() {
 			})
 
 			AfterEach(func() {
+				helpers.DeleteContainer(containerId)
 				Expect(os.RemoveAll(mountSource)).To(Succeed())
 			})
 
