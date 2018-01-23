@@ -37,7 +37,7 @@ var _ = Describe("Stats", func() {
 		It("reports the image stats", func() {
 			imageStats := getImageStats(storePath, containerId)
 			Expect(imageStats.Disk.TotalBytesUsed).To(BeNumerically("~", 7*1024, 3*1024))
-			Expect(imageStats.Disk.ExclusiveBytesUsed).To(Equal(uint64(0)))
+			Expect(imageStats.Disk.ExclusiveBytesUsed).To(BeNumerically("~", 0, 3*1024))
 		})
 
 		Context("a large file is written", func() {
@@ -66,7 +66,7 @@ var _ = Describe("Stats", func() {
 			It("includes the file in disk usage", func() {
 				imageStats := getImageStats(storePath, containerId)
 				Expect(imageStats.Disk.TotalBytesUsed).To(BeNumerically("~", fileSize+7*1024, 3*1024))
-				Expect(imageStats.Disk.ExclusiveBytesUsed).To(BeNumerically("~", fileSize, 1024))
+				Expect(imageStats.Disk.ExclusiveBytesUsed).To(BeNumerically("~", fileSize, 3*1024))
 			})
 		})
 	})
