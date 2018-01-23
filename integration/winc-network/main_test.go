@@ -686,6 +686,8 @@ var _ = Describe("networking", func() {
 			bundleSpec2   specs.Spec
 			containerId2  string
 			containerPort string
+			hostIP        string
+			client        http.Client
 		)
 
 		BeforeEach(func() {
@@ -704,6 +706,12 @@ var _ = Describe("networking", func() {
 			bundleSpec2 = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId2))
 
 			containerPort = "12345"
+
+			hostIP, err = localip.LocalIP()
+			Expect(err).NotTo(HaveOccurred())
+
+			client = *http.DefaultClient
+			client.Timeout = 5 * time.Second
 
 			networkConfig = helpers.GenerateNetworkConfig()
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
@@ -739,6 +747,68 @@ var _ = Describe("networking", func() {
 			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", containerIp, "--port", containerPort}, false)
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("An attempt was made to access a socket in a way forbidden by its access permissions"))
+		})
+
+		It("can route traffic to the remaining container after the other is deleted", func() {
+			output, err := exec.Command("powershell", "-command", "[System.Environment]::OSVersion.Version.Build").CombinedOutput()
+			Expect(err).NotTo(HaveOccurred())
+
+			windowsBuild, err := strconv.Atoi(strings.TrimSpace(string(output)))
+			Expect(err).NotTo(HaveOccurred())
+
+			if windowsBuild < 17074 {
+				Skip("windows NAT bug only fixed on 17074 and later")
+			}
+
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
+
+			mappedPorts := []netrules.PortMapping{}
+			Expect(json.Unmarshal([]byte(outputs.Properties.MappedPorts), &mappedPorts)).To(Succeed())
+
+			Expect(len(mappedPorts)).To(Equal(1))
+			hostPort1 := mappedPorts[0].HostPort
+
+			pid := helpers.GetContainerState(containerId).Pid
+			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
+
+			_, _, err = helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIP, hostPort1))
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			data, err := ioutil.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
+
+			helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+			outputs = helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
+
+			Expect(json.Unmarshal([]byte(outputs.Properties.MappedPorts), &mappedPorts)).To(Succeed())
+
+			Expect(len(mappedPorts)).To(Equal(1))
+			hostPort2 := mappedPorts[0].HostPort
+			Expect(hostPort2).NotTo(Equal(hostPort1))
+
+			pid = helpers.GetContainerState(containerId2).Pid
+			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
+
+			_, _, err = helpers.ExecInContainer(containerId2, []string{"c:\\server.exe", containerPort}, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			helpers.DeleteContainer(containerId)
+			helpers.NetworkDown(containerId, networkConfigFile)
+			helpers.DeleteSandbox(imageStore, containerId)
+
+			resp, err = client.Get(fmt.Sprintf("http://%s:%d", hostIP, hostPort2))
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+
+			data, err = ioutil.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
 		})
 
 		Context("when the containers share a network namespace", func() {
