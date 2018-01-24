@@ -342,7 +342,7 @@ var _ = Describe("networking", func() {
 					Expect(stdout.String()).To(ContainSubstring("lookup www.google.com: no such host"))
 				})
 
-				It("cannot connect to a remote host over TCP", func() {
+				FIt("cannot connect to a remote host over TCP", func() {
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
@@ -362,15 +362,14 @@ var _ = Describe("networking", func() {
 					Expect(stdout.String()).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
 				})
 
-				It("cannot connect to a remote host over ICMP", func() {
-					Skip("ping.exe elevates to admin, breaking this test")
+				FIt("cannot connect to a remote host over ICMP", func() {
+					//	Skip("ping.exe elevates to admin, breaking this test")
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 					Expect(err).To(HaveOccurred())
 
-					Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-					Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+					Expect(stdout.String()).To(ContainSubstring("Request timed out"))
 				})
 			})
 
@@ -453,7 +452,7 @@ var _ = Describe("networking", func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-					It("can connect to a remote host over TCP", func() {
+					FIt("can connect to a remote host over TCP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
@@ -462,7 +461,7 @@ var _ = Describe("networking", func() {
 						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 					})
 
-					It("cannot connect to a remote server over TCP prohibited by netout", func() {
+					FIt("cannot connect to a remote server over TCP prohibited by netout", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
@@ -482,26 +481,23 @@ var _ = Describe("networking", func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-					It("can connect to a remote host over ICMP", func() {
+					FIt("can connect to a remote host over ICMP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-						Expect(stdout.String()).NotTo(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
-						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received ="))
+						Expect(stdout.String()).To(ContainSubstring("recieved 1 replies from 8.8.8.8"))
 					})
 
-					It("cannot connect to a remote host over ICMP prohibited by netout", func() {
-						Skip("ping.exe elevates to admin, breaking this test")
+					FIt("cannot connect to a remote host over ICMP prohibited by netout", func() {
+						//Skip("ping.exe elevates to admin, breaking this test")
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
 						Expect(err).To(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.4.4"))
-						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+						Expect(stdout.String()).To(ContainSubstring("Request timed out"))
 					})
 				})
 

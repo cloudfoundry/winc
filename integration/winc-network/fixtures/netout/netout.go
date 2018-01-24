@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/miekg/dns"
+	"golang.org/x/sys/windows"
+)
+
+var (
+	iphlpapi        = windows.NewLazySystemDLL("iphlpapi.dll")
+	icmpCreateFile  = iphlpapi.NewProc("IcmpCreateFile")
+	icmpSendEcho    = iphlpapi.NewProc("IcmpSendEcho")
+	icmpCloseHandle = iphlpapi.NewProc("IcmpCloseHandle")
 )
 
 func main() {
@@ -35,13 +44,77 @@ func main() {
 
 }
 
+const (
+	IP_REQ_TIMED_OUT = uintptr(11010)
+)
+
+type icmp_echo_reply32 struct {
+	Address       uint32
+	Status        uint32
+	RoundTripTime uint32
+	DataSize      uint16
+	Reserved      uint16
+	Data          *byte
+}
+
 func testICMP(addr string) {
-	cmd := exec.Command("cmd.exe", "/c", fmt.Sprintf("ping %s -n 4", addr))
-	output, err := cmd.CombinedOutput()
-	fmt.Println(string(output))
-	if err != nil {
+	handle, _, err := icmpCreateFile.Call()
+	if handle == 0 {
+		fmt.Printf("IcmpCreateFile: %s", err.Error())
 		os.Exit(1)
 	}
+
+	sendSize := uintptr(32)
+	sendData := make([]byte, sendSize)
+
+	reply := icmp_echo_reply32{}
+	replySize := unsafe.Sizeof(reply) + sendSize + 20
+	replyBuffer := make([]byte, replySize)
+
+	ip, err := ipToUint32(addr)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	len, _, err := icmpSendEcho.Call(
+		handle,
+		uintptr(ip),
+		uintptr(unsafe.Pointer(&sendData[0])),
+		sendSize,
+		uintptr(0),
+		uintptr(unsafe.Pointer(&replyBuffer[0])),
+		replySize,
+		4000,
+	)
+
+	defer icmpCloseHandle.Call(handle)
+	if len == 0 {
+		e := err.(syscall.Errno)
+		if uintptr(e) == IP_REQ_TIMED_OUT {
+			fmt.Printf("Request timed out\n")
+		} else {
+			fmt.Printf("IcmpSendEcho: %s\n", err.Error())
+		}
+		os.Exit(1)
+	}
+
+	reply = *((*icmp_echo_reply32)(unsafe.Pointer(&replyBuffer[0])))
+	fmt.Printf("recieved %d replies from %s", len, uint32ToIp(reply.Address))
+}
+
+func ipToUint32(addr string) (uint32, error) {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return 0, fmt.Errorf("couldn't parse addr: %s", addr)
+	}
+
+	ipv4 := ip.To4()
+	return uint32(ipv4[3])<<24 + uint32(ipv4[2])<<16 + uint32(ipv4[1])<<8 + uint32(ipv4[0]), nil
+}
+
+func uint32ToIp(ip uint32) string {
+	return fmt.Sprintf("%d.%d.%d.%d", ip&0xff, (ip>>8)&0xff, (ip>>16)&0xff, ip>>24)
 }
 
 func testDNS(host string) {
