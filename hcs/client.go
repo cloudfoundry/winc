@@ -48,8 +48,7 @@ func (c *Client) LayerExists(info hcsshim.DriverInfo, id string) (bool, error) {
 
 func (c *Client) GetContainerProperties(id string) (hcsshim.ContainerProperties, error) {
 	query := hcsshim.ComputeSystemQuery{
-		IDs:    []string{id},
-		Owners: []string{"winc"},
+		IDs: []string{id},
 	}
 	cps, err := c.GetContainers(query)
 	if err != nil {
