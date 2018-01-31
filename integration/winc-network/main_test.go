@@ -731,6 +731,7 @@ var _ = Describe("networking", func() {
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 			containerIp := outputs.Properties.ContainerIP
+			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 
 			pid := helpers.GetContainerState(containerId).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
@@ -836,6 +837,34 @@ var _ = Describe("networking", func() {
 				stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "127.0.0.1", "--port", containerPort}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(stdOut.String()).To(Equal(fmt.Sprintf("connected to 127.0.0.1:%s over tcp", containerPort)))
+			})
+			Context("when deleting the first container", func() {
+				BeforeEach(func() {
+					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} }`, networkConfigFile)
+					helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+				})
+				It("deletes the main container and the pea container", func() {
+					Expect(helpers.ContainerExists(containerId2)).To(BeTrue())
+					helpers.DeleteContainer(containerId)
+					Expect(helpers.ContainerExists(containerId)).To(BeFalse())
+					Expect(helpers.ContainerExists(containerId2)).To(BeFalse())
+				})
+				It("does not delete the bundle directories", func() {
+					helpers.DeleteContainer(containerId)
+					Expect(bundlePath).To(BeADirectory())
+					Expect(bundlePath2).To(BeADirectory())
+				})
+				It("unmounts sandbox.vhdx", func() {
+					pid := helpers.GetContainerState(containerId2).Pid
+					helpers.DeleteContainer(containerId)
+					rootPath := filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root")
+					Expect(rootPath).NotTo(BeADirectory())
+
+					// if not cleanly unmounted, the mount point is left as a symlink
+					_, err := os.Lstat(rootPath)
+					Expect(err).NotTo(BeNil())
+				})
 			})
 		})
 	})

@@ -185,8 +185,7 @@ func (h *Helpers) GenerateNetworkConfig() network.Config {
 
 func (h *Helpers) ContainerExists(containerId string) bool {
 	query := hcsshim.ComputeSystemQuery{
-		Owners: []string{"winc"},
-		IDs:    []string{containerId},
+		IDs: []string{containerId},
 	}
 	containers, err := hcsshim.GetContainers(query)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

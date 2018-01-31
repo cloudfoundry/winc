@@ -112,7 +112,6 @@ var _ = Describe("Create", func() {
 				Name:              bundlePath,
 				HostName:          hostName,
 				VolumePath:        containerVolume,
-				Owner:             "winc",
 				LayerFolderPath:   filepath.Join(rootPath, containerId),
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
@@ -325,6 +324,7 @@ var _ = Describe("Create", func() {
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
 					Expect(containerConfig.NetworkSharedContainerName).To(Equal(networkSharedContainerName))
+					Expect(containerConfig.Owner).To(Equal(networkSharedContainerName))
 					Expect(containerConfig.EndpointList).To(Equal([]string{sharedEndpointId}))
 
 					Expect(hcsClient.GetHNSEndpointByNameArgsForCall(0)).To(Equal(networkSharedContainerName))

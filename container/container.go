@@ -1,6 +1,7 @@
 package container
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -49,6 +50,7 @@ type Mounter interface {
 
 //go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
+	GetContainers(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)
 	GetContainerProperties(string) (hcsshim.ContainerProperties, error)
 	NameToGuid(string) (hcsshim.GUID, error)
 	CreateContainer(string, *hcsshim.ContainerConfig) (hcs.Container, error)
@@ -125,7 +127,6 @@ func (m *Manager) Create(spec *specs.Spec) error {
 		Name:              m.bundlePath,
 		HostName:          spec.Hostname,
 		VolumePath:        volumePath,
-		Owner:             "winc",
 		LayerFolderPath:   sandboxDir,
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
@@ -149,6 +150,7 @@ func (m *Manager) Create(spec *specs.Spec) error {
 		if spec.Windows.Network != nil {
 			if spec.Windows.Network.NetworkSharedContainerName != "" {
 				containerConfig.NetworkSharedContainerName = spec.Windows.Network.NetworkSharedContainerName
+				containerConfig.Owner = spec.Windows.Network.NetworkSharedContainerName
 				endpoint, err := m.hcsClient.GetHNSEndpointByName(spec.Windows.Network.NetworkSharedContainerName)
 				if err != nil {
 					return err
@@ -164,7 +166,7 @@ func (m *Manager) Create(spec *specs.Spec) error {
 	}
 
 	if err := container.Start(); err != nil {
-		if deleteErr := m.deleteContainer(container); deleteErr != nil {
+		if deleteErr := m.deleteContainer(m.id, container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 		return err
@@ -172,14 +174,14 @@ func (m *Manager) Create(spec *specs.Spec) error {
 
 	pid, err := m.containerPid(m.id)
 	if err != nil {
-		if deleteErr := m.deleteContainer(container); deleteErr != nil {
+		if deleteErr := m.deleteContainer(m.id, container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 		return err
 	}
 
 	if err := m.mounter.Mount(pid, volumePath); err != nil {
-		if deleteErr := m.deleteContainer(container); deleteErr != nil {
+		if deleteErr := m.deleteContainer(m.id, container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
 		return err
@@ -212,27 +214,52 @@ func (m *Manager) parseMountOptions(options []string) (bool, error) {
 }
 
 func (m *Manager) Delete() error {
-	pid, err := m.containerPid(m.id)
+	query := hcsshim.ComputeSystemQuery{Owners: []string{m.id}}
+	sidecardContainerProperties, err := m.hcsClient.GetContainers(query)
 	if err != nil {
 		return err
 	}
+	containerIdsToDelete := []string{}
+	for _, sidecardContainerProperty := range sidecardContainerProperties {
+		containerIdsToDelete = append(containerIdsToDelete, sidecardContainerProperty.ID)
+	}
+	containerIdsToDelete = append(containerIdsToDelete, m.id)
 
-	unmountErr := m.mounter.Unmount(pid)
-	if unmountErr != nil {
-		logrus.Error(unmountErr.Error())
+	var errors []string
+	for _, containerIdToDelete := range containerIdsToDelete {
+		pid, err := m.containerPid(containerIdToDelete)
+		if err != nil {
+			logrus.Error(err.Error())
+			errors = append(errors, err.Error())
+			continue
+		}
+
+		err = m.mounter.Unmount(pid)
+		if err != nil {
+			logrus.Error(err.Error())
+			errors = append(errors, err.Error())
+		}
+
+		container, err := m.hcsClient.OpenContainer(containerIdToDelete)
+		if err != nil {
+			logrus.Error(err.Error())
+			errors = append(errors, err.Error())
+			continue
+		}
+
+		err = m.deleteContainer(containerIdToDelete, container)
+		if err != nil {
+			logrus.Error(err.Error())
+			errors = append(errors, err.Error())
+			continue
+		}
 	}
 
-	container, err := m.hcsClient.OpenContainer(m.id)
-	if err != nil {
-		return err
+	if len(errors) == 0 {
+		return nil
+	} else {
+		return fmt.Errorf(strings.Join(errors, "\n"))
 	}
-
-	err = m.deleteContainer(container)
-	if err != nil {
-		return err
-	}
-
-	return unmountErr
 }
 
 func (m *Manager) State() (*specs.State, error) {
@@ -339,8 +366,8 @@ func (m *Manager) containerPid(id string) (int, error) {
 	return int(process.ProcessId), nil
 }
 
-func (m *Manager) deleteContainer(container hcs.Container) error {
-	props, err := m.hcsClient.GetContainerProperties(m.id)
+func (m *Manager) deleteContainer(containerId string, container hcs.Container) error {
+	props, err := m.hcsClient.GetContainerProperties(containerId)
 	if err != nil {
 		return err
 	}
