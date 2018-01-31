@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
@@ -17,6 +20,18 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Response from server on port %s", port)
 	})
+	http.HandleFunc("/upload", uploadHandler)
 
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func uploadHandler(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	n, err := io.Copy(ioutil.Discard, r.Body)
+	if err != nil {
+		panic(err)
+	}
+	uploadDuration := time.Since(startTime)
+
+	fmt.Fprintf(w, "%d bytes are recieved in %d seconds\n", n, uploadDuration*time.Second)
 }

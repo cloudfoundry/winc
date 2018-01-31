@@ -36,11 +36,12 @@ type HCSClient interface {
 }
 
 type Config struct {
-	MTU            int      `json:"mtu"`
-	NetworkName    string   `json:"network_name"`
-	SubnetRange    string   `json:"subnet_range"`
-	GatewayAddress string   `json:"gateway_address"`
-	DNSServers     []string `json:"dns_servers"`
+	MTU                      int      `json:"mtu"`
+	NetworkName              string   `json:"network_name"`
+	SubnetRange              string   `json:"subnet_range"`
+	GatewayAddress           string   `json:"gateway_address"`
+	DNSServers               []string `json:"dns_servers"`
+	MaximumOutgoingBandwidth int      `json:"maximum_outgoing_bandwidth"`
 }
 
 type UpInputs struct {
