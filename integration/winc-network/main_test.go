@@ -795,8 +795,9 @@ var _ = Describe("networking", func() {
 		It("does not allow traffic between containers", func() {
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
-			containerIp := outputs.Properties.ContainerIP
+			hostIp := outputs.Properties.ContainerIP
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+			hostPort := findExternalPort(outputs.Properties.MappedPorts, containerPort)
 
 			pid := helpers.GetContainerState(containerId).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
@@ -810,7 +811,7 @@ var _ = Describe("networking", func() {
 			pid = helpers.GetContainerState(containerId2).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
-			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", containerIp, "--port", containerPort}, false)
+			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", hostIp, "--port", strconv.Itoa(hostPort)}, false)
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("An attempt was made to access a socket in a way forbidden by its access permissions"))
 		})
@@ -1077,4 +1078,21 @@ func allEndpoints(containerID string) []string {
 	}
 
 	return endpointIDs
+}
+
+func findExternalPort(portMappings, containerPort string) int {
+	var mappedPorts []netrules.PortMapping
+	err := json.Unmarshal([]byte(portMappings), &mappedPorts)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	var externalPort, internalPort int
+	internalPort, err = strconv.Atoi(containerPort)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	for _, v := range mappedPorts {
+		if v.ContainerPort == uint32(internalPort) {
+			externalPort = int(v.HostPort)
+			break
+		}
+	}
+	ExpectWithOffset(1, externalPort).ToNot(Equal(0))
+	return externalPort
 }
