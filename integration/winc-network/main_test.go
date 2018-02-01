@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -578,72 +578,6 @@ var _ = Describe("networking", func() {
 			})
 		})
 
-		Context("the max outgoing bandwidth is set in the config file", func() {
-			var (
-				serverURL     string
-				serverSession *gexec.Session
-				netOutRules   []byte
-				netOutRule    netrules.NetOut
-			)
-
-			tinyBandwidth := 1024 * 1024
-			// giantBandwidth := 10 * 1024 * 1024
-			uploadFileSize := 1 * 1024
-
-			BeforeEach(func() {
-				var err error
-				serverPort := randomPort()
-				serverSession, err = gexec.Start(exec.Command(serverBin, strconv.Itoa(serverPort)), GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-
-				serverIP, err := localip.LocalIP()
-				Expect(err).NotTo(HaveOccurred())
-				serverURL = fmt.Sprintf("http://%s:%d/upload", serverIP, serverPort)
-
-				netOutRule = netrules.NetOut{
-					Networks: []netrules.IPRange{
-						{Start: net.ParseIP(serverIP), End: net.ParseIP(serverIP)},
-					},
-					Ports: []netrules.PortRange{{Start: uint16(serverPort), End: uint16(serverPort)}},
-				}
-				netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
-				Expect(err).NotTo(HaveOccurred())
-
-				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
-				networkConfig = helpers.GenerateNetworkConfig()
-				helpers.CreateNetwork(networkConfig, networkConfigFile)
-
-				pid := helpers.GetContainerState(containerId).Pid
-				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "uploader.exe"), uploaderBin)
-			})
-
-			AfterEach(func() {
-				deleteContainerAndNetwork(containerId, networkConfig)
-				serverSession.Kill()
-			})
-
-			FIt("applies the outgoing bandwidth limit on the container", func() {
-				// networkConfig.MaximumOutgoingBandwidth = giantBandwidth
-				// helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
-				fmt.Printf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}\n`, string(netOutRules))
-				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
-				stdout, _, err := helpers.ExecInContainer(containerId, []string{"C:\\uploader.exe", serverURL, strconv.Itoa(uploadFileSize)}, false)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(Equal("something here so we can see it"))
-				helpers.NetworkDown(containerId, networkConfigFile)
-
-				networkConfig.MaximumOutgoingBandwidth = tinyBandwidth
-				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
-				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
-				stdout, _, err = helpers.ExecInContainer(containerId, []string{"C:\\uploader.exe", serverURL, strconv.Itoa(uploadFileSize)}, false)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(Equal("something here so we can see it"))
-				helpers.NetworkDown(containerId, networkConfigFile)
-
-				// compare the before and after
-			})
-		})
-
 		Context("custom DNS Servers", func() {
 			BeforeEach(func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
@@ -876,6 +810,72 @@ var _ = Describe("networking", func() {
 			data, err = ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
+		})
+
+		Context("the max outgoing bandwidth is set in the config file", func() {
+			var (
+				serverURL   string
+				netOutRules []byte
+				netOutRule  netrules.NetOut
+			)
+
+			tinyBandwidth := 1024 * 1024
+			giantBandwidth := 10 * 1024 * 1024
+			uploadFileSize := 10 * 1024 * 1024
+			FIt("applies the outgoing bandwidth limit on the container", func() {
+				var err error
+
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
+				hostIp := outputs.Properties.ContainerIP
+				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+				hostPort := findExternalPort(outputs.Properties.MappedPorts, containerPort)
+				serverURL = fmt.Sprintf("http://%s:%d/upload", hostIp, hostPort)
+
+				pid := helpers.GetContainerState(containerId).Pid
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
+
+				_, _, err = helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+
+				pid = helpers.GetContainerState(containerId2).Pid
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "uploader.exe"), uploaderBin)
+
+				netOutRule = netrules.NetOut{
+					Networks: []netrules.IPRange{
+						{Start: net.ParseIP(hostIp), End: net.ParseIP(hostIp)},
+					},
+					Ports: []netrules.PortRange{{Start: uint16(hostPort), End: uint16(hostPort)}},
+				}
+				netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
+				Expect(err).NotTo(HaveOccurred())
+
+				networkConfig.MaximumOutgoingBandwidth = tinyBandwidth
+				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
+				outputRegex := regexp.MustCompile(`10485760 bytes are recieved in ([0-9]+) miliseconds`)
+				helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
+				stdout, _, err := helpers.ExecInContainer(containerId2, []string{"C:\\uploader.exe", serverURL, strconv.Itoa(uploadFileSize)}, false)
+				Expect(err).NotTo(HaveOccurred())
+
+				match := outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
+				Expect(len(match)).To(Equal(2))
+				tinyTime, err := strconv.Atoi(match[1])
+				Expect(err).NotTo(HaveOccurred())
+				helpers.NetworkDown(containerId2, networkConfigFile)
+
+				networkConfig.MaximumOutgoingBandwidth = giantBandwidth
+				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
+				helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
+				stdout, _, err = helpers.ExecInContainer(containerId2, []string{"C:\\uploader.exe", serverURL, strconv.Itoa(uploadFileSize)}, false)
+				Expect(err).NotTo(HaveOccurred())
+				match = outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
+				Expect(len(match)).To(Equal(2))
+				giantTime, err := strconv.Atoi(match[1])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(giantTime).To(BeNumerically("~", tinyTime*5, 50))
+			})
 		})
 
 		Context("when the containers share a network namespace", func() {

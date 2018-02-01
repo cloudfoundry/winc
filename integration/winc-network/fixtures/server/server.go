@@ -31,7 +31,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	uploadDuration := time.Since(startTime)
+	uploadDuration := time.Now().Sub(startTime) / time.Millisecond
 
-	fmt.Fprintf(w, "%d bytes are recieved in %d seconds\n", n, uploadDuration*time.Second)
+	fmt.Fprintf(w, "%d bytes are recieved in %d miliseconds", n, int64(uploadDuration))
 }
