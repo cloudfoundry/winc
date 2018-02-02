@@ -2,7 +2,6 @@ package netsh
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -58,12 +57,4 @@ func (nr *Runner) RunContainer(args []string) error {
 	}
 
 	return nil
-}
-
-func (nr *Runner) RunHost(args []string) ([]byte, error) {
-	output, err := exec.Command("netsh", args...).CombinedOutput()
-	if err != nil {
-		return output, fmt.Errorf("failed to run `netsh %s`: %s: %s", strings.Join(args, " "), err.Error(), string(output))
-	}
-	return output, nil
 }

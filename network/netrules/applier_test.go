@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network/firewall"
 	"code.cloudfoundry.org/winc/network/netrules"
 	"code.cloudfoundry.org/winc/network/netrules/fakes"
 	. "github.com/onsi/ginkgo"
@@ -19,6 +20,7 @@ var _ = Describe("Applier", func() {
 
 	var (
 		netSh         *fakes.NetShRunner
+		fw            *fakes.Firewall
 		portAllocator *fakes.PortAllocator
 		netInterface  *fakes.NetInterface
 		applier       *netrules.Applier
@@ -28,8 +30,9 @@ var _ = Describe("Applier", func() {
 		netSh = &fakes.NetShRunner{}
 		portAllocator = &fakes.PortAllocator{}
 		netInterface = &fakes.NetInterface{}
+		fw = &fakes.Firewall{}
 
-		applier = netrules.NewApplier(netSh, containerId, networkName, portAllocator, netInterface)
+		applier = netrules.NewApplier(netSh, containerId, networkName, portAllocator, netInterface, fw)
 	})
 
 	Describe("In", func() {
@@ -46,12 +49,17 @@ var _ = Describe("Applier", func() {
 			_, err := applier.In(netInRule, containerIP)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(netSh.RunHostCallCount()).To(Equal(1))
-			expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-				"dir=in", "action=allow", "localip=5.4.3.2",
-				"localport=1000",
-				"protocol=TCP"}
-			Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+			expectedRule := firewall.Rule{
+				Name:           "containerabc",
+				Direction:      firewall.NET_FW_RULE_DIR_IN,
+				Action:         firewall.NET_FW_ACTION_ALLOW,
+				LocalAddresses: "5.4.3.2",
+				LocalPorts:     "1000",
+				Protocol:       firewall.NET_FW_IP_PROTOCOL_TCP,
+			}
+
+			Expect(fw.CreateRuleCallCount()).To(Equal(1))
+			Expect(fw.CreateRuleArgsForCall(0)).To(Equal(expectedRule))
 		})
 
 		It("returns the correct port mapping", func() {
@@ -157,13 +165,18 @@ var _ = Describe("Applier", func() {
 			It("creates the correct firewall rule on the host", func() {
 				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"remoteport=80-80,8080-8090",
-					"protocol=UDP"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedRule := firewall.Rule{
+					Name:            "containerabc",
+					Direction:       firewall.NET_FW_RULE_DIR_OUT,
+					Action:          firewall.NET_FW_ACTION_ALLOW,
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
+					RemotePorts:     "80-80,8080-8090",
+					Protocol:        firewall.NET_FW_IP_PROTOCOL_UDP,
+				}
+
+				Expect(fw.CreateRuleCallCount()).To(Equal(1))
+				Expect(fw.CreateRuleArgsForCall(0)).To(Equal(expectedRule))
 			})
 		})
 
@@ -175,13 +188,18 @@ var _ = Describe("Applier", func() {
 			It("creates the correct firewall rule on the host", func() {
 				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"remoteport=80-80,8080-8090",
-					"protocol=TCP"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedRule := firewall.Rule{
+					Name:            "containerabc",
+					Direction:       firewall.NET_FW_RULE_DIR_OUT,
+					Action:          firewall.NET_FW_ACTION_ALLOW,
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
+					RemotePorts:     "80-80,8080-8090",
+					Protocol:        firewall.NET_FW_IP_PROTOCOL_TCP,
+				}
+
+				Expect(fw.CreateRuleCallCount()).To(Equal(1))
+				Expect(fw.CreateRuleArgsForCall(0)).To(Equal(expectedRule))
 			})
 		})
 
@@ -193,12 +211,17 @@ var _ = Describe("Applier", func() {
 			It("creates the correct firewall rule on the host", func() {
 				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"protocol=ICMPV4"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedRule := firewall.Rule{
+					Name:            "containerabc",
+					Direction:       firewall.NET_FW_RULE_DIR_OUT,
+					Action:          firewall.NET_FW_ACTION_ALLOW,
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
+					Protocol:        firewall.NET_FW_IP_PROTOCOL_ICMP,
+				}
+
+				Expect(fw.CreateRuleCallCount()).To(Equal(1))
+				Expect(fw.CreateRuleArgsForCall(0)).To(Equal(expectedRule))
 			})
 		})
 
@@ -210,12 +233,17 @@ var _ = Describe("Applier", func() {
 			It("creates the correct firewall rule on the host", func() {
 				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
 
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-				expectedArgs := []string{"advfirewall", "firewall", "add", "rule", `name="containerabc"`,
-					"dir=out", "action=allow", "localip=5.4.3.2",
-					"remoteip=8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
-					"protocol=ANY"}
-				Expect(netSh.RunHostArgsForCall(0)).To(Equal(expectedArgs))
+				expectedRule := firewall.Rule{
+					Name:            "containerabc",
+					Direction:       firewall.NET_FW_RULE_DIR_OUT,
+					Action:          firewall.NET_FW_ACTION_ALLOW,
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8-8.8.8.8,10.0.0.0-13.0.0.0",
+					Protocol:        firewall.NET_FW_IP_PROTOCOL_ANY,
+				}
+
+				Expect(fw.CreateRuleCallCount()).To(Equal(1))
+				Expect(fw.CreateRuleArgsForCall(0)).To(Equal(expectedRule))
 			})
 		})
 
@@ -226,7 +254,7 @@ var _ = Describe("Applier", func() {
 
 			It("returns an error", func() {
 				Expect(applier.Out(netOutRule, containerIP)).To(MatchError(errors.New("invalid protocol: 7")))
-				Expect(netSh.RunHostCallCount()).To(Equal(0))
+				Expect(fw.CreateRuleCallCount()).To(Equal(0))
 			})
 		})
 	})
@@ -299,34 +327,19 @@ var _ = Describe("Applier", func() {
 			Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
 			Expect(portAllocator.ReleaseAllPortsArgsForCall(0)).To(Equal(containerId))
 
-			Expect(netSh.RunHostCallCount()).To(Equal(2))
-			Expect(netSh.RunHostArgsForCall(0)).To(Equal([]string{"advfirewall", "firewall", "show", "rule", `name="containerabc"`}))
-			Expect(netSh.RunHostArgsForCall(1)).To(Equal([]string{"advfirewall", "firewall", "delete", "rule", `name="containerabc"`}))
-		})
-
-		Context("there are no firewall rules applied to the container", func() {
-			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(0, nil, errors.New("firewall rule not found"))
-			})
-
-			It("does not error", func() {
-				Expect(applier.Cleanup()).To(Succeed())
-
-				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(netSh.RunHostCallCount()).To(Equal(1))
-			})
+			Expect(fw.DeleteRuleCallCount()).To(Equal(1))
+			Expect(fw.DeleteRuleArgsForCall(0)).To(Equal("containerabc"))
 		})
 
 		Context("deleting the firewall rule fails", func() {
 			BeforeEach(func() {
-				netSh.RunHostReturnsOnCall(1, nil, errors.New("deleting firewall rule failed"))
+				fw.DeleteRuleReturnsOnCall(0, errors.New("deleting firewall rule failed"))
 			})
 
 			It("releases the ports and returns an error", func() {
 				Expect(applier.Cleanup()).To(MatchError("deleting firewall rule failed"))
 
 				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(netSh.RunHostCallCount()).To(Equal(2))
 			})
 		})
 
@@ -339,25 +352,12 @@ var _ = Describe("Applier", func() {
 				Expect(applier.Cleanup()).To(MatchError("releasing ports failed"))
 
 				Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-				Expect(netSh.RunHostCallCount()).To(Equal(2))
-			})
-
-			Context("there are no firewall rules applied to the container", func() {
-				BeforeEach(func() {
-					netSh.RunHostReturnsOnCall(0, nil, errors.New("firewall rule not found"))
-				})
-
-				It("returns the port release error", func() {
-					Expect(applier.Cleanup()).To(MatchError("releasing ports failed"))
-
-					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-					Expect(netSh.RunHostCallCount()).To(Equal(1))
-				})
+				Expect(fw.DeleteRuleCallCount()).To(Equal(1))
 			})
 
 			Context("deleting firewall rule also fails", func() {
 				BeforeEach(func() {
-					netSh.RunHostReturnsOnCall(1, nil, errors.New("deleting firewall rule failed"))
+					fw.DeleteRuleReturnsOnCall(0, errors.New("deleting firewall rule failed"))
 				})
 
 				It("returns a combined error", func() {
@@ -365,7 +365,7 @@ var _ = Describe("Applier", func() {
 					Expect(err).To(MatchError("releasing ports failed, deleting firewall rule failed"))
 
 					Expect(portAllocator.ReleaseAllPortsCallCount()).To(Equal(1))
-					Expect(netSh.RunHostCallCount()).To(Equal(2))
+					Expect(fw.DeleteRuleCallCount()).To(Equal(1))
 				})
 			})
 		})
