@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -187,7 +188,6 @@ var _ = Describe("networking", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				networkConfig = helpers.GenerateNetworkConfig()
 				helpers.CreateNetwork(networkConfig, networkConfigFile)
-
 			})
 
 			AfterEach(func() {
@@ -584,7 +584,6 @@ var _ = Describe("networking", func() {
 				networkConfig = helpers.GenerateNetworkConfig()
 				networkConfig.DNSServers = []string{"8.8.8.8", "8.8.4.4"}
 				helpers.CreateNetwork(networkConfig, networkConfigFile)
-
 			})
 
 			AfterEach(func() {
@@ -730,8 +729,9 @@ var _ = Describe("networking", func() {
 		It("does not allow traffic between containers", func() {
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
-			containerIp := outputs.Properties.ContainerIP
+			hostIp := outputs.Properties.ContainerIP
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+			hostPort := findExternalPort(outputs.Properties.MappedPorts, containerPort)
 
 			pid := helpers.GetContainerState(containerId).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
@@ -745,7 +745,7 @@ var _ = Describe("networking", func() {
 			pid = helpers.GetContainerState(containerId2).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
-			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", containerIp, "--port", containerPort}, false)
+			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", hostIp, "--port", strconv.Itoa(hostPort)}, false)
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("An attempt was made to access a socket in a way forbidden by its access permissions"))
 		})
@@ -810,6 +810,67 @@ var _ = Describe("networking", func() {
 			data, err = ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
+		})
+
+		Context("the max outgoing bandwidth is set in the config file", func() {
+			var (
+				serverURL         string
+				clientNetOutRules []byte
+			)
+			const (
+				tinyBandwidth  = 1024 * 1024
+				giantBandwidth = 10 * 1024 * 1024
+				fileSize       = 10 * 1024 * 1024
+			)
+			BeforeEach(func() {
+				var err error
+
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
+				hostIp := outputs.Properties.ContainerIP
+				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+				hostPort := findExternalPort(outputs.Properties.MappedPorts, containerPort)
+				serverURL = fmt.Sprintf("http://%s:%d", hostIp, hostPort)
+
+				pid := helpers.GetContainerState(containerId).Pid
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
+
+				_, _, err = helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				netOutRule := netrules.NetOut{
+					Protocol: netrules.ProtocolAll,
+					Networks: []netrules.IPRange{
+						{Start: net.ParseIP(hostIp), End: net.ParseIP(hostIp)},
+					},
+					Ports: []netrules.PortRange{{Start: uint16(hostPort), End: uint16(hostPort)}},
+				}
+				clientNetOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("applies the bandwidth limit on the container to outgoing traffic", func() {
+				helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+
+				pid := helpers.GetContainerState(containerId2).Pid
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "client.exe"), clientBin)
+
+				networkConfig.MaximumOutgoingBandwidth = tinyBandwidth
+				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
+				helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(clientNetOutRules)), networkConfigFile)
+
+				tinyTime := uploadFile(containerId2, fileSize, serverURL)
+
+				helpers.NetworkDown(containerId2, networkConfigFile)
+
+				networkConfig.MaximumOutgoingBandwidth = giantBandwidth
+				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
+				helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(clientNetOutRules)), networkConfigFile)
+
+				giantTime := uploadFile(containerId2, fileSize, serverURL)
+
+				Expect(tinyTime).To(BeNumerically(">", giantTime*7))
+			})
 		})
 
 		Context("when the containers share a network namespace", func() {
@@ -945,15 +1006,31 @@ var _ = Describe("networking", func() {
 	})
 })
 
-// func createContainer(id string) {
-// 	bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateSandbox("C:\\run\\winc", rootfsPath, id))
-// 	containerConfig, err := json.Marshal(&bundleSpec)
-// 	Expect(err).NotTo(HaveOccurred())
-// 	Expect(ioutil.WriteFile(filepath.Join(os.TempDir(), id, "config.json"), containerConfig, 0666)).To(Succeed())
+func uploadFile(containerId string, fileSize int, serverURL string) int {
+	stdout, _, err := helpers.ExecInContainer(containerId, []string{"C:\\client.exe", serverURL, "upload", strconv.Itoa(fileSize)}, false)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
-// 	output, err := exec.Command(wincBin, "create", "-b", filepath.Join(os.TempDir(), id), id).CombinedOutput()
-// 	Expect(err).NotTo(HaveOccurred(), string(output))
-// }
+	outputRegex := regexp.MustCompile(`uploaded in ([0-9]+) miliseconds`)
+	match := outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
+	ExpectWithOffset(1, len(match)).To(Equal(2))
+	uploadTime, err := strconv.Atoi(match[1])
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	return uploadTime
+}
+
+func downloadFile(containerId string, fileSize int, serverURL string) int {
+	stdout, _, err := helpers.ExecInContainer(containerId, []string{"C:\\client.exe", serverURL, "download", strconv.Itoa(fileSize)}, false)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	outputRegex := regexp.MustCompile(`downloaded in ([0-9]+) miliseconds`)
+	match := outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
+	ExpectWithOffset(1, len(match)).To(Equal(2))
+	downloadTime, err := strconv.Atoi(match[1])
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	return downloadTime
+}
 
 func deleteContainerAndNetwork(id string, config network.Config) {
 	helpers.NetworkDown(id, networkConfigFile)
@@ -1012,4 +1089,21 @@ func allEndpoints(containerID string) []string {
 	}
 
 	return endpointIDs
+}
+
+func findExternalPort(portMappings, containerPort string) int {
+	var mappedPorts []netrules.PortMapping
+	err := json.Unmarshal([]byte(portMappings), &mappedPorts)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	var externalPort, internalPort int
+	internalPort, err = strconv.Atoi(containerPort)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	for _, v := range mappedPorts {
+		if v.ContainerPort == uint32(internalPort) {
+			externalPort = int(v.HostPort)
+			break
+		}
+	}
+	ExpectWithOffset(1, externalPort).ToNot(Equal(0))
+	return externalPort
 }

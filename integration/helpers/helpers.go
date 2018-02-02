@@ -102,7 +102,7 @@ func (h *Helpers) DeleteSandbox(imageStore, id string) {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 }
 
-func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
+func (h *Helpers) WriteNetworkConfig(networkConfig network.Config, networkConfigFile string) {
 	file, err := os.Create(networkConfigFile)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -111,10 +111,14 @@ func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile 
 	_, err = file.Write(data)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	file.Close()
+}
+
+func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
+	h.WriteNetworkConfig(networkConfig, networkConfigFile)
 
 	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
 	args = append(args, extraArgs...)
-	_, _, err = h.Execute(exec.Command(h.wincNetworkBin, args...))
+	_, _, err := h.Execute(exec.Command(h.wincNetworkBin, args...))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 

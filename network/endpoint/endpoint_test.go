@@ -27,12 +27,13 @@ var _ = Describe("EndpointManager", func() {
 		endpointManager *endpoint.EndpointManager
 		hcsClient       *fakes.HCSClient
 		netsh           *fakes.NetShRunner
+		config          network.Config
 	)
 
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
 		netsh = &fakes.NetShRunner{}
-		config := network.Config{
+		config = network.Config{
 			NetworkName: networkName,
 			DNSServers:  []string{"1.1.1.1", "2.2.2.2"},
 		}
@@ -63,6 +64,7 @@ var _ = Describe("EndpointManager", func() {
 			Expect(endpointToCreate.VirtualNetwork).To(Equal(networkId))
 			Expect(endpointToCreate.Name).To(Equal(containerId))
 			Expect(endpointToCreate.DNSServerList).To(Equal("1.1.1.1,2.2.2.2"))
+			Expect(endpointToCreate.Policies).To(BeEmpty())
 
 			Expect(hcsClient.HotAttachEndpointCallCount()).To(Equal(1))
 			cId, eId, _ := hcsClient.HotAttachEndpointArgsForCall(0)
@@ -72,6 +74,26 @@ var _ = Describe("EndpointManager", func() {
 			Expect(netsh.RunHostCallCount()).To(Equal(1))
 			args := netsh.RunHostArgsForCall(0)
 			Expect(args).To(Equal([]string{"advfirewall", "firewall", "delete", "rule", "name=Compartment 9 - aaa-bbb"}))
+		})
+
+		Context("the network config has MaximumOutgoingBandwidth set", func() {
+			BeforeEach(func() {
+				config.MaximumOutgoingBandwidth = 9988
+				endpointManager = endpoint.NewEndpointManager(hcsClient, netsh, containerId, config)
+			})
+
+			It("adds a QOS policy with the correct bandwidth", func() {
+				_, err := endpointManager.Create()
+				Expect(err).NotTo(HaveOccurred())
+
+				endpointToCreate := hcsClient.CreateEndpointArgsForCall(0)
+				requestedPolicies := endpointToCreate.Policies
+				Expect(len(requestedPolicies)).To(Equal(1))
+				var qos hcsshim.QosPolicy
+				Expect(json.Unmarshal(requestedPolicies[0], &qos)).To(Succeed())
+				Expect(qos.Type).To(Equal(hcsshim.QOS))
+				Expect(qos.MaximumOutgoingBandwidthInBytes).To(Equal(uint64(9988)))
+			})
 		})
 
 		Context("the network does not already exist", func() {
@@ -229,7 +251,10 @@ var _ = Describe("EndpointManager", func() {
 		BeforeEach(func() {
 			mapping1 = netrules.PortMapping{ContainerPort: 111, HostPort: 222}
 			mapping2 = netrules.PortMapping{ContainerPort: 333, HostPort: 444}
-			endpoint = hcsshim.HNSEndpoint{Id: endpointId}
+			endpoint = hcsshim.HNSEndpoint{
+				Id:       endpointId,
+				Policies: []json.RawMessage{[]byte("existing policy")},
+			}
 			updatedEndpoint = hcsshim.HNSEndpoint{
 				Id:       endpointId,
 				Policies: []json.RawMessage{[]byte("policies marshalled to json")},
@@ -251,10 +276,11 @@ var _ = Describe("EndpointManager", func() {
 			Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(1))
 			endpointToUpdate := hcsClient.UpdateEndpointArgsForCall(0)
 			Expect(endpointToUpdate.Id).To(Equal(endpointId))
-			Expect(len(endpointToUpdate.Policies)).To(Equal(2))
+			Expect(len(endpointToUpdate.Policies)).To(Equal(3))
+			Expect(endpointToUpdate.Policies[0]).To(Equal(json.RawMessage("existing policy")))
 
 			requestedPortMappings := []hcsshim.NatPolicy{}
-			for _, pol := range endpointToUpdate.Policies {
+			for _, pol := range endpointToUpdate.Policies[1:] {
 				mapping := hcsshim.NatPolicy{}
 
 				Expect(json.Unmarshal(pol, &mapping)).To(Succeed())

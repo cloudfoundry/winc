@@ -27,6 +27,7 @@ var (
 	wincImageBin   string
 	serverBin      string
 	netoutBin      string
+	clientBin      string
 	rootfsPath     string
 	helpers        *testhelpers.Helpers
 )
@@ -70,6 +71,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	netoutBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc-network/fixtures/netout")
+	Expect(err).ToNot(HaveOccurred())
+
+	clientBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc-network/fixtures/client")
 	Expect(err).ToNot(HaveOccurred())
 
 	helpers = testhelpers.NewHelpers(wincBin, wincImageBin, wincNetworkBin)

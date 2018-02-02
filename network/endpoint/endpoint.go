@@ -58,6 +58,18 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 		Name:           e.containerId,
 	}
 
+	if e.config.MaximumOutgoingBandwidth != 0 {
+		policy, err := json.Marshal(hcsshim.QosPolicy{
+			Type: hcsshim.QOS,
+			MaximumOutgoingBandwidthInBytes: uint64(e.config.MaximumOutgoingBandwidth),
+		})
+		if err != nil {
+			return hcsshim.HNSEndpoint{}, err
+		}
+
+		endpoint.Policies = []json.RawMessage{policy}
+	}
+
 	if len(e.config.DNSServers) > 0 {
 		endpoint.DNSServerList = strings.Join(e.config.DNSServers, ",")
 	}
@@ -163,7 +175,7 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 		policies = append(policies, policy)
 	}
 
-	endpoint.Policies = policies
+	endpoint.Policies = append(endpoint.Policies, policies...)
 
 	updatedEndpoint, err := e.hcsClient.UpdateEndpoint(&endpoint)
 	if err != nil {
