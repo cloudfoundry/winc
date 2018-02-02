@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -25,15 +26,18 @@ func main() {
 	}
 
 	client := &http.Client{}
+	startTime := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
 
-	contents, err := ioutil.ReadAll(resp.Body)
+	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(string(contents))
+	uploadDuration := time.Since(startTime) / time.Millisecond
+
+	fmt.Printf("this is recieved in %d miliseconds\n", int64(uploadDuration))
 }

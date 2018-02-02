@@ -26,6 +26,7 @@ type EndpointManager interface {
 	Create() (hcsshim.HNSEndpoint, error)
 	Delete() error
 	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
+	ApplyBandwidth(hcsshim.HNSEndpoint, int) (hcsshim.HNSEndpoint, error)
 }
 
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
@@ -182,6 +183,10 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts); err != nil {
+		return outputs, err
+	}
+
+	if _, err := n.endpointManager.ApplyBandwidth(createdEndpoint, n.config.MaximumOutgoingBandwidth); err != nil {
 		return outputs, err
 	}
 

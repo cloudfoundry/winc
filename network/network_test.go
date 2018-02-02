@@ -19,22 +19,25 @@ var _ = Describe("NetworkManager", func() {
 	const containerId = "some-container-id"
 
 	var (
-		networkManager  *network.NetworkManager
-		netRuleApplier  *fakes.NetRuleApplier
-		hcsClient       *fakes.HCSClient
-		endpointManager *fakes.EndpointManager
-		hnsNetwork      *hcsshim.HNSNetwork
+		networkManager           *network.NetworkManager
+		netRuleApplier           *fakes.NetRuleApplier
+		hcsClient                *fakes.HCSClient
+		endpointManager          *fakes.EndpointManager
+		hnsNetwork               *hcsshim.HNSNetwork
+		maximumOutgoingBandwidth int
 	)
 
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
 		netRuleApplier = &fakes.NetRuleApplier{}
 		endpointManager = &fakes.EndpointManager{}
+		maximumOutgoingBandwidth = 1024 * 1024
 		config := network.Config{
-			MTU:            1434,
-			SubnetRange:    "123.45.0.0/67",
-			GatewayAddress: "123.45.0.1",
-			NetworkName:    "unit-test-name",
+			MTU:                      1434,
+			SubnetRange:              "123.45.0.0/67",
+			GatewayAddress:           "123.45.0.1",
+			NetworkName:              "unit-test-name",
+			MaximumOutgoingBandwidth: maximumOutgoingBandwidth,
 		}
 
 		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config)
@@ -259,6 +262,11 @@ var _ = Describe("NetworkManager", func() {
 			ep, mappings := endpointManager.ApplyMappingsArgsForCall(0)
 			Expect(ep).To(Equal(createdEndpoint))
 			Expect(mappings).To(Equal([]netrules.PortMapping{mapping1, mapping2}))
+
+			Expect(endpointManager.ApplyBandwidthCallCount()).To(Equal(1))
+			ep, bandwidth := endpointManager.ApplyBandwidthArgsForCall(0)
+			Expect(ep).To(Equal(createdEndpoint))
+			Expect(bandwidth).To(Equal(maximumOutgoingBandwidth))
 
 			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
 			mtu := netRuleApplier.ContainerMTUArgsForCall(0)

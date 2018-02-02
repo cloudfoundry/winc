@@ -713,6 +713,7 @@ var _ = Describe("networking", func() {
 			client.Timeout = 5 * time.Second
 
 			networkConfig = helpers.GenerateNetworkConfig()
+			networkConfig.DNSServers = []string{"8.8.8.8"}
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
 
 		})
@@ -831,6 +832,7 @@ var _ = Describe("networking", func() {
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 				hostPort := findExternalPort(outputs.Properties.MappedPorts, containerPort)
 				serverURL = fmt.Sprintf("http://%s:%d/upload", hostIp, hostPort)
+				serverURL = "http://httpbin.org/post"
 
 				pid := helpers.GetContainerState(containerId).Pid
 				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
@@ -844,17 +846,18 @@ var _ = Describe("networking", func() {
 				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "uploader.exe"), uploaderBin)
 
 				netOutRule = netrules.NetOut{
+					Protocol: netrules.ProtocolAll,
 					Networks: []netrules.IPRange{
-						{Start: net.ParseIP(hostIp), End: net.ParseIP(hostIp)},
+						{Start: net.ParseIP("0.0.0.0"), End: net.ParseIP("255.255.255.255")},
 					},
-					Ports: []netrules.PortRange{{Start: uint16(hostPort), End: uint16(hostPort)}},
+					Ports: []netrules.PortRange{{Start: uint16(0), End: uint16(60000)}},
 				}
 				netOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
 				Expect(err).NotTo(HaveOccurred())
 
 				networkConfig.MaximumOutgoingBandwidth = tinyBandwidth
 				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
-				outputRegex := regexp.MustCompile(`10485760 bytes are recieved in ([0-9]+) miliseconds`)
+				outputRegex := regexp.MustCompile(`this is recieved in ([0-9]+) miliseconds`)
 				helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 				stdout, _, err := helpers.ExecInContainer(containerId2, []string{"C:\\uploader.exe", serverURL, strconv.Itoa(uploadFileSize)}, false)
 				Expect(err).NotTo(HaveOccurred())
@@ -863,8 +866,11 @@ var _ = Describe("networking", func() {
 				Expect(len(match)).To(Equal(2))
 				tinyTime, err := strconv.Atoi(match[1])
 				Expect(err).NotTo(HaveOccurred())
+
 				helpers.NetworkDown(containerId2, networkConfigFile)
 
+				pid = helpers.GetContainerState(containerId2).Pid
+				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "uploader.exe"), uploaderBin)
 				networkConfig.MaximumOutgoingBandwidth = giantBandwidth
 				helpers.WriteNetworkConfig(networkConfig, networkConfigFile)
 				helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
@@ -874,7 +880,8 @@ var _ = Describe("networking", func() {
 				Expect(len(match)).To(Equal(2))
 				giantTime, err := strconv.Atoi(match[1])
 				Expect(err).NotTo(HaveOccurred())
-				Expect(giantTime).To(BeNumerically("~", tinyTime*5, 50))
+				fmt.Printf("giantTime %d tinyTime %d\n", giantTime, tinyTime)
+				Expect(tinyTime).To(BeNumerically("~", giantTime*5, 50))
 			})
 		})
 

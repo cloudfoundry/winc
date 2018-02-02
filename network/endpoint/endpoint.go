@@ -199,6 +199,27 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 	return *allocatedEndpoint, nil
 }
 
+func (e *EndpointManager) ApplyBandwidth(endpoint hcsshim.HNSEndpoint, maximumOutgoingBandwidth int) (hcsshim.HNSEndpoint, error) {
+	if maximumOutgoingBandwidth == 0 {
+		return endpoint, nil
+	}
+	policy, err := json.Marshal(hcsshim.QosPolicy{
+		Type: hcsshim.QOS,
+		MaximumOutgoingBandwidthInBytes: uint64(maximumOutgoingBandwidth),
+	})
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+
+	endpoint.Policies = []json.RawMessage{policy}
+
+	updatedEndpoint, err := e.hcsClient.UpdateEndpoint(&endpoint)
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+	return *updatedEndpoint, nil
+}
+
 func (e *EndpointManager) Delete() error {
 	endpoint, err := e.hcsClient.GetHNSEndpointByName(e.containerId)
 	if err != nil {

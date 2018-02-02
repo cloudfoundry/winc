@@ -308,6 +308,64 @@ var _ = Describe("EndpointManager", func() {
 		})
 	})
 
+	Describe("ApplyBandwidth", func() {
+		var (
+			maximumOutgoingBandwidth int
+			endpoint                 hcsshim.HNSEndpoint
+			updatedEndpoint          hcsshim.HNSEndpoint
+		)
+
+		BeforeEach(func() {
+			maximumOutgoingBandwidth = 1024 * 1024
+			endpoint = hcsshim.HNSEndpoint{Id: endpointId}
+			updatedEndpoint = hcsshim.HNSEndpoint{
+				Id:       endpointId,
+				Policies: []json.RawMessage{[]byte("policies marshalled to json")},
+				Resources: hcsshim.Resources{
+					Allocators: []hcsshim.Allocator{
+						{Type: hcsshim.NATPolicyType},
+					},
+				},
+			}
+			hcsClient.UpdateEndpointReturns(&updatedEndpoint, nil)
+			hcsClient.GetHNSEndpointByIDReturns(&updatedEndpoint, nil)
+		})
+
+		It("updates the endpoint with the given maximum outgoing bandwidth", func() {
+			ep, err := endpointManager.ApplyBandwidth(endpoint, maximumOutgoingBandwidth)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ep).To(Equal(updatedEndpoint))
+
+			Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(1))
+			endpointToUpdate := hcsClient.UpdateEndpointArgsForCall(0)
+			Expect(endpointToUpdate.Id).To(Equal(endpointId))
+			Expect(len(endpointToUpdate.Policies)).To(Equal(1))
+
+			requestedPolicies := []hcsshim.QosPolicy{}
+			for _, pol := range endpointToUpdate.Policies {
+				qos := hcsshim.QosPolicy{}
+
+				Expect(json.Unmarshal(pol, &qos)).To(Succeed())
+				requestedPolicies = append(requestedPolicies, qos)
+			}
+			policies := []hcsshim.QosPolicy{
+				{Type: "QOS", MaximumOutgoingBandwidthInBytes: 1024 * 1024},
+			}
+			Expect(requestedPolicies).To(ConsistOf(policies))
+		})
+
+		Context("updating the endpoint fails", func() {
+			BeforeEach(func() {
+				hcsClient.UpdateEndpointReturns(nil, errors.New("cannot update endpoint"))
+			})
+
+			It("does not retry", func() {
+				_, err := endpointManager.ApplyBandwidth(endpoint, maximumOutgoingBandwidth)
+				Expect(err).To(MatchError("cannot update endpoint"))
+			})
+		})
+	})
+
 	Describe("Delete", func() {
 		var endpoint *hcsshim.HNSEndpoint
 

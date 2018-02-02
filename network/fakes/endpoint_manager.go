@@ -44,6 +44,20 @@ type EndpointManager struct {
 		result1 hcsshim.HNSEndpoint
 		result2 error
 	}
+	ApplyBandwidthStub        func(hcsshim.HNSEndpoint, int) (hcsshim.HNSEndpoint, error)
+	applyBandwidthMutex       sync.RWMutex
+	applyBandwidthArgsForCall []struct {
+		arg1 hcsshim.HNSEndpoint
+		arg2 int
+	}
+	applyBandwidthReturns struct {
+		result1 hcsshim.HNSEndpoint
+		result2 error
+	}
+	applyBandwidthReturnsOnCall map[int]struct {
+		result1 hcsshim.HNSEndpoint
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -188,6 +202,58 @@ func (fake *EndpointManager) ApplyMappingsReturnsOnCall(i int, result1 hcsshim.H
 	}{result1, result2}
 }
 
+func (fake *EndpointManager) ApplyBandwidth(arg1 hcsshim.HNSEndpoint, arg2 int) (hcsshim.HNSEndpoint, error) {
+	fake.applyBandwidthMutex.Lock()
+	ret, specificReturn := fake.applyBandwidthReturnsOnCall[len(fake.applyBandwidthArgsForCall)]
+	fake.applyBandwidthArgsForCall = append(fake.applyBandwidthArgsForCall, struct {
+		arg1 hcsshim.HNSEndpoint
+		arg2 int
+	}{arg1, arg2})
+	fake.recordInvocation("ApplyBandwidth", []interface{}{arg1, arg2})
+	fake.applyBandwidthMutex.Unlock()
+	if fake.ApplyBandwidthStub != nil {
+		return fake.ApplyBandwidthStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.applyBandwidthReturns.result1, fake.applyBandwidthReturns.result2
+}
+
+func (fake *EndpointManager) ApplyBandwidthCallCount() int {
+	fake.applyBandwidthMutex.RLock()
+	defer fake.applyBandwidthMutex.RUnlock()
+	return len(fake.applyBandwidthArgsForCall)
+}
+
+func (fake *EndpointManager) ApplyBandwidthArgsForCall(i int) (hcsshim.HNSEndpoint, int) {
+	fake.applyBandwidthMutex.RLock()
+	defer fake.applyBandwidthMutex.RUnlock()
+	return fake.applyBandwidthArgsForCall[i].arg1, fake.applyBandwidthArgsForCall[i].arg2
+}
+
+func (fake *EndpointManager) ApplyBandwidthReturns(result1 hcsshim.HNSEndpoint, result2 error) {
+	fake.ApplyBandwidthStub = nil
+	fake.applyBandwidthReturns = struct {
+		result1 hcsshim.HNSEndpoint
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *EndpointManager) ApplyBandwidthReturnsOnCall(i int, result1 hcsshim.HNSEndpoint, result2 error) {
+	fake.ApplyBandwidthStub = nil
+	if fake.applyBandwidthReturnsOnCall == nil {
+		fake.applyBandwidthReturnsOnCall = make(map[int]struct {
+			result1 hcsshim.HNSEndpoint
+			result2 error
+		})
+	}
+	fake.applyBandwidthReturnsOnCall[i] = struct {
+		result1 hcsshim.HNSEndpoint
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *EndpointManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -197,6 +263,8 @@ func (fake *EndpointManager) Invocations() map[string][][]interface{} {
 	defer fake.deleteMutex.RUnlock()
 	fake.applyMappingsMutex.RLock()
 	defer fake.applyMappingsMutex.RUnlock()
+	fake.applyBandwidthMutex.RLock()
+	defer fake.applyBandwidthMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
