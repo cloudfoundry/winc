@@ -847,6 +847,13 @@ var _ = Describe("networking", func() {
 				}
 				clientNetOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
 				Expect(err).NotTo(HaveOccurred())
+
+				resp, err := http.Get(serverURL)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+				data, err := ioutil.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
 			})
 
 			It("applies the bandwidth limit on the container to outgoing traffic", func() {
