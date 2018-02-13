@@ -181,7 +181,7 @@ var _ = Describe("networking", func() {
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork(containerId, networkConfig)
+				//	deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("sets the host MTU in the container", func() {
@@ -281,7 +281,7 @@ var _ = Describe("networking", func() {
 					Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
 				})
 
-				It("creates the correct urlacl in the container", func() {
+				FIt("creates the correct urlacl in the container", func() {
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": [{"host_port": 0, "container_port": 8080}]}`, networkConfigFile)
 
 					stdout, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User"}, false)
