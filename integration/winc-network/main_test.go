@@ -150,16 +150,6 @@ var _ = Describe("networking", func() {
 			expectedOutput := fmt.Sprintf("Get-NetAdapter : No MSFT_NetAdapter objects found with property 'Name' equal to 'vEthernet (%s)'", networkConfig.NetworkName)
 			Expect(strings.Replace(string(output), "\r\n", "", -1)).To(ContainSubstring(expectedOutput))
 		})
-
-		It("deletes the associated firewall rules", func() {
-			helpers.DeleteNetwork(networkConfig, networkConfigFile)
-
-			getFirewallRule := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s"`, networkConfig.NetworkName)
-			output, err := exec.Command("powershell.exe", "-Command", getFirewallRule).CombinedOutput()
-			Expect(err).To(HaveOccurred())
-			expectedOutput := fmt.Sprintf(`Get-NetFirewallRule : No MSFT_NetFirewallRule objects found with property 'DisplayName' equal to '%s'`, networkConfig.NetworkName)
-			Expect(strings.Replace(string(output), "\r\n", "", -1)).To(ContainSubstring(expectedOutput))
-		})
 	})
 
 	Describe("Up", func() {
@@ -410,6 +400,27 @@ var _ = Describe("networking", func() {
 						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
 					})
 
+					It("cannot connect to a remote host over TCP", func() {
+						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						Expect(err).To(HaveOccurred())
+
+						errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
+					})
+
+					It("cannot connect to a remote host over ICMP", func() {
+						Skip("ping.exe elevates to admin, breaking this test")
+						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
+						Expect(err).To(HaveOccurred())
+
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
+						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+					})
+
 					It("cannot connect to a remote host over UDP prohibited by netout", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
@@ -462,6 +473,27 @@ var _ = Describe("networking", func() {
 						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 					})
 
+					It("cannot connect to a remote host over UDP", func() {
+						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						Expect(err).To(HaveOccurred())
+
+						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
+						Expect(stdout.String()).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
+					})
+
+					It("cannot connect to a remote host over ICMP", func() {
+						Skip("ping.exe elevates to admin, breaking this test")
+						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
+						Expect(err).To(HaveOccurred())
+
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
+						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+					})
+
 					It("cannot connect to a remote server over TCP prohibited by netout", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
@@ -491,6 +523,26 @@ var _ = Describe("networking", func() {
 						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).NotTo(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received ="))
+					})
+
+					It("cannot connect to a remote host over TCP", func() {
+						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						Expect(err).To(HaveOccurred())
+
+						errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
+					})
+
+					It("cannot connect to a remote host over UDP", func() {
+						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
+
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						Expect(err).To(HaveOccurred())
+
+						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
+						Expect(stdout.String()).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
 					})
 
 					It("cannot connect to a remote host over ICMP prohibited by netout", func() {
@@ -649,6 +701,18 @@ var _ = Describe("networking", func() {
 			Expect(err).NotTo(HaveOccurred(), string(output))
 			Expect(len(allEndpoints(containerId))).To(Equal(0))
 			Expect(endpointExists(containerId)).To(BeFalse())
+		})
+
+		It("deletes the associated firewall rules", func() {
+			cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", containerId)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+
+			getFirewallRule := fmt.Sprintf(`Get-NetFirewallRule -DisplayName "%s"`, containerId)
+			output, err = exec.Command("powershell.exe", "-Command", getFirewallRule).CombinedOutput()
+			Expect(err).To(HaveOccurred())
+			expectedOutput := fmt.Sprintf(`Get-NetFirewallRule : No MSFT_NetFirewallRule objects found with property 'DisplayName' equal to '%s'`, containerId)
+			Expect(strings.Replace(string(output), "\r\n", "", -1)).To(ContainSubstring(expectedOutput))
 		})
 
 		Context("when the endpoint does not exist", func() {

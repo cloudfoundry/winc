@@ -19,19 +19,6 @@ type NetShRunner struct {
 	runContainerReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RunHostStub        func([]string) ([]byte, error)
-	runHostMutex       sync.RWMutex
-	runHostArgsForCall []struct {
-		arg1 []string
-	}
-	runHostReturns struct {
-		result1 []byte
-		result2 error
-	}
-	runHostReturnsOnCall map[int]struct {
-		result1 []byte
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -89,69 +76,11 @@ func (fake *NetShRunner) RunContainerReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *NetShRunner) RunHost(arg1 []string) ([]byte, error) {
-	var arg1Copy []string
-	if arg1 != nil {
-		arg1Copy = make([]string, len(arg1))
-		copy(arg1Copy, arg1)
-	}
-	fake.runHostMutex.Lock()
-	ret, specificReturn := fake.runHostReturnsOnCall[len(fake.runHostArgsForCall)]
-	fake.runHostArgsForCall = append(fake.runHostArgsForCall, struct {
-		arg1 []string
-	}{arg1Copy})
-	fake.recordInvocation("RunHost", []interface{}{arg1Copy})
-	fake.runHostMutex.Unlock()
-	if fake.RunHostStub != nil {
-		return fake.RunHostStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.runHostReturns.result1, fake.runHostReturns.result2
-}
-
-func (fake *NetShRunner) RunHostCallCount() int {
-	fake.runHostMutex.RLock()
-	defer fake.runHostMutex.RUnlock()
-	return len(fake.runHostArgsForCall)
-}
-
-func (fake *NetShRunner) RunHostArgsForCall(i int) []string {
-	fake.runHostMutex.RLock()
-	defer fake.runHostMutex.RUnlock()
-	return fake.runHostArgsForCall[i].arg1
-}
-
-func (fake *NetShRunner) RunHostReturns(result1 []byte, result2 error) {
-	fake.RunHostStub = nil
-	fake.runHostReturns = struct {
-		result1 []byte
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *NetShRunner) RunHostReturnsOnCall(i int, result1 []byte, result2 error) {
-	fake.RunHostStub = nil
-	if fake.runHostReturnsOnCall == nil {
-		fake.runHostReturnsOnCall = make(map[int]struct {
-			result1 []byte
-			result2 error
-		})
-	}
-	fake.runHostReturnsOnCall[i] = struct {
-		result1 []byte
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *NetShRunner) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.runContainerMutex.RLock()
 	defer fake.runContainerMutex.RUnlock()
-	fake.runHostMutex.RLock()
-	defer fake.runHostMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

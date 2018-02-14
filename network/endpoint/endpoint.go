@@ -26,22 +26,23 @@ type HCSClient interface {
 	HotDetachEndpoint(containerID string, endpointID string) error
 }
 
-//go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
-type NetShRunner interface {
-	RunHost([]string) ([]byte, error)
+//go:generate counterfeiter -o fakes/firewall.go --fake-name Firewall . Firewall
+type Firewall interface {
+	DeleteRule(string) error
+	RuleExists(string) (bool, error)
 }
 
 type EndpointManager struct {
 	hcsClient   HCSClient
-	netsh       NetShRunner
+	firewall    Firewall
 	containerId string
 	config      network.Config
 }
 
-func NewEndpointManager(hcsClient HCSClient, netsh NetShRunner, containerId string, config network.Config) *EndpointManager {
+func NewEndpointManager(hcsClient HCSClient, firewall Firewall, containerId string, config network.Config) *EndpointManager {
 	return &EndpointManager{
 		hcsClient:   hcsClient,
-		netsh:       netsh,
+		firewall:    firewall,
 		containerId: containerId,
 		config:      config,
 	}
@@ -132,25 +133,29 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 }
 
 func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
-	removeFirewallRule := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name=%s`, ruleName)}
+	ruleCreated := false
 
-	deleted := false
-	var err error
+	for i := 0; i < 3; i++ {
+		var err error
+		time.Sleep(time.Millisecond * 200 * time.Duration(i))
 
-	for i := 0; i < 3 && !deleted; i++ {
-		if _, err = e.netsh.RunHost(removeFirewallRule); err != nil {
-			logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
-			if strings.Contains(err.Error(), "No rules match the specified criteria") {
-				time.Sleep(time.Millisecond * 200 * time.Duration(i+1))
-				continue
-			}
+		ruleCreated, err = e.firewall.RuleExists(ruleName)
+		if err != nil {
 			return err
 		}
-		deleted = true
+
+		if ruleCreated {
+			if err := e.firewall.DeleteRule(ruleName); err != nil {
+				logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
+				return err
+			}
+
+			break
+		}
 	}
 
-	if !deleted {
-		return err
+	if !ruleCreated {
+		return fmt.Errorf("firewall rule %s not generated in time", ruleName)
 	}
 
 	return nil

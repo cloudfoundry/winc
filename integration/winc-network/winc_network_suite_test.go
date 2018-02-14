@@ -53,6 +53,17 @@ var _ = BeforeSuite(func() {
 	wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
 	Expect(err).ToNot(HaveOccurred())
 
+	wincNetworkDir := filepath.Dir(wincNetworkBin)
+	o, err := exec.Command("gcc.exe", "-c", "..\\..\\network\\firewall\\dll\\firewall.c", "-o", filepath.Join(wincNetworkDir, "firewall.o")).CombinedOutput()
+	Expect(err).NotTo(HaveOccurred(), string(o))
+
+	err = exec.Command("gcc.exe",
+		"-shared",
+		"-o", filepath.Join(wincNetworkDir, "firewall.dll"),
+		filepath.Join(wincNetworkDir, "firewall.o"),
+		"-lole32", "-loleaut32").Run()
+	Expect(err).NotTo(HaveOccurred())
+
 	wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
 	Expect(err).ToNot(HaveOccurred())
 

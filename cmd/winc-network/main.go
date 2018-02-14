@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/endpoint"
+	"code.cloudfoundry.org/winc/network/firewall"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 	"code.cloudfoundry.org/winc/network/netsh"
@@ -183,8 +184,13 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 
 	netIface := &netinterface.NetInterface{}
 
-	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIface)
-	endpointManager := endpoint.NewEndpointManager(hcsClient, runner, handle, config)
+	firewall, err := firewall.NewFirewall("")
+	if err != nil {
+		panic(err)
+	}
+
+	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIface, firewall)
+	endpointManager := endpoint.NewEndpointManager(hcsClient, firewall, handle, config)
 
 	return network.NewNetworkManager(
 		hcsClient,

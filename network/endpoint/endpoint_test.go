@@ -26,19 +26,19 @@ var _ = Describe("EndpointManager", func() {
 	var (
 		endpointManager *endpoint.EndpointManager
 		hcsClient       *fakes.HCSClient
-		netsh           *fakes.NetShRunner
 		config          network.Config
+		firewall        *fakes.Firewall
 	)
 
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
-		netsh = &fakes.NetShRunner{}
+		firewall = &fakes.Firewall{}
 		config = network.Config{
 			NetworkName: networkName,
 			DNSServers:  []string{"1.1.1.1", "2.2.2.2"},
 		}
 
-		endpointManager = endpoint.NewEndpointManager(hcsClient, netsh, containerId, config)
+		endpointManager = endpoint.NewEndpointManager(hcsClient, firewall, containerId, config)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -52,6 +52,8 @@ var _ = Describe("EndpointManager", func() {
 					Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb", Type: hcsshim.EndpointPortType}, {Type: 5}},
 				},
 			}, nil)
+
+			firewall.RuleExistsReturnsOnCall(0, true, nil)
 		})
 
 		It("creates an endpoint on the configured network, attaches it to the container, and deletes the compartment firewall rule", func() {
@@ -71,15 +73,14 @@ var _ = Describe("EndpointManager", func() {
 			Expect(cId).To(Equal(containerId))
 			Expect(eId).To(Equal(endpointId))
 
-			Expect(netsh.RunHostCallCount()).To(Equal(1))
-			args := netsh.RunHostArgsForCall(0)
-			Expect(args).To(Equal([]string{"advfirewall", "firewall", "delete", "rule", "name=Compartment 9 - aaa-bbb"}))
+			Expect(firewall.DeleteRuleCallCount()).To(Equal(1))
+			Expect(firewall.DeleteRuleArgsForCall(0)).To(Equal("Compartment 9 - aaa-bbb"))
 		})
 
 		Context("the network config has MaximumOutgoingBandwidth set", func() {
 			BeforeEach(func() {
 				config.MaximumOutgoingBandwidth = 9988
-				endpointManager = endpoint.NewEndpointManager(hcsClient, netsh, containerId, config)
+				endpointManager = endpoint.NewEndpointManager(hcsClient, firewall, containerId, config)
 			})
 
 			It("adds a QOS policy with the correct bandwidth", func() {
@@ -196,9 +197,24 @@ var _ = Describe("EndpointManager", func() {
 			})
 		})
 
+		Context("checking existance of the firewall rule fails", func() {
+			BeforeEach(func() {
+				firewall.RuleExistsReturnsOnCall(0, false, errors.New("couldn't check"))
+			})
+
+			It("returns an error and deletes the endpoint", func() {
+				_, err := endpointManager.Create()
+				Expect(err).To(MatchError("couldn't check"))
+
+				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+		})
+
 		Context("removing the firewall fails", func() {
 			BeforeEach(func() {
-				netsh.RunHostReturnsOnCall(0, []byte("couldn't delete"), errors.New("couldn't delete"))
+				firewall.DeleteRuleReturnsOnCall(0, errors.New("couldn't delete"))
 			})
 
 			It("deletes the endpoint and returns an error", func() {
@@ -209,32 +225,40 @@ var _ = Describe("EndpointManager", func() {
 				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
 				Expect(deletedEndpoint.Id).To(Equal(endpointId))
 			})
+		})
 
-			Context("when the error is 'No rules match the specified criteria'", func() {
+		Context("the firewall rule takes a while to be created", func() {
+			Context("the rule exists by the 3rd check", func() {
 				BeforeEach(func() {
-					netsh.RunHostReturnsOnCall(0, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
-					netsh.RunHostReturnsOnCall(1, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
-					netsh.RunHostReturnsOnCall(2, []byte("OK"), nil)
+					firewall.RuleExistsReturnsOnCall(0, false, nil)
+					firewall.RuleExistsReturnsOnCall(1, false, nil)
+					firewall.RuleExistsReturnsOnCall(2, true, nil)
 				})
 
-				It("retries creating the endpoint", func() {
-					ep, err := endpointManager.Create()
+				It("it removes the firewall rule", func() {
+					_, err := endpointManager.Create()
 					Expect(err).NotTo(HaveOccurred())
-					Expect(ep.Id).To(Equal(endpointId))
+
+					Expect(firewall.DeleteRuleCallCount()).To(Equal(1))
+					Expect(firewall.DeleteRuleArgsForCall(0)).To(Equal("Compartment 9 - aaa-bbb"))
 				})
 			})
 
-			Context("it fails 3 times with 'No rules match the specified criteria'", func() {
+			Context("the firewall rule does not exist by the 3rd check", func() {
 				BeforeEach(func() {
-					netsh.RunHostReturnsOnCall(0, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
-					netsh.RunHostReturnsOnCall(1, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
-					netsh.RunHostReturnsOnCall(2, []byte("No rules match the specified criteria."), errors.New("netsh failed: No rules match the specified criteria."))
+					firewall.RuleExistsReturnsOnCall(0, false, nil)
+					firewall.RuleExistsReturnsOnCall(1, false, nil)
+					firewall.RuleExistsReturnsOnCall(2, false, nil)
 				})
 
-				It("returns an error", func() {
+				It("returns an error and doesn't delete the rule", func() {
 					_, err := endpointManager.Create()
-					Expect(err).To(MatchError("netsh failed: No rules match the specified criteria."))
-					Expect(netsh.RunHostCallCount()).To(Equal(3))
+					Expect(err).To(MatchError("firewall rule Compartment 9 - aaa-bbb not generated in time"))
+
+					Expect(firewall.DeleteRuleCallCount()).To(Equal(0))
+					Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+					deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+					Expect(deletedEndpoint.Id).To(Equal(endpointId))
 				})
 			})
 		})

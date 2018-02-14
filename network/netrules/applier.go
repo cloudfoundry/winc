@@ -3,14 +3,15 @@ package netrules
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network/firewall"
 )
 
 //go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
 type NetShRunner interface {
 	RunContainer([]string) error
-	RunHost([]string) ([]byte, error)
 }
 
 //go:generate counterfeiter -o fakes/port_allocator.go --fake-name PortAllocator . PortAllocator
@@ -26,21 +27,30 @@ type NetInterface interface {
 	SetMTU(string, int) error
 }
 
+//go:generate counterfeiter -o fakes/firewall.go --fake-name Firewall . Firewall
+type Firewall interface {
+	CreateRule(firewall.Rule) error
+	DeleteRule(string) error
+	RuleExists(string) (bool, error)
+}
+
 type Applier struct {
 	netSh         NetShRunner
 	containerId   string
 	networkName   string
 	portAllocator PortAllocator
 	netInterface  NetInterface
+	firewall      Firewall
 }
 
-func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator, netInterface NetInterface) *Applier {
+func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator, netInterface NetInterface, firewall Firewall) *Applier {
 	return &Applier{
 		netSh:         netSh,
 		containerId:   containerId,
 		networkName:   networkName,
 		portAllocator: portAllocator,
 		netInterface:  netInterface,
+		firewall:      firewall,
 	}
 }
 
@@ -56,18 +66,16 @@ func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
 		externalPort = uint32(allocatedPort)
 	}
 
-	netShArgs := []string{
-		"advfirewall", "firewall", "add", "rule",
-		fmt.Sprintf(`name="%s"`, a.containerId),
-		"dir=in",
-		"action=allow",
-		fmt.Sprintf("localip=%s", containerIP),
-		fmt.Sprintf("localport=%d", rule.ContainerPort),
-		"protocol=TCP",
+	fr := firewall.Rule{
+		Name:           a.containerId,
+		Action:         firewall.NET_FW_ACTION_ALLOW,
+		Direction:      firewall.NET_FW_RULE_DIR_IN,
+		Protocol:       firewall.NET_FW_IP_PROTOCOL_TCP,
+		LocalAddresses: containerIP,
+		LocalPorts:     strconv.FormatUint(uint64(rule.ContainerPort), 10),
 	}
 
-	_, err := a.netSh.RunHost(netShArgs)
-	if err != nil {
+	if err := a.firewall.CreateRule(fr); err != nil {
 		return mapping, err
 	}
 
@@ -82,38 +90,30 @@ func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
 }
 
 func (a *Applier) Out(rule NetOut, containerIP string) error {
-	netShArgs := []string{
-		"advfirewall", "firewall", "add", "rule",
-		fmt.Sprintf(`name="%s"`, a.containerId),
-		"dir=out",
-		"action=allow",
-		fmt.Sprintf("localip=%s", containerIP),
-		fmt.Sprintf("remoteip=%s", firewallRuleIPRange(rule.Networks)),
+	fr := firewall.Rule{
+		Name:            a.containerId,
+		Action:          firewall.NET_FW_ACTION_ALLOW,
+		Direction:       firewall.NET_FW_RULE_DIR_OUT,
+		LocalAddresses:  containerIP,
+		RemoteAddresses: firewallRuleIPRange(rule.Networks),
 	}
 
-	var protocol string
 	switch rule.Protocol {
 	case ProtocolTCP:
-		protocol = "TCP"
-		netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", firewallRulePortRange(rule.Ports)))
+		fr.RemotePorts = firewallRulePortRange(rule.Ports)
+		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_TCP
 	case ProtocolUDP:
-		protocol = "UDP"
-		netShArgs = append(netShArgs, fmt.Sprintf("remoteport=%s", firewallRulePortRange(rule.Ports)))
+		fr.RemotePorts = firewallRulePortRange(rule.Ports)
+		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_UDP
 	case ProtocolICMP:
-		protocol = "ICMPV4"
+		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ICMP
 	case ProtocolAll:
-		protocol = "ANY"
+		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ANY
 	default:
-	}
-
-	if protocol == "" {
 		return fmt.Errorf("invalid protocol: %d", rule.Protocol)
 	}
 
-	netShArgs = append(netShArgs, fmt.Sprintf("protocol=%s", protocol))
-
-	_, err := a.netSh.RunHost(netShArgs)
-	return err
+	return a.firewall.CreateRule(fr)
 }
 
 func (a *Applier) ContainerMTU(mtu int) error {
@@ -154,14 +154,9 @@ func (a *Applier) openPort(port uint32) error {
 func (a *Applier) Cleanup() error {
 	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.containerId)
 
-	existsArgs := []string{"advfirewall", "firewall", "show", "rule", fmt.Sprintf(`name="%s"`, a.containerId)}
-	_, err := a.netSh.RunHost(existsArgs)
-	if err != nil {
-		return portReleaseErr
-	}
-
-	deleteArgs := []string{"advfirewall", "firewall", "delete", "rule", fmt.Sprintf(`name="%s"`, a.containerId)}
-	_, deleteErr := a.netSh.RunHost(deleteArgs)
+	// we can just delete the rule here since it will succeed
+	// if the rule does not exist
+	deleteErr := a.firewall.DeleteRule(a.containerId)
 
 	if portReleaseErr != nil && deleteErr != nil {
 		return fmt.Errorf("%s, %s", portReleaseErr.Error(), deleteErr.Error())
