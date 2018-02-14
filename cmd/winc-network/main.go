@@ -105,7 +105,10 @@ func main() {
 			return fmt.Errorf("missing required flag 'handle'")
 		}
 
-		networkManager := wireNetworkManager(config, handle)
+		networkManager, err := wireNetworkManager(config, handle)
+		if err != nil {
+			fatal(err)
+		}
 
 		switch action {
 		case "up":
@@ -165,7 +168,7 @@ func parseConfig(configFile string) (network.Config, error) {
 	return config, nil
 }
 
-func wireNetworkManager(config network.Config, handle string) *network.NetworkManager {
+func wireNetworkManager(config network.Config, handle string) (*network.NetworkManager, error) {
 	hcsClient := hcs.NewClient()
 	runner := netsh.NewRunner(hcsClient, handle)
 
@@ -186,7 +189,7 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 
 	firewall, err := firewall.NewFirewall("")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIface, firewall)
@@ -198,7 +201,7 @@ func wireNetworkManager(config network.Config, handle string) *network.NetworkMa
 		endpointManager,
 		handle,
 		config,
-	)
+	), nil
 }
 
 func fatal(err error) {
