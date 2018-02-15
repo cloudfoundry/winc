@@ -10,24 +10,22 @@ import (
 	"time"
 	"unsafe"
 
+	winio "github.com/Microsoft/go-winio"
+
 	"github.com/Microsoft/hcsshim"
 	"golang.org/x/sys/windows"
 )
 
 var (
-	offreg         = windows.NewLazySystemDLL("offreg.dll")
-	orOpenHive     = offreg.NewProc("OROpenHive")
-	orCloseHive    = offreg.NewProc("ORCloseHive")
-	orOpenKey      = offreg.NewProc("OROpenKey")
-	orQueryInfoKey = offreg.NewProc("ORQueryInfoKey")
-	orEnumValue    = offreg.NewProc("OREnumValue")
-	orSetValue     = offreg.NewProc("ORSetValue")
-	orCloseKey     = offreg.NewProc("ORCloseKey")
+	advapi32      = windows.NewLazySystemDLL("advapi32")
+	regLoadKeyW   = advapi32.NewProc("RegLoadKeyW")
+	regUnLoadKeyW = advapi32.NewProc("RegUnLoadKeyW")
 )
 
 const (
 	KEY_ALL_ACCESS     = 0xF003F
 	REG_PROCESS_APPKEY = 0x1
+	HKEY_LOCAL_MACHINE = uint64(0x80000002)
 )
 
 func main() {
@@ -37,137 +35,51 @@ func main() {
 		panic(err)
 	}
 
+	if err := winio.EnableProcessPrivileges([]string{"SeBackupPrivilege", "SeRestorePrivilege"}); err != nil {
+		panic(err)
+	}
+	defer winio.DisableProcessPrivileges([]string{"SeBackupPrivilege", "SeRestorePrivilege"})
+
 	hive := filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "Windows", "System32", "Config", "SYSTEM")
 	h, err := syscall.UTF16PtrFromString(hive)
 	if err != nil {
 		panic(err)
 	}
 
-	var root syscall.Handle
-	r0, _, _ := orOpenHive.Call(
+	keyName, err := syscall.UTF16PtrFromString(id)
+	if err != nil {
+		panic(err)
+	}
+
+	r0, _, _ := regLoadKeyW.Call(
+		uintptr(HKEY_LOCAL_MACHINE),
+		uintptr(unsafe.Pointer(keyName)),
 		uintptr(unsafe.Pointer(h)),
-		uintptr(unsafe.Pointer(&root)),
 	)
 
 	if r0 != 0 {
-		fmt.Printf("OROpenHive: %s\n", windowsErrorMessage(uint32(r0)))
+		fmt.Printf("RegLoadKeyW: %s\n", windowsErrorMessage(uint32(r0)))
 		return
 	}
 
-	defer orCloseHive.Call(uintptr(root))
-
-	if err := doRegistryStuff(root); err != nil {
-		fmt.Println(err.Error())
-	}
-
-}
-
-func doRegistryStuff(root syscall.Handle) error {
-	var numValues uint32
-	var maxValueNameLen uint32
-	var maxValueDataLen uint32
-
-	path := `ControlSet001\Services\HTTP\Parameters\UrlAclInfo`
-	handle, err := openKey(root, path)
-	if err != nil {
-		return err
-	}
-	defer closeKey(handle)
-
-	valueName := "http://sams.cool.website:4444/"
-	vn, err := syscall.UTF16PtrFromString(valueName)
-	if err != nil {
-		return nil
-	}
-
-	data := []byte{0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf}
-
-	r0, _, _ := orSetValue.Call(
-		uintptr(handle),
-		uintptr(unsafe.Pointer(vn)),
-		uintptr(windows.REG_BINARY),
-		uintptr(unsafe.Pointer(&data[0])),
-		uintptr(8),
-	)
-
-	if r0 != 0 {
-		return fmt.Errorf("ORSetKey: %s\n", windowsErrorMessage(uint32(r0)))
-	}
-
-	r0, _, _ = orQueryInfoKey.Call(
-		uintptr(handle),
-		uintptr(0),
-		uintptr(0),
-		uintptr(0),                                //		  _Out_opt_   PDWORD    lpcSubKeys,
-		uintptr(0),                                //  _Out_opt_   PDWORD    lpcMaxSubKeyLen,
-		uintptr(0),                                //  _Out_opt_   PDWORD    lpcMaxClassLen,
-		uintptr(unsafe.Pointer(&numValues)),       //  _Out_opt_   PDWORD    lpcValues,
-		uintptr(unsafe.Pointer(&maxValueNameLen)), //  _Out_opt_   PDWORD    lpcMaxValueNameLen,
-		uintptr(unsafe.Pointer(&maxValueDataLen)), //  _Out_opt_   PDWORD    lpcMaxValueLen,
-		uintptr(0), //  _Out_opt_   PDWORD    lpcbSecurityDescriptor,
-		uintptr(0), //  _Out_opt_   PFILETIME lpftLastWriteTime
-	)
-
-	if r0 != 0 {
-		return fmt.Errorf("ORQueryInfoKey: %s\n", windowsErrorMessage(uint32(r0)))
-	}
-
-	fmt.Println(numValues)
-	fmt.Println(maxValueNameLen)
-	fmt.Println(maxValueDataLen)
-	valueNameBuf := make([]uint16, maxValueNameLen+1)
-
-	for i := uint32(0); i < numValues; i++ {
-		size := maxValueNameLen + 1
-
-		r0, _, _ = orEnumValue.Call(
-			uintptr(handle),
-			uintptr(i),
-			uintptr(unsafe.Pointer(&valueNameBuf[0])),
-			uintptr(unsafe.Pointer(&size)),
-			uintptr(0),
-			uintptr(0),
-			uintptr(0),
+	defer func() {
+		r0, _, _ := regUnLoadKeyW.Call(
+			uintptr(HKEY_LOCAL_MACHINE),
+			uintptr(unsafe.Pointer(keyName)),
 		)
 
 		if r0 != 0 {
-			return fmt.Errorf("OREnumValue: %s\n", windowsErrorMessage(uint32(r0)))
+			fmt.Printf("RegUnLoadKeyW: %s\n", windowsErrorMessage(uint32(r0)))
+			return
 		}
+	}()
 
-		fmt.Println(syscall.UTF16ToString(valueNameBuf))
-	}
-
-	return nil
-}
-
-func openKey(handle syscall.Handle, subKeyName string) (syscall.Handle, error) {
-	p, err := syscall.UTF16PtrFromString(subKeyName)
+	subKey := filepath.Join(id, "ControlSet001", "Services", "HTTP", "Parameters", "UrlAclInfo")
+	sk, err := syscall.UTF16PtrFromString(subKey)
 	if err != nil {
-		return 0, err
+		panic(err)
 	}
 
-	var key syscall.Handle
-	r0, _, _ := orOpenKey.Call(
-		uintptr(unsafe.Pointer(handle)),
-		uintptr(unsafe.Pointer(p)),
-		uintptr(unsafe.Pointer(&key)),
-	)
-	if r0 != 0 {
-		return 0, fmt.Errorf("OROpenKey: %s\n", windowsErrorMessage(uint32(r0)))
-	}
-
-	return key, nil
-}
-
-func closeKey(handle syscall.Handle) error {
-	r0, _, _ := orCloseKey.Call(
-		uintptr(unsafe.Pointer(handle)),
-	)
-	if r0 != 0 {
-		return fmt.Errorf("ORCloseKey: %s\n", windowsErrorMessage(uint32(r0)))
-	}
-
-	return nil
 }
 
 func containerPid(id string) (int, error) {
