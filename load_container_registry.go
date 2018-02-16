@@ -17,15 +17,17 @@ import (
 )
 
 var (
-	advapi32      = windows.NewLazySystemDLL("advapi32")
-	regLoadKeyW   = advapi32.NewProc("RegLoadKeyW")
-	regUnLoadKeyW = advapi32.NewProc("RegUnLoadKeyW")
+	advapi32       = windows.NewLazySystemDLL("advapi32")
+	regLoadKeyW    = advapi32.NewProc("RegLoadKeyW")
+	regUnLoadKeyW  = advapi32.NewProc("RegUnLoadKeyW")
+	regOpenKeyW    = advapi32.NewProc("RegOpenKeyW")
+	regCloseKey    = advapi32.NewProc("RegCloseKey")
+	regSetValueW   = advapi32.NewProc("RegSetValueW")
+	regQueryValueW = advapi32.NewProc("RegQueryValueW")
 )
 
 const (
-	KEY_ALL_ACCESS     = 0xF003F
-	REG_PROCESS_APPKEY = 0x1
-	HKEY_LOCAL_MACHINE = uint64(0x80000002)
+	HKEY_LOCAL_MACHINE = uintptr(0x80000002)
 )
 
 func main() {
@@ -52,7 +54,7 @@ func main() {
 	}
 
 	r0, _, _ := regLoadKeyW.Call(
-		uintptr(HKEY_LOCAL_MACHINE),
+		HKEY_LOCAL_MACHINE,
 		uintptr(unsafe.Pointer(keyName)),
 		uintptr(unsafe.Pointer(h)),
 	)
@@ -79,6 +81,28 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	var aclKey syscall.Handle
+	r0, _, _ = regOpenKeyW.Call(
+		uintptr(HKEY_LOCAL_MACHINE),
+		uintptr(unsafe.Pointer(sk)),
+		uintptr(unsafe.Pointer(&aclKey)),
+	)
+	if r0 != 0 {
+		fmt.Printf("RegOpenKeyW: %s\n", windowsErrorMessage(uint32(r0)))
+		return
+	}
+
+	defer func() {
+		r0, _, _ := regCloseKey.Call(
+			uintptr(aclKey),
+		)
+
+		if r0 != 0 {
+			fmt.Printf("RegCloseKeyW: %s\n", windowsErrorMessage(uint32(r0)))
+			return
+		}
+	}()
 
 }
 
