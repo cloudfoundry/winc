@@ -17,17 +17,18 @@ import (
 )
 
 var (
-	advapi32       = windows.NewLazySystemDLL("advapi32")
-	regLoadKeyW    = advapi32.NewProc("RegLoadKeyW")
-	regUnLoadKeyW  = advapi32.NewProc("RegUnLoadKeyW")
-	regOpenKeyW    = advapi32.NewProc("RegOpenKeyW")
-	regCloseKey    = advapi32.NewProc("RegCloseKey")
-	regSetValueW   = advapi32.NewProc("RegSetValueW")
-	regQueryValueW = advapi32.NewProc("RegQueryValueW")
+	advapi32        = windows.NewLazySystemDLL("advapi32")
+	regLoadKeyW     = advapi32.NewProc("RegLoadKeyW")
+	regUnLoadKeyW   = advapi32.NewProc("RegUnLoadKeyW")
+	regOpenKeyExW   = advapi32.NewProc("RegOpenKeyExW")
+	regCloseKey     = advapi32.NewProc("RegCloseKey")
+	regSetKeyValueW = advapi32.NewProc("RegSetKeyValueW")
 )
 
 const (
 	HKEY_LOCAL_MACHINE = uintptr(0x80000002)
+	KEY_ALL_ACCESS     = uintptr(0xF003F)
+	REG_BINARY         = uintptr(0x3)
 )
 
 func main() {
@@ -66,7 +67,7 @@ func main() {
 
 	defer func() {
 		r0, _, _ := regUnLoadKeyW.Call(
-			uintptr(HKEY_LOCAL_MACHINE),
+			HKEY_LOCAL_MACHINE,
 			uintptr(unsafe.Pointer(keyName)),
 		)
 
@@ -83,26 +84,47 @@ func main() {
 	}
 
 	var aclKey syscall.Handle
-	r0, _, _ = regOpenKeyW.Call(
-		uintptr(HKEY_LOCAL_MACHINE),
+	r0, _, _ = regOpenKeyExW.Call(
+		HKEY_LOCAL_MACHINE,
 		uintptr(unsafe.Pointer(sk)),
+		uintptr(0),
+		KEY_ALL_ACCESS,
 		uintptr(unsafe.Pointer(&aclKey)),
 	)
 	if r0 != 0 {
-		fmt.Printf("RegOpenKeyW: %s\n", windowsErrorMessage(uint32(r0)))
+		fmt.Printf("RegOpenKeyExW: %s\n", windowsErrorMessage(uint32(r0)))
 		return
 	}
 
 	defer func() {
-		r0, _, _ := regCloseKey.Call(
-			uintptr(aclKey),
-		)
+		r0, _, _ := regCloseKey.Call(uintptr(aclKey))
 
 		if r0 != 0 {
 			fmt.Printf("RegCloseKeyW: %s\n", windowsErrorMessage(uint32(r0)))
 			return
 		}
 	}()
+
+	url := "http://sams-cool-website:5566"
+	u, err := syscall.UTF16PtrFromString(url)
+	if err != nil {
+		panic(err)
+	}
+
+	data := []byte{0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf}
+
+	r0, _, _ = regSetKeyValueW.Call(
+		uintptr(aclKey),
+		uintptr(0),
+		uintptr(unsafe.Pointer(u)),
+		REG_BINARY,
+		uintptr(unsafe.Pointer(&data[0])),
+		uintptr(8),
+	)
+	if r0 != 0 {
+		fmt.Printf("RegSetKeyValueW: %s\n", windowsErrorMessage(uint32(r0)))
+		return
+	}
 
 }
 
