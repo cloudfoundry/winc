@@ -235,6 +235,7 @@ var _ = Describe("Create", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(stdOut.String()).To(ContainSubstring("hello"))
 				})
+
 				Context("when calling the mounted executable", func() {
 					BeforeEach(func() {
 						helpers.CreateContainer(bundleSpec, bundlePath, containerId)
@@ -360,9 +361,15 @@ var _ = Describe("Create", func() {
 	})
 
 	Context("when provided a container id that already exists", func() {
-		It("errors", func() {
+		BeforeEach(func() {
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+		})
 
+		AfterEach(func() {
+			helpers.DeleteContainer(containerId)
+		})
+
+		It("errors", func() {
 			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 			expectedErrorMsg := fmt.Sprintf("container with id already exists: %s", containerId)
