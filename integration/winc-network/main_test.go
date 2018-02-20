@@ -815,16 +815,6 @@ var _ = Describe("networking", func() {
 		})
 
 		It("can route traffic to the remaining container after the other is deleted", func() {
-			output, err := exec.Command("powershell", "-command", "[System.Environment]::OSVersion.Version.Build").CombinedOutput()
-			Expect(err).NotTo(HaveOccurred())
-
-			windowsBuild, err := strconv.Atoi(strings.TrimSpace(string(output)))
-			Expect(err).NotTo(HaveOccurred())
-
-			if windowsBuild < 17074 {
-				Skip("windows NAT bug only fixed on 17074 and later")
-			}
-
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 
@@ -837,7 +827,7 @@ var _ = Describe("networking", func() {
 			pid := helpers.GetContainerState(containerId).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
 
-			_, _, err = helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+			_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIP, hostPort1))
