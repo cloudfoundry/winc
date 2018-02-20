@@ -22,6 +22,7 @@ var _ = Describe("Perf", func() {
 		bundleDepot       string
 		networkConfig     network.Config
 		networkConfigFile string
+		containerIds      []string
 	)
 
 	BeforeEach(func() {
@@ -41,6 +42,12 @@ var _ = Describe("Perf", func() {
 	})
 
 	AfterEach(func() {
+		for _, containerId := range containerIds {
+			helpers.NetworkDown(containerId, networkConfigFile)
+			helpers.DeleteContainerWithImageStore(containerId, imageStore)
+			helpers.DeleteSandbox(imageStore, containerId)
+		}
+
 		helpers.DeleteNetwork(networkConfig, networkConfigFile)
 
 		Expect(os.Remove(imageStore)).To(Succeed(), "failed to clean up sandbox image store")
@@ -51,12 +58,13 @@ var _ = Describe("Perf", func() {
 		By(fmt.Sprintf("creating, running, and deleting %d sandboxes, containers, and network endpoints concurrently", concurrentContainers), func() {
 			var wg sync.WaitGroup
 			for i := 0; i < concurrentContainers; i++ {
+				containerId := "perf-" + strconv.Itoa(rand.Int())
+				containerIds = append(containerIds, containerId)
+
 				wg.Add(1)
-				go func() {
+				go func(containerId string) {
 					defer GinkgoRecover()
 					defer wg.Done()
-
-					containerId := "perf-" + strconv.Itoa(rand.Int())
 
 					bundleSpec := helpers.CreateSandbox(imageStore, rootfsPath, containerId)
 					bundleSpec.Process = &specs.Process{Cwd: "C:\\", Args: []string{"cmd.exe"}}
@@ -69,7 +77,7 @@ var _ = Describe("Perf", func() {
 					helpers.NetworkDown(containerId, networkConfigFile)
 					helpers.DeleteContainerWithImageStore(containerId, imageStore)
 					helpers.DeleteSandbox(imageStore, containerId)
-				}()
+				}(containerId)
 			}
 			wg.Wait()
 		})
