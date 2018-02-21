@@ -17,12 +17,13 @@ import (
 )
 
 var (
-	advapi32        = windows.NewLazySystemDLL("advapi32")
-	regLoadKeyW     = advapi32.NewProc("RegLoadKeyW")
-	regUnLoadKeyW   = advapi32.NewProc("RegUnLoadKeyW")
-	regOpenKeyExW   = advapi32.NewProc("RegOpenKeyExW")
-	regCloseKey     = advapi32.NewProc("RegCloseKey")
-	regSetKeyValueW = advapi32.NewProc("RegSetKeyValueW")
+	advapi32         = windows.NewLazySystemDLL("advapi32")
+	regLoadKeyW      = advapi32.NewProc("RegLoadKeyW")
+	regUnLoadKeyW    = advapi32.NewProc("RegUnLoadKeyW")
+	regOpenKeyExW    = advapi32.NewProc("RegOpenKeyExW")
+	regCloseKey      = advapi32.NewProc("RegCloseKey")
+	regSetKeyValueW  = advapi32.NewProc("RegSetKeyValueW")
+	regQueryValueExW = advapi32.NewProc("RegQueryValueExW")
 )
 
 const (
@@ -77,55 +78,106 @@ func main() {
 		}
 	}()
 
-	subKey := filepath.Join(id, "ControlSet001", "Services", "HTTP", "Parameters", "UrlAclInfo")
-	sk, err := syscall.UTF16PtrFromString(subKey)
+	//	subKey := filepath.Join(id, "ControlSet001", "Services", "HTTP", "Parameters", "UrlAclInfo")
+	//	sk, err := syscall.UTF16PtrFromString(subKey)
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//
+	//	var aclKey syscall.Handle
+	//	r0, _, _ = regOpenKeyExW.Call(
+	//		HKEY_LOCAL_MACHINE,
+	//		uintptr(unsafe.Pointer(sk)),
+	//		uintptr(0),
+	//		KEY_ALL_ACCESS,
+	//		uintptr(unsafe.Pointer(&aclKey)),
+	//	)
+	//	if r0 != 0 {
+	//		fmt.Printf("RegOpenKeyExW: %s\n", windowsErrorMessage(uint32(r0)))
+	//		return
+	//	}
+	//
+	//	url := "http://sams-cool-website:5566"
+	//	u, err := syscall.UTF16PtrFromString(url)
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//
+	//	data := []byte{0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf}
+	//
+	//	r0, _, _ = regSetKeyValueW.Call(
+	//		uintptr(aclKey),
+	//		uintptr(0),
+	//		uintptr(unsafe.Pointer(u)),
+	//		REG_BINARY,
+	//		uintptr(unsafe.Pointer(&data[0])),
+	//		uintptr(8),
+	//	)
+	//	if r0 != 0 {
+	//		fmt.Printf("RegSetKeyValueW: %s\n", windowsErrorMessage(uint32(r0)))
+	//		return
+	//	}
+
+}
+
+func getContainerControlSet(containerId string) (uint32, error) {
+	selectKey, err := openKey(filepath.Join(containerId, "Select"))
 	if err != nil {
-		panic(err)
+		return 0, err
+	}
+	defer closeKey(selectKey)
+
+	var currentControlSet uint32
+	dataSize := unsafe.Sizeof(currentControlSet)
+	name, err := syscall.UTF16PtrFromString("Current")
+	if err != nil {
+		return 0, err
 	}
 
-	var aclKey syscall.Handle
-	r0, _, _ = regOpenKeyExW.Call(
+	r0, _, _ := regQueryValueExW.Call(
+		uintptr(selectKey),
+		uintptr(unsafe.Pointer(name)),
+		uintptr(0),
+		uintptr(0),
+		uintptr(unsafe.Pointer(&currentControlSet)),
+		uintptr(unsafe.Pointer(&dataSize)),
+	)
+
+	if r0 != 0 {
+		return 0, fmt.Errorf("RegQueryValueExW: %s\n", windowsErrorMessage(uint32(r0)))
+	}
+
+	return currentControlSet, nil
+}
+
+func openKey(key string) (syscall.Handle, error) {
+	k, err := syscall.UTF16PtrFromString(key)
+	if err != nil {
+		return 0, err
+	}
+
+	var h syscall.Handle
+	r0, _, _ := regOpenKeyExW.Call(
 		HKEY_LOCAL_MACHINE,
-		uintptr(unsafe.Pointer(sk)),
+		uintptr(unsafe.Pointer(k)),
 		uintptr(0),
 		KEY_ALL_ACCESS,
-		uintptr(unsafe.Pointer(&aclKey)),
+		uintptr(unsafe.Pointer(&h)),
 	)
+
 	if r0 != 0 {
-		fmt.Printf("RegOpenKeyExW: %s\n", windowsErrorMessage(uint32(r0)))
-		return
+		return 0, fmt.Errorf("RegOpenKeyExW: %s\n", windowsErrorMessage(uint32(r0)))
 	}
 
-	defer func() {
-		r0, _, _ := regCloseKey.Call(uintptr(aclKey))
+	return h, nil
+}
 
-		if r0 != 0 {
-			fmt.Printf("RegCloseKeyW: %s\n", windowsErrorMessage(uint32(r0)))
-			return
-		}
-	}()
-
-	url := "http://sams-cool-website:5566"
-	u, err := syscall.UTF16PtrFromString(url)
-	if err != nil {
-		panic(err)
-	}
-
-	data := []byte{0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf}
-
-	r0, _, _ = regSetKeyValueW.Call(
-		uintptr(aclKey),
-		uintptr(0),
-		uintptr(unsafe.Pointer(u)),
-		REG_BINARY,
-		uintptr(unsafe.Pointer(&data[0])),
-		uintptr(8),
-	)
+func closeKey(h syscall.Handle) error {
+	r0, _, _ := regCloseKey.Call(uintptr(h))
 	if r0 != 0 {
-		fmt.Printf("RegSetKeyValueW: %s\n", windowsErrorMessage(uint32(r0)))
-		return
+		return fmt.Errorf("RegCloseKeyW: %s\n", windowsErrorMessage(uint32(r0)))
 	}
-
+	return nil
 }
 
 func containerPid(id string) (int, error) {
