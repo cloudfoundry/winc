@@ -18,18 +18,18 @@ import (
 const (
 	defaultTimeout  = time.Second * 10
 	defaultInterval = time.Millisecond * 200
-	imageStore      = "C:\\run\\winc"
 )
 
 var (
-	wincBin        string
-	wincNetworkBin string
-	wincImageBin   string
-	serverBin      string
-	netoutBin      string
-	clientBin      string
-	rootfsPath     string
-	helpers        *testhelpers.Helpers
+	wincBin         string
+	wincNetworkBin  string
+	grootBin        string
+	grootImageStore string
+	serverBin       string
+	netoutBin       string
+	clientBin       string
+	rootfsURI       string
+	helpers         *testhelpers.Helpers
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -43,8 +43,14 @@ var _ = BeforeSuite(func() {
 	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
 
 	var present bool
-	rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
+	rootfsURI, present = os.LookupEnv("WINC_TEST_ROOTFS")
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
+
+	grootBin, present = os.LookupEnv("GROOT_BINARY")
+	Expect(present).To(BeTrue(), "GROOT_BINARY not set")
+
+	grootImageStore, present = os.LookupEnv("GROOT_IMAGE_STORE")
+	Expect(present).To(BeTrue(), "GROOT_IMAGE_STORE not set")
 
 	var err error
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
@@ -64,20 +70,6 @@ var _ = BeforeSuite(func() {
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
 
-	wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
-	Expect(err).ToNot(HaveOccurred())
-
-	wincImageDir := filepath.Dir(wincImageBin)
-	err = exec.Command("gcc.exe", "-c", "..\\..\\image\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
-	Expect(err).NotTo(HaveOccurred())
-
-	err = exec.Command("gcc.exe",
-		"-shared",
-		"-o", filepath.Join(wincImageDir, "quota.dll"),
-		filepath.Join(wincImageDir, "quota.o"),
-		"-lole32", "-loleaut32").Run()
-	Expect(err).NotTo(HaveOccurred())
-
 	serverBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc-network/fixtures/server")
 	Expect(err).ToNot(HaveOccurred())
 
@@ -87,7 +79,7 @@ var _ = BeforeSuite(func() {
 	clientBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc-network/fixtures/client")
 	Expect(err).ToNot(HaveOccurred())
 
-	helpers = testhelpers.NewHelpers(wincBin, wincImageBin, wincNetworkBin)
+	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin)
 })
 
 var _ = AfterSuite(func() {

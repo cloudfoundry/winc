@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/winc/filelock"
+	"code.cloudfoundry.org/winc/network/filelock"
 )
 
 func main() {

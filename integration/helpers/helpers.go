@@ -18,8 +18,8 @@ import (
 	"syscall"
 
 	"code.cloudfoundry.org/localip"
-	"code.cloudfoundry.org/winc/filelock"
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/filelock"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,15 +28,17 @@ import (
 
 type Helpers struct {
 	wincBin         string
-	wincImageBin    string
+	grootBin        string
+	grootImageStore string
 	wincNetworkBin  string
 	gatewayFileName string
 }
 
-func NewHelpers(wincBin, wincImageBin, wincNetworkBin string) *Helpers {
+func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string) *Helpers {
 	return &Helpers{
 		wincBin:         wincBin,
-		wincImageBin:    wincImageBin,
+		grootBin:        grootBin,
+		grootImageStore: grootImageStore,
 		wincNetworkBin:  wincNetworkBin,
 		gatewayFileName: "c:\\var\\vcap\\data\\winc-network\\gateways.json",
 	}
@@ -61,44 +63,31 @@ func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
 
 func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
 	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(exec.Command(h.wincBin, "create", "-b", bundlePath, containerId))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-}
-
-func (h *Helpers) CreateContainerWithImageStore(bundleSpec specs.Spec, bundlePath, containerId, imageStore string) {
-	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(exec.Command(h.wincBin, "--image-store", imageStore, "create", "-b", bundlePath, containerId))
+	_, _, err := h.Execute(exec.Command(h.wincBin, "--image-store", h.grootImageStore, "create", "-b", bundlePath, containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
-		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
+		output, err := exec.Command(h.wincBin, "--image-store", h.grootImageStore, "delete", id).CombinedOutput()
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }
 
-func (h *Helpers) DeleteContainerWithImageStore(id, imageStore string) {
-	if h.ContainerExists(id) {
-		output, err := exec.Command(h.wincBin, "--image-store", imageStore, "delete", id).CombinedOutput()
-		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
-	}
-}
-
-func (h *Helpers) CreateSandbox(storePath, rootfsPath, containerId string) specs.Spec {
+func (h *Helpers) CreateVolume(rootfsURI, containerId string) specs.Spec {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
-	cmd := exec.Command(h.wincImageBin, "--store", storePath, "create", rootfsPath, containerId)
+	cmd := exec.Command(h.grootBin, "--driver-store", h.grootImageStore, "create", rootfsURI, containerId)
 	cmd.Stdout = stdOut
 	cmd.Stderr = stdErr
-	ExpectWithOffset(1, cmd.Run()).To(Succeed(), fmt.Sprintf("winc-image stdout: %s\n\n winc-image stderr: %s\n\n", stdOut.String(), stdErr.String()))
+	ExpectWithOffset(1, cmd.Run()).To(Succeed(), fmt.Sprintf("groot stdout: %s\n\n groot stderr: %s\n\n", stdOut.String(), stdErr.String()))
 	var spec specs.Spec
 	ExpectWithOffset(1, json.Unmarshal(stdOut.Bytes(), &spec)).To(Succeed())
 	return spec
 }
 
-func (h *Helpers) DeleteSandbox(imageStore, id string) {
-	output, err := exec.Command(h.wincImageBin, "--store", imageStore, "delete", id).CombinedOutput()
+func (h *Helpers) DeleteVolume(id string) {
+	output, err := exec.Command(h.grootBin, "--driver-store", h.grootImageStore, "delete", id).CombinedOutput()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 }
 

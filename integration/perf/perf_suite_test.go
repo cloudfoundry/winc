@@ -25,8 +25,9 @@ const (
 var (
 	wincBin              string
 	wincNetworkBin       string
-	wincImageBin         string
-	rootfsPath           string
+	grootBin             string
+	grootImageStore      string
+	rootfsURI            string
 	concurrentContainers int
 	helpers              *testhelpers.Helpers
 )
@@ -46,8 +47,14 @@ var _ = BeforeSuite(func() {
 
 	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
 
-	rootfsPath, present = os.LookupEnv("WINC_TEST_ROOTFS")
+	rootfsURI, present = os.LookupEnv("WINC_TEST_ROOTFS")
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
+
+	grootBin, present = os.LookupEnv("GROOT_BINARY")
+	Expect(present).To(BeTrue(), "GROOT_BINARY not set")
+
+	grootImageStore, present = os.LookupEnv("GROOT_IMAGE_STORE")
+	Expect(present).To(BeTrue(), "GROOT_IMAGE_STORE not set")
 
 	concurrentContainers = defaultConcurrentContainers
 	concurrentContainersStr, present := os.LookupEnv("WINC_TEST_PERF_CONCURRENT_CONTAINERS")
@@ -73,21 +80,7 @@ var _ = BeforeSuite(func() {
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
 
-	wincImageBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-image")
-	Expect(err).ToNot(HaveOccurred())
-
-	wincImageDir := filepath.Dir(wincImageBin)
-	err = exec.Command("gcc.exe", "-c", "..\\..\\image\\volume\\quota\\quota.c", "-o", filepath.Join(wincImageDir, "quota.o")).Run()
-	Expect(err).NotTo(HaveOccurred())
-
-	err = exec.Command("gcc.exe",
-		"-shared",
-		"-o", filepath.Join(wincImageDir, "quota.dll"),
-		filepath.Join(wincImageDir, "quota.o"),
-		"-lole32", "-loleaut32").Run()
-	Expect(err).NotTo(HaveOccurred())
-
-	helpers = testhelpers.NewHelpers(wincBin, wincImageBin, wincNetworkBin)
+	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin)
 })
 
 var _ = AfterSuite(func() {

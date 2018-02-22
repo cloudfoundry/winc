@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/filelock"
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/endpoint"
+	"code.cloudfoundry.org/winc/network/filelock"
 	"code.cloudfoundry.org/winc/network/firewall"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"

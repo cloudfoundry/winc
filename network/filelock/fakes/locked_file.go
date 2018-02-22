@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/winc/filelock"
+	"code.cloudfoundry.org/winc/network/filelock"
 )
 
 type LockedFile struct {

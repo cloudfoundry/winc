@@ -4,19 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/winc/filelock"
 	"github.com/Microsoft/hcsshim"
 )
 
 func NewClient() *Client {
-	return &Client{
-		layerCreateLock: filelock.NewLocker("C:\\var\\vcap\\data\\winc-image\\create.lock"),
-	}
+	return &Client{}
 }
 
-type Client struct {
-	layerCreateLock filelock.FileLocker
-}
+type Client struct{}
 
 func (c *Client) GetContainers(q hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error) {
 	return hcsshim.GetContainers(q)
@@ -40,10 +35,6 @@ func (c *Client) OpenContainer(id string) (Container, error) {
 
 func (c *Client) IsPending(err error) bool {
 	return hcsshim.IsPending(err)
-}
-
-func (c *Client) LayerExists(info hcsshim.DriverInfo, id string) (bool, error) {
-	return hcsshim.LayerExists(info, id)
 }
 
 func (c *Client) GetContainerProperties(id string) (hcsshim.ContainerProperties, error) {
@@ -156,37 +147,4 @@ func (c *Client) HotAttachEndpoint(containerID string, endpointID string, endpoi
 
 func (c *Client) HotDetachEndpoint(containerID string, endpointID string) error {
 	return hcsshim.HotDetachEndpoint(containerID, endpointID)
-}
-
-func (c *Client) CreateLayer(di hcsshim.DriverInfo, id string, parentId string, parentLayerPaths []string) error {
-	f, err := c.layerCreateLock.Open()
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := hcsshim.CreateSandboxLayer(di, id, parentId, parentLayerPaths); err != nil {
-		return err
-	}
-
-	if err := hcsshim.ActivateLayer(di, id); err != nil {
-		return err
-	}
-
-	return hcsshim.PrepareLayer(di, id, parentLayerPaths)
-}
-
-func (c *Client) RemoveLayer(di hcsshim.DriverInfo, id string) error {
-	var unprepareErr, deactivateErr, destroyErr error
-
-	for i := 0; i < 3; i++ {
-		unprepareErr = hcsshim.UnprepareLayer(di, id)
-		deactivateErr = hcsshim.DeactivateLayer(di, id)
-		destroyErr = hcsshim.DestroyLayer(di, id)
-		if destroyErr == nil {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("failed to remove layer (unprepare error: %s, deactivate error: %s, destroy error: %s)", unprepareErr.Error(), deactivateErr.Error(), destroyErr.Error())
 }

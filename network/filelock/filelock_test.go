@@ -3,7 +3,7 @@ package filelock_test
 import (
 	"os/exec"
 
-	"code.cloudfoundry.org/winc/filelock"
+	"code.cloudfoundry.org/winc/network/filelock"
 
 	"io/ioutil"
 	"os"

@@ -91,13 +91,13 @@ var _ = Describe("Flags", func() {
 
 				containerId = filepath.Base(bundlePath)
 
-				bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+				bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 				helpers.GenerateBundle(bundleSpec, bundlePath)
 			})
 
 			AfterEach(func() {
 				helpers.DeleteContainer(containerId)
-				helpers.DeleteSandbox(imageStore, containerId)
+				helpers.DeleteVolume(containerId)
 				Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			})
 
@@ -190,13 +190,13 @@ var _ = Describe("Flags", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 			helpers.GenerateBundle(bundleSpec, bundlePath)
 		})
 
 		AfterEach(func() {
 			helpers.DeleteContainer(containerId)
-			helpers.DeleteSandbox(imageStore, containerId)
+			helpers.DeleteVolume(containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 

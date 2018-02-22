@@ -166,7 +166,7 @@ var _ = Describe("networking", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 		})
 
 		AfterEach(func() {
@@ -677,7 +677,7 @@ var _ = Describe("networking", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			networkConfig = helpers.GenerateNetworkConfig()
@@ -760,13 +760,13 @@ var _ = Describe("networking", func() {
 
 			containerId = filepath.Base(bundlePath)
 
-			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 
 			bundlePath2, err = ioutil.TempDir("", "winccontainer-2")
 			Expect(err).NotTo(HaveOccurred())
 			containerId2 = filepath.Base(bundlePath2)
 
-			bundleSpec2 = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId2))
+			bundleSpec2 = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId2))
 
 			containerPort = "12345"
 
@@ -784,7 +784,7 @@ var _ = Describe("networking", func() {
 		AfterEach(func() {
 			helpers.NetworkDown(containerId2, networkConfigFile)
 			helpers.DeleteContainer(containerId2)
-			helpers.DeleteSandbox(imageStore, containerId2)
+			helpers.DeleteVolume(containerId2)
 			deleteContainerAndNetwork(containerId, networkConfig)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 			Expect(os.RemoveAll(bundlePath2)).To(Succeed())
@@ -855,7 +855,7 @@ var _ = Describe("networking", func() {
 
 			helpers.DeleteContainer(containerId)
 			helpers.NetworkDown(containerId, networkConfigFile)
-			helpers.DeleteSandbox(imageStore, containerId)
+			helpers.DeleteVolume(containerId)
 
 			resp, err = client.Get(fmt.Sprintf("http://%s:%d", hostIP, hostPort2))
 			Expect(err).NotTo(HaveOccurred())
@@ -1096,7 +1096,7 @@ func downloadFile(containerId string, fileSize int, serverURL string) int {
 func deleteContainerAndNetwork(id string, config network.Config) {
 	helpers.NetworkDown(id, networkConfigFile)
 	helpers.DeleteContainer(id)
-	helpers.DeleteSandbox(`C:\run\winc`, id)
+	helpers.DeleteVolume(id)
 	helpers.DeleteNetwork(config, networkConfigFile)
 }
 

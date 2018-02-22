@@ -44,8 +44,8 @@ var _ = Describe("Perf", func() {
 	AfterEach(func() {
 		for _, containerId := range containerIds {
 			helpers.NetworkDown(containerId, networkConfigFile)
-			helpers.DeleteContainerWithImageStore(containerId, imageStore)
-			helpers.DeleteSandbox(imageStore, containerId)
+			helpers.DeleteContainer(containerId)
+			helpers.DeleteVolume(containerId)
 		}
 
 		helpers.DeleteNetwork(networkConfig, networkConfigFile)
@@ -66,17 +66,17 @@ var _ = Describe("Perf", func() {
 					defer GinkgoRecover()
 					defer wg.Done()
 
-					bundleSpec := helpers.CreateSandbox(imageStore, rootfsPath, containerId)
+					bundleSpec := helpers.CreateVolume(rootfsURI, containerId)
 					bundleSpec.Process = &specs.Process{Cwd: "C:\\", Args: []string{"cmd.exe"}}
-					helpers.CreateContainerWithImageStore(bundleSpec, filepath.Join(bundleDepot, containerId), containerId, imageStore)
+					helpers.CreateContainer(bundleSpec, filepath.Join(bundleDepot, containerId), containerId)
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 					containerRun(containerId, "whoami")
 					containerRun(containerId, "ipconfig")
 
 					helpers.NetworkDown(containerId, networkConfigFile)
-					helpers.DeleteContainerWithImageStore(containerId, imageStore)
-					helpers.DeleteSandbox(imageStore, containerId)
+					helpers.DeleteContainer(containerId)
+					helpers.DeleteVolume(containerId)
 				}(containerId)
 			}
 			wg.Wait()

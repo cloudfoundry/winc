@@ -32,12 +32,12 @@ var _ = Describe("Run", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateSandbox(imageStore, rootfsPath, containerId))
+		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 	})
 
 	AfterEach(func() {
 		helpers.DeleteContainer(containerId)
-		helpers.DeleteSandbox(imageStore, containerId)
+		helpers.DeleteVolume(containerId)
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
@@ -182,7 +182,7 @@ var _ = Describe("Run", func() {
 
 			AfterEach(func() {
 				helpers.DeleteContainer(containerId)
-				helpers.DeleteSandbox(imageStore, containerId)
+				helpers.DeleteVolume(containerId)
 			})
 
 			It("errors", func() {
