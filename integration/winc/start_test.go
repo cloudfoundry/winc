@@ -14,7 +14,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-var _ = FDescribe("Start", func() {
+var _ = Describe("Start", func() {
 	var (
 		containerId string
 		bundlePath  string
