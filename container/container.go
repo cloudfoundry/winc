@@ -19,21 +19,14 @@ import (
 )
 
 const destroyTimeout = time.Minute
-const stateFile = "state.json"
 
 type Manager struct {
 	logger    *logrus.Entry
 	hcsClient HCSClient
 	mounter   Mounter
+	state     StateManager
 	id        string
 	rootDir   string
-}
-
-type State struct {
-	Bundle                string           `json:"bundle"`
-	UserProgramPID        int              `json:"user_program_pid"`
-	UserProgramStartTime  syscall.Filetime `json:"user_program_start_time"`
-	UserProgramExecFailed bool             `json:"user_program_exec_failed"`
 }
 
 type Statistics struct {
@@ -59,6 +52,14 @@ type Mounter interface {
 	Unmount(pid int) error
 }
 
+//go:generate counterfeiter -o fakes/state_manager.go --fake-name StateManager . StateManager
+type StateManager interface {
+	Get() (*specs.State, error)
+	Initialize(string) error
+	SetRunning(uint32) error
+	SetExecFailed() error
+}
+
 //go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	GetContainers(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)
@@ -70,11 +71,12 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, id, rootDir string) *Manager {
+func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, state StateManager, id, rootDir string) *Manager {
 	return &Manager{
 		logger:    logger,
 		hcsClient: hcsClient,
 		mounter:   mounter,
+		state:     state,
 		id:        id,
 		rootDir:   rootDir,
 	}
@@ -197,7 +199,7 @@ func (m *Manager) Create(bundlePath string) (*specs.Spec, error) {
 		return nil, err
 	}
 
-	if err := m.initializeState(bundlePath); err != nil {
+	if err := m.state.Initialize(bundlePath); err != nil {
 		cleanupContainer()
 		return nil, err
 	}
@@ -229,24 +231,6 @@ func (m *Manager) loadBundle(bundlePath string) (*specs.Spec, error) {
 	}
 
 	return spec, nil
-}
-
-func (m *Manager) initializeState(bundlePath string) error {
-	if err := os.MkdirAll(m.stateDir(), 0755); err != nil {
-		return err
-	}
-
-	state := State{Bundle: bundlePath}
-	contents, err := json.Marshal(state)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
-}
-
-func (m *Manager) stateDir() string {
-	return filepath.Join(m.rootDir, m.id)
 }
 
 func (m *Manager) parseMountOptions(options []string) (bool, error) {
@@ -334,42 +318,8 @@ func (m *Manager) Delete(force bool) error {
 }
 
 func (m *Manager) State() (*specs.State, error) {
-	cp, err := m.hcsClient.GetContainerProperties(m.id)
-	if err != nil {
-		return nil, err
-	}
 
-	contents, err := ioutil.ReadFile(filepath.Join(m.stateDir(), stateFile))
-	if err != nil {
-		return nil, err
-	}
-	var state State
-	if err := json.Unmarshal(contents, &state); err != nil {
-		return nil, err
-	}
-
-	var status string
-	if cp.Stopped {
-		status = "stopped"
-	} else {
-		status, err = m.userProgramStatus(state)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	pid, err := m.containerPid(m.id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &specs.State{
-		Version: specs.Version,
-		ID:      m.id,
-		Status:  status,
-		Bundle:  state.Bundle,
-		Pid:     pid,
-	}, nil
+	return m.state.Get()
 }
 
 func (m *Manager) userProgramStatus(state State) (string, error) {
