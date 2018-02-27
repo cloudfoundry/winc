@@ -1,6 +1,8 @@
 package main
 
 import (
+	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/mount"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -31,25 +33,17 @@ status of "windows01" as "stopped" the following will delete resources held for
 			return err
 		}
 
+		rootDir := context.GlobalString("root")
 		containerId := context.Args().First()
 		force := context.Bool("force")
 
-		logrus.WithFields(logrus.Fields{
+		logger := logrus.WithFields(logrus.Fields{
 			"containerId": containerId,
-		}).Debug("deleting container")
+		})
+		logger.Debug("deleting container")
 
-		cm, err := wireContainerManager("", containerId)
-		if err != nil {
-			if force {
-				_, ok := err.(*hcs.NotFoundError)
-				if ok {
-					return nil
-				}
-			}
-
-			return err
-		}
-
-		return cm.Delete()
+		client := hcs.Client{}
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
+		return cm.Delete(force)
 	},
 }

@@ -1,6 +1,7 @@
 package container_test
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"code.cloudfoundry.org/winc/container/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -23,6 +25,7 @@ var _ = Describe("Delete", func() {
 		mounter          *fakes.Mounter
 		fakeContainer    *hcsfakes.Container
 		containerManager *container.Manager
+		rootDir          string
 	)
 
 	BeforeEach(func() {
@@ -32,14 +35,31 @@ var _ = Describe("Delete", func() {
 
 		containerId = filepath.Base(bundlePath)
 
+		rootDir, err = ioutil.TempDir("", "delete.root")
+		Expect(err).ToNot(HaveOccurred())
+
+		stateDir := filepath.Join(rootDir, containerId)
+		Expect(os.MkdirAll(stateDir, 0755)).To(Succeed())
+
+		state := container.State{Bundle: bundlePath}
+		contents, err := json.Marshal(state)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(filepath.Join(stateDir, "state.json"), contents, 0644)).To(Succeed())
+
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
 		fakeContainer = &hcsfakes.Container{}
-		containerManager = container.NewManager(hcsClient, mounter, containerId)
+
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "delete")
+
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
 	})
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(rootDir)).To(Succeed())
 	})
 
 	Context("when the specified container is running", func() {
@@ -53,7 +73,7 @@ var _ = Describe("Delete", func() {
 		})
 
 		It("deletes it", func() {
-			Expect(containerManager.Delete()).To(Succeed())
+			Expect(containerManager.Delete(false)).To(Succeed())
 
 			Expect(mounter.UnmountCallCount()).To(Equal(1))
 			Expect(mounter.UnmountArgsForCall(0)).To(Equal(pid))
@@ -61,10 +81,12 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
-			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(2))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+			Expect(hcsClient.GetContainerPropertiesArgsForCall(1)).To(Equal(containerId))
 
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
+			Expect(filepath.Join(rootDir, containerId)).NotTo(BeADirectory())
 		})
 
 		Context("when the specified container has a sidecar", func() {
@@ -92,7 +114,7 @@ var _ = Describe("Delete", func() {
 				hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
 				hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
 
-				Expect(containerManager.Delete()).To(Succeed())
+				Expect(containerManager.Delete(false)).To(Succeed())
 
 				Expect(hcsClient.GetContainersCallCount()).To(Equal(1))
 				query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
@@ -104,8 +126,10 @@ var _ = Describe("Delete", func() {
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(4))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(sidecarId))
 
-				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(2))
-				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(sidecarId))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(3))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(1)).To(Equal(sidecarId))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(2)).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				Expect(fakeSidecar.ShutdownCallCount()).To(Equal(1))
@@ -116,7 +140,7 @@ var _ = Describe("Delete", func() {
 					hcsClient.OpenContainerReturnsOnCall(0, nil, openError)
 					hcsClient.OpenContainerReturnsOnCall(1, fakeContainer, nil)
 					hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
-					Expect(containerManager.Delete()).To(Equal(openError))
+					Expect(containerManager.Delete(false)).To(Equal(openError))
 					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				})
 			})
@@ -128,7 +152,7 @@ var _ = Describe("Delete", func() {
 					hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
 					hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
 					mounter.UnmountReturnsOnCall(0, unmountError)
-					Expect(containerManager.Delete()).To(Equal(unmountError))
+					Expect(containerManager.Delete(false)).To(Equal(unmountError))
 					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				})
 			})
@@ -140,7 +164,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("continues deleting the container and returns an error", func() {
-				Expect(containerManager.Delete()).NotTo(Succeed())
+				Expect(containerManager.Delete(false)).NotTo(Succeed())
 
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
@@ -155,7 +179,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("closes the container but skips shutting down and terminating it", func() {
-				Expect(containerManager.Delete()).To(Succeed())
+				Expect(containerManager.Delete(false)).To(Succeed())
 
 				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
@@ -170,7 +194,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("errors", func() {
-					Expect(containerManager.Delete()).To(Equal(closeError))
+					Expect(containerManager.Delete(false)).To(Equal(closeError))
 				})
 			})
 		})
@@ -185,7 +209,7 @@ var _ = Describe("Delete", func() {
 			})
 
 			It("calls terminate", func() {
-				Expect(containerManager.Delete()).To(Succeed())
+				Expect(containerManager.Delete(false)).To(Succeed())
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 			})
 
@@ -195,7 +219,7 @@ var _ = Describe("Delete", func() {
 				})
 
 				It("waits for shutdown to finish", func() {
-					Expect(containerManager.Delete()).To(Succeed())
+					Expect(containerManager.Delete(false)).To(Succeed())
 					Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
 				})
 
@@ -207,7 +231,7 @@ var _ = Describe("Delete", func() {
 					})
 
 					It("it calls terminate", func() {
-						Expect(containerManager.Delete()).To(Succeed())
+						Expect(containerManager.Delete(false)).To(Succeed())
 						Expect(fakeContainer.TerminateCallCount()).To(Equal(1))
 					})
 
@@ -219,7 +243,7 @@ var _ = Describe("Delete", func() {
 						})
 
 						It("errors", func() {
-							Expect(containerManager.Delete()).To(Equal(terminateContainerError))
+							Expect(containerManager.Delete(false)).To(Equal(terminateContainerError))
 						})
 
 						Context("when terminate is pending", func() {
@@ -228,7 +252,7 @@ var _ = Describe("Delete", func() {
 							})
 
 							It("waits for terminate to finish", func() {
-								Expect(containerManager.Delete()).To(Succeed())
+								Expect(containerManager.Delete(false)).To(Succeed())
 							})
 
 							Context("when terminate does not finish before the timeout", func() {
@@ -239,7 +263,7 @@ var _ = Describe("Delete", func() {
 								})
 
 								It("errors", func() {
-									Expect(containerManager.Delete()).To(Equal(terminateWaitError))
+									Expect(containerManager.Delete(false)).To(Equal(terminateWaitError))
 								})
 							})
 						})
@@ -257,7 +281,7 @@ var _ = Describe("Delete", func() {
 		})
 
 		It("errors", func() {
-			Expect(containerManager.Delete()).To(Equal(openContainerError))
+			Expect(containerManager.Delete(false)).To(Equal(openContainerError))
 		})
 	})
 })

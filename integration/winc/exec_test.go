@@ -289,7 +289,8 @@ var _ = Describe("Exec", func() {
 			stdOut, stdErr, err := helpers.ExecInContainer("doesntexist", []string{"cmd.exe"}, false)
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			Expect(stdErr.String()).To(ContainSubstring("container not found: doesntexist"))
+			Expect(stdErr.String()).To(ContainSubstring("container doesntexist encountered an error during OpenContainer"))
+			Expect(stdErr.String()).To(ContainSubstring("A Compute System with the specified identifier does not exist"))
 		})
 	})
 })

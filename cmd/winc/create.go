@@ -44,6 +44,7 @@ your host.`,
 		}
 
 		containerId := context.Args().First()
+		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
 
@@ -54,7 +55,7 @@ your host.`,
 		})
 		logger.Debug("creating container")
 
-		_, err := createContainer(logger, bundlePath, containerId, pidFile)
+		_, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
 		return err
 	},
 }

@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"os"
 
+	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -22,15 +25,15 @@ instance of a container.`,
 		}
 
 		containerId := context.Args().First()
+		rootDir := context.GlobalString("root")
 
-		logrus.WithFields(logrus.Fields{
+		logger := logrus.WithFields(logrus.Fields{
 			"containerId": containerId,
-		}).Debug("retrieving state of container")
+		})
+		logger.Debug("retrieving state of container")
 
-		cm, err := wireContainerManager("", containerId)
-		if err != nil {
-			return err
-		}
+		client := hcs.Client{}
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
 
 		state, err := cm.State()
 		if err != nil {

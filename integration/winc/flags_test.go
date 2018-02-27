@@ -198,6 +198,7 @@ var _ = Describe("Flags", func() {
 			helpers.DeleteContainer(containerId)
 			helpers.DeleteVolume(containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			Expect(os.RemoveAll(storePath)).To(Succeed())
 		})
 
 		It("ignores it and creates a container successfully", func() {
@@ -205,6 +206,48 @@ var _ = Describe("Flags", func() {
 			_, _, err := helpers.Execute(exec.Command(wincBin, args...))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+		})
+	})
+
+	Context("when passed '--root'", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+			rootPath    string
+		)
+
+		BeforeEach(func() {
+			var err error
+			rootPath, err = ioutil.TempDir("", "wincroot")
+			Expect(err).ToNot(HaveOccurred())
+
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
+			containerId = filepath.Base(bundlePath)
+
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+			helpers.GenerateBundle(bundleSpec, bundlePath)
+		})
+
+		AfterEach(func() {
+			args := []string{"--root", rootPath, "delete", containerId}
+			_, _, err := helpers.Execute(exec.Command(wincBin, args...))
+			Expect(err).NotTo(HaveOccurred())
+
+			helpers.DeleteVolume(containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			Expect(os.RemoveAll(rootPath)).To(Succeed())
+		})
+
+		It("creates a state.json file in <rootPath>/<bundleId>/state.json", func() {
+			args := []string{"--root", rootPath, "create", containerId, "-b", bundlePath}
+			_, _, err := helpers.Execute(exec.Command(wincBin, args...))
+			Expect(err).NotTo(HaveOccurred())
+
+			jsonFile := filepath.Join(rootPath, containerId, "state.json")
+			Expect(jsonFile).To(BeAnExistingFile())
 		})
 	})
 })

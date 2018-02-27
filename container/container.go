@@ -1,7 +1,9 @@
 package container
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -9,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"code.cloudfoundry.org/winc/container/config"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -16,12 +19,18 @@ import (
 )
 
 const destroyTimeout = time.Minute
+const stateFile = "state.json"
 
 type Manager struct {
-	hcsClient  HCSClient
-	mounter    Mounter
-	bundlePath string
-	id         string
+	logger    *logrus.Entry
+	hcsClient HCSClient
+	mounter   Mounter
+	id        string
+	rootDir   string
+}
+
+type State struct {
+	Bundle string `json:"bundle"`
 }
 
 type Statistics struct {
@@ -58,35 +67,38 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(hcsClient HCSClient, mounter Mounter, bundlePath string) *Manager {
+func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, id, rootDir string) *Manager {
 	return &Manager{
-		hcsClient:  hcsClient,
-		mounter:    mounter,
-		bundlePath: bundlePath,
-		id:         filepath.Base(bundlePath),
+		logger:    logger,
+		hcsClient: hcsClient,
+		mounter:   mounter,
+		id:        id,
+		rootDir:   rootDir,
 	}
 }
 
-func (m *Manager) Create(spec *specs.Spec) error {
+func (m *Manager) Create(bundlePath string) (*specs.Spec, error) {
 	_, err := m.hcsClient.GetContainerProperties(m.id)
 	if err == nil {
-		return &AlreadyExistsError{Id: m.id}
+		return nil, &AlreadyExistsError{Id: m.id}
 	}
 	if _, ok := err.(*hcs.NotFoundError); !ok {
-		return err
+		return nil, err
+	}
+
+	spec, err := m.loadBundle(bundlePath)
+	if err != nil {
+		return nil, err
 	}
 
 	volumePath := spec.Root.Path
-	if volumePath == "" {
-		return &MissingVolumePathError{Id: m.id}
-	}
 
 	layerInfos := []hcsshim.Layer{}
 	for _, layerPath := range spec.Windows.LayerFolders {
 		layerId := filepath.Base(layerPath)
 		layerGuid, err := m.hcsClient.NameToGuid(layerId)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		layerInfos = append(layerInfos, hcsshim.Layer{
@@ -99,7 +111,7 @@ func (m *Manager) Create(spec *specs.Spec) error {
 	for _, d := range spec.Mounts {
 		fileInfo, err := os.Stat(d.Source)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !fileInfo.IsDir() {
 			logrus.WithField("mount", d.Source).Error("mount is not a directory, ignoring")
@@ -108,7 +120,7 @@ func (m *Manager) Create(spec *specs.Spec) error {
 
 		readOnly, err := m.parseMountOptions(d.Options)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		mappedDirs = append(mappedDirs, hcsshim.MappedDir{
@@ -120,7 +132,6 @@ func (m *Manager) Create(spec *specs.Spec) error {
 
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
-		Name:              m.bundlePath,
 		HostName:          spec.Hostname,
 		VolumePath:        volumePath,
 		LayerFolderPath:   "ignored",
@@ -149,7 +160,7 @@ func (m *Manager) Create(spec *specs.Spec) error {
 				containerConfig.Owner = spec.Windows.Network.NetworkSharedContainerName
 				endpoint, err := m.hcsClient.GetHNSEndpointByName(spec.Windows.Network.NetworkSharedContainerName)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				containerConfig.EndpointList = []string{endpoint.Id}
 			}
@@ -158,32 +169,81 @@ func (m *Manager) Create(spec *specs.Spec) error {
 
 	container, err := m.hcsClient.CreateContainer(m.id, &containerConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := container.Start(); err != nil {
+	cleanupContainer := func() {
 		if deleteErr := m.deleteContainer(m.id, container); deleteErr != nil {
 			logrus.Error(deleteErr.Error())
 		}
-		return err
+	}
+
+	if err := container.Start(); err != nil {
+		cleanupContainer()
+		return nil, err
 	}
 
 	pid, err := m.containerPid(m.id)
 	if err != nil {
-		if deleteErr := m.deleteContainer(m.id, container); deleteErr != nil {
-			logrus.Error(deleteErr.Error())
-		}
-		return err
+		cleanupContainer()
+		return nil, err
 	}
 
 	if err := m.mounter.Mount(pid, volumePath); err != nil {
-		if deleteErr := m.deleteContainer(m.id, container); deleteErr != nil {
-			logrus.Error(deleteErr.Error())
+		cleanupContainer()
+		return nil, err
+	}
+
+	if err := m.initializeState(bundlePath); err != nil {
+		cleanupContainer()
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+func (m *Manager) loadBundle(bundlePath string) (*specs.Spec, error) {
+	if bundlePath == "" {
+		var err error
+		bundlePath, err = os.Getwd()
+		if err != nil {
+			return nil, err
 		}
+	}
+	bundlePath = filepath.Clean(bundlePath)
+
+	spec, err := config.ValidateBundle(m.logger, bundlePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := config.ValidateProcess(m.logger, "", spec.Process); err != nil {
+		return nil, err
+	}
+
+	if filepath.Base(bundlePath) != m.id {
+		return nil, &InvalidIdError{Id: m.id}
+	}
+
+	return spec, nil
+}
+
+func (m *Manager) initializeState(bundlePath string) error {
+	if err := os.MkdirAll(m.stateDir(), 0755); err != nil {
 		return err
 	}
 
-	return nil
+	state := State{Bundle: bundlePath}
+	contents, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
+}
+
+func (m *Manager) stateDir() string {
+	return filepath.Join(m.rootDir, m.id)
 }
 
 func (m *Manager) parseMountOptions(options []string) (bool, error) {
@@ -209,7 +269,19 @@ func (m *Manager) parseMountOptions(options []string) (bool, error) {
 	return readOnly, nil
 }
 
-func (m *Manager) Delete() error {
+func (m *Manager) Delete(force bool) error {
+	_, err := m.hcsClient.GetContainerProperties(m.id)
+	if err != nil {
+		if force {
+			_, ok := err.(*hcs.NotFoundError)
+			if ok {
+				return nil
+			}
+		}
+
+		return err
+	}
+
 	query := hcsshim.ComputeSystemQuery{Owners: []string{m.id}}
 	sidecardContainerProperties, err := m.hcsClient.GetContainers(query)
 	if err != nil {
@@ -264,6 +336,15 @@ func (m *Manager) State() (*specs.State, error) {
 		return nil, err
 	}
 
+	contents, err := ioutil.ReadFile(filepath.Join(m.stateDir(), stateFile))
+	if err != nil {
+		return nil, err
+	}
+	var state State
+	if err := json.Unmarshal(contents, &state); err != nil {
+		return nil, err
+	}
+
 	var status string
 	if cp.Stopped {
 		status = "stopped"
@@ -280,7 +361,7 @@ func (m *Manager) State() (*specs.State, error) {
 		Version: specs.Version,
 		ID:      m.id,
 		Status:  status,
-		Bundle:  m.bundlePath,
+		Bundle:  state.Bundle,
 		Pid:     pid,
 	}, nil
 }
@@ -380,7 +461,7 @@ func (m *Manager) deleteContainer(containerId string, container hcs.Container) e
 		}
 	}
 
-	return nil
+	return os.RemoveAll(filepath.Join(m.rootDir, m.id))
 }
 
 func (m *Manager) shutdownContainer(container hcs.Container) error {

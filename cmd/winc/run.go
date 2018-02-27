@@ -46,6 +46,7 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		}
 
 		containerId := context.Args().First()
+		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 		detach := context.Bool("detach")
 		pidFile := context.String("pid-file")
@@ -58,12 +59,12 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		})
 		logger.Debug("creating container")
 
-		spec, err := createContainer(logger, bundlePath, containerId, pidFile)
+		spec, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
 		if err != nil {
 			return err
 		}
 
-		return runProcess(containerId, spec.Process, detach, "", true)
+		return runProcess(logger, containerId, spec.Process, detach, "", rootDir, true)
 	},
 	SkipArgReorder: true,
 }

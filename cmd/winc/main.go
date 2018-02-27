@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/config"
 	"code.cloudfoundry.org/winc/container/mount"
 	"code.cloudfoundry.org/winc/hcs"
 
@@ -56,6 +55,11 @@ func main() {
 			Name:  "image-store",
 			Value: "",
 			Usage: "ignored",
+		},
+		cli.StringFlag{
+			Name:  "root",
+			Value: "C:\\ProgramData\\winc",
+			Usage: "directory for storage of container state",
 		},
 	}
 
@@ -153,49 +157,12 @@ func fatal(err error) {
 	os.Exit(1)
 }
 
-func wireContainerManager(bundlePath, containerId string) (*container.Manager, error) {
+func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, rootDir string) (*specs.Spec, error) {
 	client := hcs.Client{}
+	cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
 
-	if bundlePath == "" {
-		cp, err := client.GetContainerProperties(containerId)
-		if err != nil {
-			return nil, err
-		}
-		bundlePath = cp.Name
-	}
-
-	if filepath.Base(bundlePath) != containerId {
-		return nil, &container.InvalidIdError{Id: containerId}
-	}
-
-	return container.NewManager(&client, &mount.Mounter{}, bundlePath), nil
-}
-
-func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile string) (*specs.Spec, error) {
-	if bundlePath == "" {
-		var err error
-		bundlePath, err = os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-	}
-	bundlePath = filepath.Clean(bundlePath)
-
-	spec, err := config.ValidateBundle(logger, bundlePath)
+	spec, err := cm.Create(bundlePath)
 	if err != nil {
-		return nil, err
-	}
-
-	if _, err := config.ValidateProcess(logger, "", spec.Process); err != nil {
-		return nil, err
-	}
-
-	cm, err := wireContainerManager(bundlePath, containerId)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cm.Create(spec); err != nil {
 		return nil, err
 	}
 
@@ -213,11 +180,9 @@ func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile stri
 	return spec, nil
 }
 
-func runProcess(containerId string, spec *specs.Process, detach bool, pidFile string, deleteContainer bool) error {
-	cm, err := wireContainerManager("", containerId)
-	if err != nil {
-		return err
-	}
+func runProcess(logger *logrus.Entry, containerId string, spec *specs.Process, detach bool, pidFile, rootDir string, deleteContainer bool) error {
+	client := hcs.Client{}
+	cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
 
 	process, err := cm.Exec(spec, !detach)
 	if err != nil {
@@ -269,7 +234,8 @@ func runProcess(containerId string, spec *specs.Process, detach bool, pidFile st
 		}
 
 		if deleteContainer {
-			if err := cm.Delete(); err != nil {
+			force := false
+			if err := cm.Delete(force); err != nil {
 				return err
 			}
 		}

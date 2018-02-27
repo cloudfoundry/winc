@@ -12,9 +12,11 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Stats", func() {
+	const containerId = "some-stats-container"
 	var (
 		bundlePath       string
 		hcsClient        *fakes.HCSClient
@@ -30,7 +32,12 @@ var _ = Describe("Stats", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		containerManager = container.NewManager(hcsClient, mounter, bundlePath)
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "stats")
+
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, "")
+
 		fakeContainer = &hcsfakes.Container{}
 		hcsClient.OpenContainerReturns(fakeContainer, nil)
 	})
@@ -56,6 +63,9 @@ var _ = Describe("Stats", func() {
 		It("returns the correct container stats values", func() {
 			stats, err := containerManager.Stats()
 			Expect(err).ToNot(HaveOccurred())
+
+			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 			expectedStats := container.Statistics{}
 			expectedStats.Data.Memory.Raw.TotalRss = 666
