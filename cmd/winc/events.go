@@ -30,7 +30,7 @@ Where "<container-id>" is your name for the instance of the container.`,
 			"containerId": containerId,
 		}).Debug("retrieving container events and info")
 
-		cm, err := wireContainerManager("", "", containerId)
+		cm, err := wireContainerManager("", containerId)
 		if err != nil {
 			return err
 		}

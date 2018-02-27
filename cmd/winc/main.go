@@ -54,8 +54,8 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "image-store",
-			Value: "C:\\run\\winc",
-			Usage: "directory for storage of container state",
+			Value: "",
+			Usage: "ignored",
 		},
 	}
 
@@ -153,7 +153,7 @@ func fatal(err error) {
 	os.Exit(1)
 }
 
-func wireContainerManager(imageStore, bundlePath, containerId string) (*container.Manager, error) {
+func wireContainerManager(bundlePath, containerId string) (*container.Manager, error) {
 	client := hcs.Client{}
 
 	if bundlePath == "" {
@@ -168,10 +168,10 @@ func wireContainerManager(imageStore, bundlePath, containerId string) (*containe
 		return nil, &container.InvalidIdError{Id: containerId}
 	}
 
-	return container.NewManager(&client, &mount.Mounter{}, imageStore, bundlePath), nil
+	return container.NewManager(&client, &mount.Mounter{}, bundlePath), nil
 }
 
-func createContainer(logger *logrus.Entry, bundlePath, imageStore, containerId, pidFile string) (*specs.Spec, error) {
+func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile string) (*specs.Spec, error) {
 	if bundlePath == "" {
 		var err error
 		bundlePath, err = os.Getwd()
@@ -190,7 +190,7 @@ func createContainer(logger *logrus.Entry, bundlePath, imageStore, containerId, 
 		return nil, err
 	}
 
-	cm, err := wireContainerManager(imageStore, bundlePath, containerId)
+	cm, err := wireContainerManager(bundlePath, containerId)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func createContainer(logger *logrus.Entry, bundlePath, imageStore, containerId, 
 }
 
 func runProcess(containerId string, spec *specs.Process, detach bool, pidFile string, deleteContainer bool) error {
-	cm, err := wireContainerManager("", "", containerId)
+	cm, err := wireContainerManager("", containerId)
 	if err != nil {
 		return err
 	}

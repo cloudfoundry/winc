@@ -63,13 +63,13 @@ func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
 
 func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
 	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(exec.Command(h.wincBin, "--image-store", h.grootImageStore, "create", "-b", bundlePath, containerId))
+	_, _, err := h.Execute(exec.Command(h.wincBin, "create", "-b", bundlePath, containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
-		output, err := exec.Command(h.wincBin, "--image-store", h.grootImageStore, "delete", id).CombinedOutput()
+		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }

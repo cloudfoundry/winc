@@ -27,7 +27,7 @@ instance of a container.`,
 			"containerId": containerId,
 		}).Debug("retrieving state of container")
 
-		cm, err := wireContainerManager("", "", containerId)
+		cm, err := wireContainerManager("", containerId)
 		if err != nil {
 			return err
 		}

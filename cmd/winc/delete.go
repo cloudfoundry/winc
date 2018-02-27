@@ -38,7 +38,7 @@ status of "windows01" as "stopped" the following will delete resources held for
 			"containerId": containerId,
 		}).Debug("deleting container")
 
-		cm, err := wireContainerManager("", "", containerId)
+		cm, err := wireContainerManager("", containerId)
 		if err != nil {
 			if force {
 				_, ok := err.(*hcs.NotFoundError)

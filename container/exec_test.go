@@ -36,7 +36,7 @@ var _ = Describe("Exec", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		containerManager = container.NewManager(hcsClient, mounter, "", containerId)
+		containerManager = container.NewManager(hcsClient, mounter, containerId)
 		fakeContainer = &hcsfakes.Container{}
 	})
 

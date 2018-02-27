@@ -20,7 +20,6 @@ const destroyTimeout = time.Minute
 type Manager struct {
 	hcsClient  HCSClient
 	mounter    Mounter
-	imageStore string
 	bundlePath string
 	id         string
 }
@@ -59,12 +58,11 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(hcsClient HCSClient, mounter Mounter, imageStore, bundlePath string) *Manager {
+func NewManager(hcsClient HCSClient, mounter Mounter, bundlePath string) *Manager {
 	return &Manager{
 		hcsClient:  hcsClient,
 		mounter:    mounter,
 		bundlePath: bundlePath,
-		imageStore: imageStore,
 		id:         filepath.Base(bundlePath),
 	}
 }
@@ -120,14 +118,12 @@ func (m *Manager) Create(spec *specs.Spec) error {
 		})
 	}
 
-	sandboxDir := filepath.Join(m.imageStore, m.id)
-
 	containerConfig := hcsshim.ContainerConfig{
 		SystemType:        "Container",
 		Name:              m.bundlePath,
 		HostName:          spec.Hostname,
 		VolumePath:        volumePath,
-		LayerFolderPath:   sandboxDir,
+		LayerFolderPath:   "ignored",
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
 	}

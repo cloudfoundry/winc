@@ -18,7 +18,6 @@ import (
 var _ = Describe("Perf", func() {
 	var (
 		tempDir           string
-		imageStore        string
 		bundleDepot       string
 		networkConfig     network.Config
 		networkConfigFile string
@@ -29,9 +28,6 @@ var _ = Describe("Perf", func() {
 		var err error
 		tempDir, err = ioutil.TempDir("", "winc-perf")
 		Expect(err).NotTo(HaveOccurred())
-
-		imageStore = filepath.Join(tempDir, "image-store")
-		Expect(os.MkdirAll(imageStore, 0666)).To(Succeed())
 
 		bundleDepot = filepath.Join(tempDir, "bundle-depot")
 		Expect(os.MkdirAll(bundleDepot, 0666)).To(Succeed())
@@ -50,7 +46,6 @@ var _ = Describe("Perf", func() {
 
 		helpers.DeleteNetwork(networkConfig, networkConfigFile)
 
-		Expect(os.Remove(imageStore)).To(Succeed(), "failed to clean up sandbox image store")
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 

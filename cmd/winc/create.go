@@ -44,7 +44,6 @@ your host.`,
 		}
 
 		containerId := context.Args().First()
-		imageStore := context.GlobalString("image-store")
 		bundlePath := context.String("bundle")
 		pidFile := context.String("pid-file")
 
@@ -55,7 +54,7 @@ your host.`,
 		})
 		logger.Debug("creating container")
 
-		_, err := createContainer(logger, bundlePath, imageStore, containerId, pidFile)
+		_, err := createContainer(logger, bundlePath, containerId, pidFile)
 		return err
 	},
 }

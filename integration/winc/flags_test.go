@@ -200,7 +200,7 @@ var _ = Describe("Flags", func() {
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
-		It("is able to create a container with the specified root", func() {
+		It("ignores it and creates a container successfully", func() {
 			args := []string{"--image-store", storePath, "create", containerId, "-b", bundlePath}
 			_, _, err := helpers.Execute(exec.Command(wincBin, args...))
 			Expect(err).NotTo(HaveOccurred())

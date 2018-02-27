@@ -17,8 +17,6 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-const rootPath = "some-winc-root-path"
-
 var _ = Describe("Create", func() {
 	var (
 		containerId      string
@@ -41,7 +39,7 @@ var _ = Describe("Create", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		containerManager = container.NewManager(hcsClient, mounter, rootPath, bundlePath)
+		containerManager = container.NewManager(hcsClient, mounter, bundlePath)
 
 		layerFolders = []string{
 			"some-layer",
@@ -112,7 +110,7 @@ var _ = Describe("Create", func() {
 				Name:              bundlePath,
 				HostName:          hostName,
 				VolumePath:        containerVolume,
-				LayerFolderPath:   filepath.Join(rootPath, containerId),
+				LayerFolderPath:   "ignored",
 				Layers:            expectedHcsshimLayers,
 				MappedDirectories: []hcsshim.MappedDir{},
 			}))
