@@ -7,10 +7,6 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
-func NewClient() *Client {
-	return &Client{}
-}
-
 type Client struct{}
 
 func (c *Client) GetContainers(q hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error) {

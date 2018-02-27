@@ -1,6 +1,7 @@
 package container_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/config"
 	"code.cloudfoundry.org/winc/container/fakes"
 	"code.cloudfoundry.org/winc/hcs"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
@@ -15,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Create", func() {
@@ -28,6 +31,7 @@ var _ = Describe("Create", func() {
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
 		hostName         = "some-hostname"
+		rootDir          string
 	)
 
 	BeforeEach(func() {
@@ -35,11 +39,8 @@ var _ = Describe("Create", func() {
 		bundlePath, err = ioutil.TempDir("", "bundlePath")
 		Expect(err).ToNot(HaveOccurred())
 
-		containerId = filepath.Base(bundlePath)
-
-		hcsClient = &fakes.HCSClient{}
-		mounter = &fakes.Mounter{}
-		containerManager = container.NewManager(hcsClient, mounter, bundlePath)
+		rootDir, err = ioutil.TempDir("", "create.root")
+		Expect(err).ToNot(HaveOccurred())
 
 		layerFolders = []string{
 			"some-layer",
@@ -48,6 +49,11 @@ var _ = Describe("Create", func() {
 		}
 
 		spec = &specs.Spec{
+			Version: specs.Version,
+			Process: &specs.Process{
+				Args: []string{"cmd.exe"},
+				Cwd:  "C:\\",
+			},
 			Root: &specs.Root{
 				Path: containerVolume,
 			},
@@ -56,10 +62,22 @@ var _ = Describe("Create", func() {
 			},
 			Hostname: hostName,
 		}
+		writeSpec(bundlePath, spec)
+
+		containerId = filepath.Base(bundlePath)
+
+		hcsClient = &fakes.HCSClient{}
+		mounter = &fakes.Mounter{}
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "create")
+
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
 	})
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(rootDir)).To(Succeed())
 	})
 
 	Context("when the specified container does not already exist", func() {
@@ -92,7 +110,9 @@ var _ = Describe("Create", func() {
 				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
 			}, nil)
 
-			Expect(containerManager.Create(spec)).To(Succeed())
+			returnedSpec, err := containerManager.Create(bundlePath)
+			Expect(err).To(Succeed())
+			Expect(returnedSpec).To(Equal(spec))
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
@@ -107,7 +127,6 @@ var _ = Describe("Create", func() {
 			Expect(actualContainerId).To(Equal(containerId))
 			Expect(containerConfig).To(Equal(&hcsshim.ContainerConfig{
 				SystemType:        "Container",
-				Name:              bundlePath,
 				HostName:          hostName,
 				VolumePath:        containerVolume,
 				LayerFolderPath:   "ignored",
@@ -123,14 +142,27 @@ var _ = Describe("Create", func() {
 			Expect(actualVolumePath).To(Equal(containerVolume))
 		})
 
+		It("writes the bundle path to state.json in <rootDir>/<containerId>/", func() {
+			_, err := containerManager.Create(bundlePath)
+			Expect(err).To(Succeed())
+
+			var state container.State
+			contents, err := ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(json.Unmarshal(contents, &state)).To(Succeed())
+
+			Expect(state.Bundle).To(Equal(bundlePath))
+		})
+
 		Context("when the volume path is empty", func() {
 			JustBeforeEach(func() {
 				spec.Root.Path = ""
+				writeSpec(bundlePath, spec)
 			})
 
 			It("returns an error", func() {
-				err := containerManager.Create(spec)
-				Expect(err).To(Equal(&container.MissingVolumePathError{Id: containerId}))
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigValidationError{}))
 			})
 		})
 
@@ -152,6 +184,7 @@ var _ = Describe("Create", func() {
 				expectedMappedDirs = []hcsshim.MappedDir{
 					{HostPath: mount, ContainerPath: "C:\\bar", ReadOnly: true},
 				}
+				writeSpec(bundlePath, spec)
 			})
 
 			AfterEach(func() {
@@ -161,11 +194,14 @@ var _ = Describe("Create", func() {
 			Context("mount options do not specify ro or rw", func() {
 				BeforeEach(func() {
 					spec.Mounts[0].Options = []string{"bind"}
+					writeSpec(bundlePath, spec)
+
 					expectedMappedDirs[0].ReadOnly = true
 				})
 
 				It("creates the container with the specified mounts", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					_, err := containerManager.Create(bundlePath)
+					Expect(err).NotTo(HaveOccurred())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -177,11 +213,14 @@ var _ = Describe("Create", func() {
 			Context("mount options specify ro", func() {
 				BeforeEach(func() {
 					spec.Mounts[0].Options = []string{"bind", "ro"}
+					writeSpec(bundlePath, spec)
+
 					expectedMappedDirs[0].ReadOnly = true
 				})
 
 				It("creates the container with the specified mounts", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					_, err := containerManager.Create(bundlePath)
+					Expect(err).NotTo(HaveOccurred())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -193,11 +232,14 @@ var _ = Describe("Create", func() {
 			Context("mount options specify rw", func() {
 				BeforeEach(func() {
 					spec.Mounts[0].Options = []string{"bind", "rw"}
+					writeSpec(bundlePath, spec)
+
 					expectedMappedDirs[0].ReadOnly = false
 				})
 
 				It("creates the container with the specified mounts", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					_, err := containerManager.Create(bundlePath)
+					Expect(err).NotTo(HaveOccurred())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -209,10 +251,11 @@ var _ = Describe("Create", func() {
 			Context("mount options specify both rw and ro", func() {
 				BeforeEach(func() {
 					spec.Mounts[0].Options = []string{"bind", "rw", "ro"}
+					writeSpec(bundlePath, spec)
 				})
 
 				It("errors", func() {
-					err := containerManager.Create(spec)
+					_, err := containerManager.Create(bundlePath)
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(BeAssignableToTypeOf(&container.InvalidMountOptionsError{}))
 				})
@@ -224,7 +267,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("errors", func() {
-					err := containerManager.Create(spec)
+					_, err := containerManager.Create(bundlePath)
 					Expect(os.IsNotExist(err)).To(BeTrue())
 				})
 			})
@@ -242,6 +285,7 @@ var _ = Describe("Create", func() {
 						Source:      mountFile,
 						Destination: "foo",
 					})
+					writeSpec(bundlePath, spec)
 				})
 
 				AfterEach(func() {
@@ -249,7 +293,8 @@ var _ = Describe("Create", func() {
 				})
 
 				It("ignores it", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					_, err := containerManager.Create(bundlePath)
+					Expect(err).NotTo(HaveOccurred())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -270,10 +315,12 @@ var _ = Describe("Create", func() {
 						Limit: &expectedMemoryMaxinBytes,
 					},
 				}
+				writeSpec(bundlePath, spec)
 			})
 
 			It("creates the container with the specified memory limits", func() {
-				Expect(containerManager.Create(spec)).To(Succeed())
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).NotTo(HaveOccurred())
 
 				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -291,10 +338,12 @@ var _ = Describe("Create", func() {
 						Shares: &expectedCPUShares,
 					},
 				}
+				writeSpec(bundlePath, spec)
 			})
 
 			It("creates the container with the specified cpu limits", func() {
-				Expect(containerManager.Create(spec)).To(Succeed())
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).NotTo(HaveOccurred())
 
 				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -313,11 +362,14 @@ var _ = Describe("Create", func() {
 					networkSharedContainerName = "some-networked-container"
 					sharedEndpointId = "some-shared-endpoint-id"
 					spec.Windows.Network = &specs.WindowsNetwork{NetworkSharedContainerName: networkSharedContainerName}
+					writeSpec(bundlePath, spec)
+
 					hcsClient.GetHNSEndpointByNameReturns(&hcsshim.HNSEndpoint{Id: sharedEndpointId}, nil)
 				})
 
 				It("creates the container with a NetworkSharedContainerName and EndpointList", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					_, err := containerManager.Create(bundlePath)
+					Expect(err).NotTo(HaveOccurred())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -334,7 +386,8 @@ var _ = Describe("Create", func() {
 					})
 
 					It("returns an error", func() {
-						Expect(containerManager.Create(spec)).To(MatchError("couldn't get endpoint"))
+						_, err := containerManager.Create(bundlePath)
+						Expect(err).To(MatchError("couldn't get endpoint"))
 					})
 				})
 			})
@@ -342,10 +395,12 @@ var _ = Describe("Create", func() {
 			Context("when NetworkSharedContainerName is empty", func() {
 				BeforeEach(func() {
 					spec.Windows.Network = &specs.WindowsNetwork{}
+					writeSpec(bundlePath, spec)
 				})
 
 				It("creates a container without a NetworkSharedContainerName or EndpointList", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					_, err := containerManager.Create(bundlePath)
+					Expect(err).NotTo(HaveOccurred())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -361,7 +416,8 @@ var _ = Describe("Create", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(containerManager.Create(spec)).To(MatchError("couldn't create"))
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).To(MatchError("couldn't create"))
 			})
 		})
 
@@ -372,7 +428,9 @@ var _ = Describe("Create", func() {
 			})
 
 			It("deletes the container", func() {
-				Expect(containerManager.Create(spec)).To(MatchError("couldn't mount"))
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).To(MatchError("couldn't mount"))
+
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})
 		})
@@ -384,7 +442,9 @@ var _ = Describe("Create", func() {
 			})
 
 			It("closes but doesn't shutdown or terminate the container", func() {
-				Expect(containerManager.Create(spec)).To(MatchError("couldn't start"))
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).To(MatchError("couldn't start"))
+
 				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
@@ -398,9 +458,17 @@ var _ = Describe("Create", func() {
 			})
 
 			It("deletes the container", func() {
-				Expect(containerManager.Create(spec)).To(MatchError("couldn't get pid"))
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).To(MatchError("couldn't get pid"))
+
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})
 		})
 	})
 })
+
+func writeSpec(bundlePath string, spec *specs.Spec) {
+	contents, err := json.Marshal(spec)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), contents, 0644)).To(Succeed())
+}

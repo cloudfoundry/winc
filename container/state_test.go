@@ -1,6 +1,7 @@
 package container_test
 
 import (
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -12,41 +13,57 @@ import (
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("State", func() {
+	const (
+		containerId = "some-id"
+		bundlePath  = "some-bundle-dir"
+	)
+
 	var (
-		containerId      string
-		bundlePath       string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
+		rootDir          string
 	)
 
 	BeforeEach(func() {
 		var err error
-		bundlePath, err = ioutil.TempDir("", "bundlePath")
+
+		rootDir, err = ioutil.TempDir("", "delete.root")
 		Expect(err).ToNot(HaveOccurred())
 
-		containerId = filepath.Base(bundlePath)
+		stateDir := filepath.Join(rootDir, containerId)
+		Expect(os.MkdirAll(stateDir, 0755)).To(Succeed())
+
+		state := container.State{Bundle: bundlePath}
+		contents, err := json.Marshal(state)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(filepath.Join(stateDir, "state.json"), contents, 0644)).To(Succeed())
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		containerManager = container.NewManager(hcsClient, mounter, bundlePath)
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "state")
+
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
+
 		fakeContainer = &hcsfakes.Container{}
 		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
 			{ProcessId: 666, ImageName: "wininit.exe"},
 		}, nil)
 		hcsClient.OpenContainerReturns(fakeContainer, nil)
-
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(rootDir)).To(Succeed())
 	})
 
 	It("calls the client with the correct container id", func() {

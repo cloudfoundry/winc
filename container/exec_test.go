@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Exec", func() {
@@ -36,8 +37,13 @@ var _ = Describe("Exec", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		containerManager = container.NewManager(hcsClient, mounter, containerId)
 		fakeContainer = &hcsfakes.Container{}
+
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "exec")
+
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, "")
 	})
 
 	AfterEach(func() {

@@ -62,6 +62,7 @@ following will output a list of processes running in the container:
 		}
 
 		containerId := context.Args().First()
+		rootDir := context.GlobalString("root")
 		processConfig := context.String("process")
 		args := context.Args()[1:]
 		cwd := context.String("cwd")
@@ -72,7 +73,7 @@ following will output a list of processes running in the container:
 
 		logger := logrus.WithField("containerId", containerId)
 
-		spec, err := config.ValidateProcess(logger, processConfig, &specs.Process{
+		processSpec, err := config.ValidateProcess(logger, processConfig, &specs.Process{
 			Args: args,
 			Cwd:  cwd,
 			User: specs.User{
@@ -84,17 +85,18 @@ following will output a list of processes running in the container:
 			return err
 		}
 
-		logger.WithFields(logrus.Fields{
+		logger = logger.WithFields(logrus.Fields{
 			"processConfig": processConfig,
 			"pidFile":       pidFile,
-			"args":          spec.Args,
-			"cwd":           spec.Cwd,
-			"user":          spec.User.Username,
+			"args":          processSpec.Args,
+			"cwd":           processSpec.Cwd,
+			"user":          processSpec.User.Username,
 			"env":           env,
 			"detach":        detach,
-		}).Debug("executing process in container")
+		})
+		logger.Debug("executing process in container")
 
-		return runProcess(containerId, spec, detach, pidFile, false)
+		return runProcess(logger, containerId, processSpec, detach, pidFile, rootDir, false)
 	},
 	SkipArgReorder: true,
 }
