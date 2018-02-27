@@ -68,6 +68,7 @@ func main() {
 		deleteCommand,
 		runCommand,
 		stateCommand,
+		startCommand,
 		execCommand,
 		eventsCommand,
 	}

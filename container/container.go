@@ -30,7 +30,10 @@ type Manager struct {
 }
 
 type State struct {
-	Bundle string `json:"bundle"`
+	Bundle                string           `json:"bundle"`
+	UserProgramPID        int              `json:"user_program_pid"`
+	UserProgramStartTime  syscall.Filetime `json:"user_program_start_time"`
+	UserProgramExecFailed bool             `json:"user_program_exec_failed"`
 }
 
 type Statistics struct {
@@ -349,7 +352,10 @@ func (m *Manager) State() (*specs.State, error) {
 	if cp.Stopped {
 		status = "stopped"
 	} else {
-		status = "created"
+		status, err = m.userProgramStatus(state)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pid, err := m.containerPid(m.id)
@@ -364,6 +370,101 @@ func (m *Manager) State() (*specs.State, error) {
 		Bundle:  state.Bundle,
 		Pid:     pid,
 	}, nil
+}
+
+func (m *Manager) userProgramStatus(state State) (string, error) {
+	if !stateValid(state) {
+		panic("invalid state")
+	}
+
+	if state.UserProgramExecFailed {
+		return "exited", nil
+	}
+
+	if (state.UserProgramPID == 0) && (state.UserProgramStartTime == syscall.Filetime{}) {
+		return "created", nil
+	}
+
+	container, err := m.hcsClient.OpenContainer(m.id)
+	if err != nil {
+		return "", err
+	}
+	defer container.Close()
+
+	pl, err := container.ProcessList()
+	if err != nil {
+		return "", err
+	}
+
+	for _, v := range pl {
+		if v.ProcessId == uint32(state.UserProgramPID) {
+			s, err := processStartTime(v.ProcessId)
+			if err != nil {
+				return "", err
+			}
+
+			if s == state.UserProgramStartTime {
+				return "running", nil
+			}
+		}
+	}
+
+	return "exited", nil
+}
+
+func stateValid(state State) bool {
+	return (state.UserProgramPID == 0 && state.UserProgramStartTime == syscall.Filetime{}) ||
+		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
+}
+
+func (m *Manager) Start() error {
+	ociState, err := m.State()
+	if err != nil {
+		return err
+	}
+
+	if ociState.Status != "created" {
+		return fmt.Errorf("cannot start a container in the %s state", ociState.Status)
+	}
+
+	spec, err := m.loadBundle(ociState.Bundle)
+	if err != nil {
+		return err
+	}
+
+	containerState := State{Bundle: ociState.Bundle}
+	writeContainerState := func() error {
+		contents, err := json.Marshal(containerState)
+		if err != nil {
+			return err
+		}
+
+		return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
+	}
+
+	proc, err := m.Exec(spec.Process, false)
+	if err != nil {
+		containerState.UserProgramExecFailed = true
+		writeContainerState()
+		return err
+	}
+	defer proc.Close()
+
+	containerState.UserProgramPID = proc.Pid()
+
+	// trying to open the process to get a handle + its start time should be valid
+	// here, since the hcsshim.process struct has an open handle to the process,
+	// and the PID will not be reused until all open handles are closed.
+	//
+	// https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803
+
+	containerState.UserProgramStartTime, err = processStartTime(uint32(proc.Pid()))
+	if err != nil {
+		writeContainerState()
+		return err
+	}
+
+	return writeContainerState()
 }
 
 func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {
@@ -441,6 +542,27 @@ func (m *Manager) containerPid(id string) (int, error) {
 	}
 
 	return int(process.ProcessId), nil
+}
+
+func processStartTime(pid uint32) (syscall.Filetime, error) {
+	h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
+	if err != nil {
+		return syscall.Filetime{}, err
+	}
+	defer syscall.CloseHandle(h)
+
+	var (
+		creationTime syscall.Filetime
+		exitTime     syscall.Filetime
+		kernelTime   syscall.Filetime
+		userTime     syscall.Filetime
+	)
+
+	if err := syscall.GetProcessTimes(h, &creationTime, &exitTime, &kernelTime, &userTime); err != nil {
+		return syscall.Filetime{}, err
+	}
+
+	return creationTime, nil
 }
 
 func (m *Manager) deleteContainer(containerId string, container hcs.Container) error {
