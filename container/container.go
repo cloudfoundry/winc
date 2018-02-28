@@ -1,9 +1,7 @@
 package container
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/winc/container/config"
+	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -58,6 +57,8 @@ type StateManager interface {
 	Initialize(string) error
 	SetRunning(uint32) error
 	SetExecFailed() error
+	WriteContainerState(state.ContainerState) error
+	ContainerPid(id string) (int, error)
 }
 
 //go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
@@ -188,7 +189,7 @@ func (m *Manager) Create(bundlePath string) (*specs.Spec, error) {
 		return nil, err
 	}
 
-	pid, err := m.containerPid(m.id)
+	pid, err := m.state.ContainerPid(m.id)
 	if err != nil {
 		cleanupContainer()
 		return nil, err
@@ -282,7 +283,7 @@ func (m *Manager) Delete(force bool) error {
 
 	var errors []string
 	for _, containerIdToDelete := range containerIdsToDelete {
-		pid, err := m.containerPid(containerIdToDelete)
+		pid, err := m.state.ContainerPid(containerIdToDelete)
 		if err != nil {
 			logrus.Error(err.Error())
 			errors = append(errors, err.Error())
@@ -322,51 +323,6 @@ func (m *Manager) State() (*specs.State, error) {
 	return m.state.Get()
 }
 
-func (m *Manager) userProgramStatus(state State) (string, error) {
-	if !stateValid(state) {
-		panic("invalid state")
-	}
-
-	if state.UserProgramExecFailed {
-		return "exited", nil
-	}
-
-	if (state.UserProgramPID == 0) && (state.UserProgramStartTime == syscall.Filetime{}) {
-		return "created", nil
-	}
-
-	container, err := m.hcsClient.OpenContainer(m.id)
-	if err != nil {
-		return "", err
-	}
-	defer container.Close()
-
-	pl, err := container.ProcessList()
-	if err != nil {
-		return "", err
-	}
-
-	for _, v := range pl {
-		if v.ProcessId == uint32(state.UserProgramPID) {
-			s, err := processStartTime(v.ProcessId)
-			if err != nil {
-				return "", err
-			}
-
-			if s == state.UserProgramStartTime {
-				return "running", nil
-			}
-		}
-	}
-
-	return "exited", nil
-}
-
-func stateValid(state State) bool {
-	return (state.UserProgramPID == 0 && state.UserProgramStartTime == syscall.Filetime{}) ||
-		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
-}
-
 func (m *Manager) Start() error {
 	ociState, err := m.State()
 	if err != nil {
@@ -382,14 +338,9 @@ func (m *Manager) Start() error {
 		return err
 	}
 
-	containerState := State{Bundle: ociState.Bundle}
+	containerState := state.ContainerState{Bundle: ociState.Bundle}
 	writeContainerState := func() error {
-		contents, err := json.Marshal(containerState)
-		if err != nil {
-			return err
-		}
-
-		return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
+		return m.state.WriteContainerState(containerState)
 	}
 
 	proc, err := m.Exec(spec.Process, false)
@@ -408,7 +359,7 @@ func (m *Manager) Start() error {
 	//
 	// https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803
 
-	containerState.UserProgramStartTime, err = processStartTime(uint32(proc.Pid()))
+	containerState.UserProgramStartTime, err = state.ProcessStartTime(uint32(proc.Pid()))
 	if err != nil {
 		writeContainerState()
 		return err
@@ -469,50 +420,6 @@ func (m *Manager) Stats() (Statistics, error) {
 	stats.Data.CPUStats.CPUUsage.System = containerStats.Processor.RuntimeKernel100ns * 100
 
 	return stats, nil
-}
-
-func (m *Manager) containerPid(id string) (int, error) {
-	container, err := m.hcsClient.OpenContainer(id)
-	if err != nil {
-		return -1, err
-	}
-
-	pl, err := container.ProcessList()
-	if err != nil {
-		return -1, err
-	}
-
-	var process hcsshim.ProcessListItem
-	oldestTime := time.Now()
-	for _, v := range pl {
-		if v.ImageName == "wininit.exe" && v.CreateTimestamp.Before(oldestTime) {
-			oldestTime = v.CreateTimestamp
-			process = v
-		}
-	}
-
-	return int(process.ProcessId), nil
-}
-
-func processStartTime(pid uint32) (syscall.Filetime, error) {
-	h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
-	if err != nil {
-		return syscall.Filetime{}, err
-	}
-	defer syscall.CloseHandle(h)
-
-	var (
-		creationTime syscall.Filetime
-		exitTime     syscall.Filetime
-		kernelTime   syscall.Filetime
-		userTime     syscall.Filetime
-	)
-
-	if err := syscall.GetProcessTimes(h, &creationTime, &exitTime, &kernelTime, &userTime); err != nil {
-		return syscall.Filetime{}, err
-	}
-
-	return creationTime, nil
 }
 
 func (m *Manager) deleteContainer(containerId string, container hcs.Container) error {
