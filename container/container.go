@@ -55,7 +55,7 @@ type Mounter interface {
 type StateManager interface {
 	Get() (*specs.State, error)
 	Initialize(string) error
-	SetRunning(uint32) error
+	SetRunning(int) error
 	SetExecFailed() error
 	WriteContainerState(state.ContainerState) error
 	ContainerPid(id string) (int, error)

@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -42,19 +43,27 @@ func NewManager(hcsClient HCSClient, id, rootDir string) *Manager {
 	}
 }
 
+func (m *Manager) Initialize(bundlePath string) error {
+	if err := os.MkdirAll(m.stateDir(), 0755); err != nil {
+		return err
+	}
+
+	state := ContainerState{Bundle: bundlePath}
+	return m.writeState(state)
+}
+
 func (m *Manager) Get() (*specs.State, error) {
+	if !m.isInitialized() {
+		return nil, errors.New("manager has not been initialized")
+	}
+
 	cp, err := m.hcsClient.GetContainerProperties(m.id)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	contents, err := ioutil.ReadFile(filepath.Join(m.stateDir(), stateFile))
+	state, err := m.readState()
 	if err != nil {
-		return nil, err
-	}
-
-	var cs ContainerState
-	if err := json.Unmarshal(contents, &cs); err != nil {
 		return nil, err
 	}
 
@@ -62,13 +71,14 @@ func (m *Manager) Get() (*specs.State, error) {
 	if cp.Stopped {
 		status = "stopped"
 	} else {
-		status, err = m.userProgramStatus(cs)
+		status, err = m.userProgramStatus(state)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 	}
 
-	pid, err := m.ContainerPid(m.id)
+	var pid int
+	pid, err = m.ContainerPid(m.id)
 	if err != nil {
 		return nil, err
 	}
@@ -77,17 +87,69 @@ func (m *Manager) Get() (*specs.State, error) {
 		Version: specs.Version,
 		ID:      m.id,
 		Status:  status,
-		Bundle:  cs.Bundle,
+		Bundle:  state.Bundle,
 		Pid:     pid,
 	}, nil
 }
 
-func (m *Manager) Initialize(bundlePath string) error {
-	if err := os.MkdirAll(m.stateDir(), 0755); err != nil {
+func (m *Manager) SetRunning(pid int) error {
+	if !m.isInitialized() {
+		return errors.New("manager has not been initialized")
+	}
+
+	state, err := m.readState()
+	if err != nil {
 		return err
 	}
 
-	state := ContainerState{Bundle: bundlePath}
+	state.UserProgramPID = pid
+	state.UserProgramStartTime, err = ProcessStartTime(uint32(pid))
+	if err != nil {
+		return err
+	}
+
+	return m.writeState(state)
+}
+
+func (m *Manager) SetExecFailed() error {
+	if !m.isInitialized() {
+		return errors.New("manager has not been initialized")
+	}
+
+	state, err := m.readState()
+	if err != nil {
+		return err
+	}
+
+	state.UserProgramExecFailed = true
+
+	return m.writeState(state)
+}
+
+func (m *Manager) stateDir() string {
+	return filepath.Join(m.rootDir, m.id)
+}
+
+func (m *Manager) isInitialized() bool {
+	_, err := os.Stat(m.stateDir())
+	return err == nil
+}
+
+func (m *Manager) readState() (ContainerState, error) {
+	contents, err := ioutil.ReadFile(filepath.Join(m.stateDir(), stateFile))
+	if err != nil {
+		return ContainerState{}, err
+	}
+
+	var state ContainerState
+	if err := json.Unmarshal(contents, &state); err != nil {
+		return ContainerState{}, err
+	}
+
+	return state, nil
+}
+
+func (m *Manager) writeState(state ContainerState) error {
 	contents, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -96,20 +158,8 @@ func (m *Manager) Initialize(bundlePath string) error {
 	return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
 }
 
-func (m *Manager) SetRunning(pid uint32) error {
-	return nil
-}
-
-func (m *Manager) SetExecFailed() error {
-	return nil
-}
-
-func (m *Manager) stateDir() string {
-	return filepath.Join(m.rootDir, m.id)
-}
-
-func (m *Manager) WriteContainerState(containerState ContainerState) error {
-	contents, err := json.Marshal(containerState)
+func (m *Manager) WriteContainerState(ContainerState ContainerState) error {
+	contents, err := json.Marshal(ContainerState)
 	if err != nil {
 		return err
 	}
@@ -182,11 +232,13 @@ func stateValid(state ContainerState) bool {
 	return (state.UserProgramPID == 0 && state.UserProgramStartTime == syscall.Filetime{}) ||
 		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
 }
+
 func (m *Manager) ContainerPid(id string) (int, error) {
 	container, err := m.hcsClient.OpenContainer(id)
 	if err != nil {
 		return -1, err
 	}
+	defer container.Close()
 
 	pl, err := container.ProcessList()
 	if err != nil {

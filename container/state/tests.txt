@@ -1,0 +1,183 @@
+
+		It("writes the bundle path to state.json in <rootDir>/<containerId>/", func() {
+			_, err := containerManager.Create(bundlePath)
+			Expect(err).To(Succeed())
+
+			var state state.ContainerState
+			contents, err := ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(json.Unmarshal(contents, &state)).To(Succeed())
+
+			Expect(state.Bundle).To(Equal(bundlePath))
+		})
+
+		Context("when getting container pid fails", func() {
+			BeforeEach(func() {
+				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
+				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
+			})
+
+			It("deletes the container", func() {
+				_, err := containerManager.Create(bundlePath)
+				Expect(err).To(MatchError("couldn't get pid"))
+
+				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
+			})
+		})
+	FIt("calls the client with the correct container id", func() {
+		_, err := containerManager.State()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+		Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+	})
+	const (
+		containerId = "some-id"
+		bundlePath  = "some-bundle-dir"
+	)
+
+	var (
+		hcsClient        *fakes.HCSClient
+		mounter          *fakes.Mounter
+		stateManager     *fakes.StateManager
+		containerManager *container.Manager
+		fakeContainer    *hcsfakes.Container
+		rootDir          string
+	)
+
+	BeforeEach(func() {
+		var err error
+
+		rootDir, err = ioutil.TempDir("", "delete.root")
+		Expect(err).ToNot(HaveOccurred())
+
+		stateDir := filepath.Join(rootDir, containerId)
+		Expect(os.MkdirAll(stateDir, 0755)).To(Succeed())
+
+		state := state.ContainerState{Bundle: bundlePath}
+		contents, err := json.Marshal(state)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ioutil.WriteFile(filepath.Join(stateDir, "state.json"), contents, 0644)).To(Succeed())
+
+		hcsClient = &fakes.HCSClient{}
+		mounter = &fakes.Mounter{}
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "state")
+
+		stateManager = &fakes.StateManager{}
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir)
+
+		fakeContainer = &hcsfakes.Container{}
+		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+			{ProcessId: 666, ImageName: "wininit.exe"},
+		}, nil)
+		hcsClient.OpenContainerReturns(fakeContainer, nil)
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(rootDir)).To(Succeed())
+	})
+
+	It("calls the client with the correct container id", func() {
+		_, err := containerManager.State()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stateManager.GetCallCount()).To(Equal(1))
+	})
+
+	Context("when the specified container exists", func() {
+		var (
+			expectedState               *specs.State
+			actualState                 *specs.State
+			expectedContainerProperties hcsshim.ContainerProperties
+		)
+
+		BeforeEach(func() {
+			expectedState = &specs.State{
+				Version: specs.Version,
+				ID:      containerId,
+				Bundle:  bundlePath,
+				Pid:     666,
+			}
+
+			expectedContainerProperties = hcsshim.ContainerProperties{
+				ID:   containerId,
+				Name: bundlePath,
+			}
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			hcsClient.GetContainerPropertiesReturns(expectedContainerProperties, nil)
+			actualState, err = containerManager.State()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Context("when the container has just been created", func() {
+			BeforeEach(func() {
+				expectedState.Status = "created"
+			})
+
+			It("returns the correct state", func() {
+				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
+				Expect(fakeContainer.ProcessListCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when the container has been stopped", func() {
+			BeforeEach(func() {
+				expectedState.Status = "stopped"
+				expectedContainerProperties.Stopped = true
+			})
+
+			It("returns the correct state", func() {
+				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
+				Expect(fakeContainer.ProcessListCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when there are no wininit.exe processes in the container", func() {
+			BeforeEach(func() {
+				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{}, nil)
+			})
+
+			It("returns 0 as the pid", func() {
+				Expect(actualState.Pid).To(Equal(0))
+			})
+		})
+
+		Context("when there are multiple wininit.exe processes in the container", func() {
+			BeforeEach(func() {
+				now := time.Now()
+				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+					{ProcessId: 668, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -1, 0)},
+					{ProcessId: 667, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -2, 0)},
+					{ProcessId: 666, ImageName: "wininit.exe", CreateTimestamp: now},
+				}, nil)
+			})
+
+			It("returns the pid of the oldest one as the container pid", func() {
+				Expect(actualState.Pid).To(Equal(667))
+			})
+		})
+	})
+
+	Context("when the specified container does not exist", func() {
+		var missingContainerError = errors.New("container does not exist")
+
+		BeforeEach(func() {
+			hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, missingContainerError)
+		})
+
+		It("errors", func() {
+			_, err := containerManager.State()
+			Expect(err).To(Equal(missingContainerError))
+		})
+	})
