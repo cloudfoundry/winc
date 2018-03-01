@@ -27,6 +27,7 @@ var _ = Describe("Create", func() {
 		layerFolders     []string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
+		stateManager     *fakes.StateManager
 		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
@@ -68,11 +69,12 @@ var _ = Describe("Create", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
+		stateManager = &fakes.StateManager{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "create")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir)
 	})
 
 	AfterEach(func() {
@@ -110,6 +112,8 @@ var _ = Describe("Create", func() {
 				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
 			}, nil)
 
+			stateManager.ContainerPidReturnsOnCall(0, pid, nil)
+
 			returnedSpec, err := containerManager.Create(bundlePath)
 			Expect(err).To(Succeed())
 			Expect(returnedSpec).To(Equal(spec))
@@ -140,18 +144,9 @@ var _ = Describe("Create", func() {
 			actualPid, actualVolumePath := mounter.MountArgsForCall(0)
 			Expect(actualPid).To(Equal(pid))
 			Expect(actualVolumePath).To(Equal(containerVolume))
-		})
 
-		It("writes the bundle path to state.json in <rootDir>/<containerId>/", func() {
-			_, err := containerManager.Create(bundlePath)
-			Expect(err).To(Succeed())
-
-			var state container.State
-			contents, err := ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(json.Unmarshal(contents, &state)).To(Succeed())
-
-			Expect(state.Bundle).To(Equal(bundlePath))
+			Expect(stateManager.ContainerPidCallCount()).To(Equal(1))
+			Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 		})
 
 		Context("when the volume path is empty", func() {
@@ -453,13 +448,17 @@ var _ = Describe("Create", func() {
 
 		Context("when getting container pid fails", func() {
 			BeforeEach(func() {
-				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
 				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
+
+				stateManager.ContainerPidReturnsOnCall(0, 0, errors.New("couldn't get pid"))
 			})
 
 			It("deletes the container", func() {
 				_, err := containerManager.Create(bundlePath)
 				Expect(err).To(MatchError("couldn't get pid"))
+
+				Expect(stateManager.ContainerPidCallCount()).To(Equal(1))
+				Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})

@@ -1,7 +1,6 @@
 package container_test
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -24,6 +23,7 @@ var _ = Describe("Delete", func() {
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
 		fakeContainer    *hcsfakes.Container
+		stateManager     *fakes.StateManager
 		containerManager *container.Manager
 		rootDir          string
 	)
@@ -41,20 +41,16 @@ var _ = Describe("Delete", func() {
 		stateDir := filepath.Join(rootDir, containerId)
 		Expect(os.MkdirAll(stateDir, 0755)).To(Succeed())
 
-		state := container.State{Bundle: bundlePath}
-		contents, err := json.Marshal(state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ioutil.WriteFile(filepath.Join(stateDir, "state.json"), contents, 0644)).To(Succeed())
-
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
+		stateManager = &fakes.StateManager{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "delete")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir)
 	})
 
 	AfterEach(func() {
@@ -70,15 +66,19 @@ var _ = Describe("Delete", func() {
 				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
 			}, nil)
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
+			stateManager.ContainerPidReturnsOnCall(0, pid, nil)
 		})
 
 		It("deletes it", func() {
 			Expect(containerManager.Delete(false)).To(Succeed())
 
+			Expect(stateManager.ContainerPidCallCount()).To(Equal(1))
+			Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
+
 			Expect(mounter.UnmountCallCount()).To(Equal(1))
 			Expect(mounter.UnmountArgsForCall(0)).To(Equal(pid))
 
-			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(2))
@@ -107,12 +107,13 @@ var _ = Describe("Delete", func() {
 				fakeSidecar.ProcessListReturns([]hcsshim.ProcessListItem{
 					{ProcessId: uint32(sidecarPid), ImageName: "wininit.exe"},
 				}, nil)
+
+				stateManager.ContainerPidReturnsOnCall(0, sidecarPid, nil)
+				stateManager.ContainerPidReturnsOnCall(1, pid, nil)
 			})
 			It("deletes the sidecar container", func() {
 				hcsClient.OpenContainerReturnsOnCall(0, fakeSidecar, nil)
-				hcsClient.OpenContainerReturnsOnCall(1, fakeSidecar, nil)
-				hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
-				hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
+				hcsClient.OpenContainerReturnsOnCall(1, fakeContainer, nil)
 
 				Expect(containerManager.Delete(false)).To(Succeed())
 
@@ -120,11 +121,17 @@ var _ = Describe("Delete", func() {
 				query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
 				Expect(hcsClient.GetContainersArgsForCall(0)).To(Equal(query))
 
+				Expect(stateManager.ContainerPidCallCount()).To(Equal(2))
+				Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(sidecarId))
+				Expect(stateManager.ContainerPidArgsForCall(1)).To(Equal(containerId))
+
 				Expect(mounter.UnmountCallCount()).To(Equal(2))
 				Expect(mounter.UnmountArgsForCall(0)).To(Equal(sidecarPid))
+				Expect(mounter.UnmountArgsForCall(1)).To(Equal(pid))
 
-				Expect(hcsClient.OpenContainerCallCount()).To(Equal(4))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(sidecarId))
+				Expect(hcsClient.OpenContainerArgsForCall(1)).To(Equal(containerId))
 
 				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(3))
 				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
@@ -148,9 +155,7 @@ var _ = Describe("Delete", func() {
 				var unmountError error = errors.New("failed to unmount container")
 				It("continue to delete the main container", func() {
 					hcsClient.OpenContainerReturnsOnCall(0, fakeSidecar, nil)
-					hcsClient.OpenContainerReturnsOnCall(1, fakeSidecar, nil)
-					hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
-					hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
+					hcsClient.OpenContainerReturnsOnCall(1, fakeContainer, nil)
 					mounter.UnmountReturnsOnCall(0, unmountError)
 					Expect(containerManager.Delete(false)).To(Equal(unmountError))
 					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
@@ -166,7 +171,7 @@ var _ = Describe("Delete", func() {
 			It("continues deleting the container and returns an error", func() {
 				Expect(containerManager.Delete(false)).NotTo(Succeed())
 
-				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))

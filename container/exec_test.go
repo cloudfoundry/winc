@@ -23,6 +23,7 @@ var _ = Describe("Exec", func() {
 		bundlePath       string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
+		stateManager     *fakes.StateManager
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
 		processSpec      specs.Process
@@ -37,13 +38,14 @@ var _ = Describe("Exec", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
+		stateManager = &fakes.StateManager{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "exec")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, "")
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "")
 	})
 
 	AfterEach(func() {

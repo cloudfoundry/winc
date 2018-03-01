@@ -319,7 +319,6 @@ func (m *Manager) Delete(force bool) error {
 }
 
 func (m *Manager) State() (*specs.State, error) {
-
 	return m.state.Get()
 }
 
