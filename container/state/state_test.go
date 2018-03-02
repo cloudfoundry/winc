@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/container/state/fakes"
@@ -24,10 +23,10 @@ var _ = Describe("StateManager", func() {
 	)
 
 	var (
-		hcsClient     *fakes.HCSClient
-		rootDir       string
-		sm            *state.Manager
-		fakeContainer *hcsfakes.Container
+		hcsClient *fakes.HCSClient
+		rootDir   string
+		sm        *state.Manager
+		container *hcsfakes.Container
 	)
 
 	BeforeEach(func() {
@@ -42,55 +41,6 @@ var _ = Describe("StateManager", func() {
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(rootDir)).To(Succeed())
-	})
-
-	Context("ContainerPid", func() {
-		Context("when there are no wininit.exe processes in the container", func() {
-			BeforeEach(func() {
-				fakeContainer = &hcsfakes.Container{}
-				hcsClient.OpenContainerReturnsOnCall(0, fakeContainer, nil)
-				fakeContainer.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{}, nil)
-			})
-
-			It("returns 0 as the pid", func() {
-				pid, err := sm.ContainerPid(containerId)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pid).To(Equal(0))
-			})
-		})
-
-		Context("when there are multiple wininit.exe processes in the container", func() {
-			BeforeEach(func() {
-				fakeContainer = &hcsfakes.Container{}
-				hcsClient.OpenContainerReturnsOnCall(0, fakeContainer, nil)
-				now := time.Now()
-				fakeContainer.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{
-					{ProcessId: 668, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -1, 0)},
-					{ProcessId: 667, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -2, 0)},
-					{ProcessId: 666, ImageName: "wininit.exe", CreateTimestamp: now},
-				}, nil)
-			})
-
-			It("returns the pid of the oldest one as the container pid", func() {
-				pid, err := sm.ContainerPid(containerId)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pid).To(Equal(667))
-			})
-		})
-
-		Context("when getting container pid fails", func() {
-			BeforeEach(func() {
-				hcsClient.OpenContainerReturns(nil, errors.New("couldn't get pid"))
-				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
-			})
-
-			It("returns an error", func() {
-				_, err := sm.ContainerPid(containerId)
-				//TODO: use more specific error
-				Expect(err).To(MatchError("couldn't get pid"))
-			})
-		})
-
 	})
 
 	Context("Get", func() {
@@ -140,10 +90,6 @@ var _ = Describe("StateManager", func() {
 		})
 
 		Context("after the manager has been initialized", func() {
-			var (
-				container *hcsfakes.Container
-			)
-
 			BeforeEach(func() {
 				Expect(sm.Initialize(bundlePath)).To(Succeed())
 
@@ -310,6 +256,16 @@ var _ = Describe("StateManager", func() {
 					})
 				})
 
+				Context("when the specified container does not exist", func() {
+					BeforeEach(func() {
+						hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, errors.New("container does not exist"))
+					})
+
+					It("errors", func() {
+						_, err := sm.Get()
+						Expect(err).To(Equal(&state.ContainerNotFoundError{Id: containerId}))
+					})
+				})
 			})
 		})
 	})

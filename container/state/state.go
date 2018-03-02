@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
@@ -33,6 +32,14 @@ type ContainerState struct {
 	UserProgramPID        int              `json:"user_program_pid"`
 	UserProgramStartTime  syscall.Filetime `json:"user_program_start_time"`
 	UserProgramExecFailed bool             `json:"user_program_exec_failed"`
+}
+
+type ContainerNotFoundError struct {
+	Id string
+}
+
+func (e *ContainerNotFoundError) Error() string {
+	return fmt.Sprintf("container does not exist: %s", e.Id)
 }
 
 type FileNotFoundError struct {
@@ -67,7 +74,7 @@ func (m *Manager) Get() (*specs.State, error) {
 
 	cp, err := m.hcsClient.GetContainerProperties(m.id)
 	if err != nil {
-		panic(err)
+		return nil, &ContainerNotFoundError{Id: m.id}
 	}
 
 	state, err := m.readState()
@@ -86,7 +93,7 @@ func (m *Manager) Get() (*specs.State, error) {
 	}
 
 	var pid int
-	pid, err = m.ContainerPid(m.id)
+	pid, err = ContainerPid(m.hcsClient, m.id)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +196,7 @@ func (m *Manager) userProgramStatus(state ContainerState) (string, error) {
 		return "created", nil
 	}
 
+	//TODO: MOVE TO PROCESS????
 	container, err := m.hcsClient.OpenContainer(m.id)
 	if err != nil {
 		return "", err
@@ -240,28 +248,4 @@ func ProcessStartTime(pid uint32) (syscall.Filetime, error) {
 func stateValid(state ContainerState) bool {
 	return (state.UserProgramPID == 0 && state.UserProgramStartTime == syscall.Filetime{}) ||
 		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
-}
-
-func (m *Manager) ContainerPid(id string) (int, error) {
-	container, err := m.hcsClient.OpenContainer(id)
-	if err != nil {
-		return -1, err
-	}
-	defer container.Close()
-
-	pl, err := container.ProcessList()
-	if err != nil {
-		return -1, err
-	}
-
-	var process hcsshim.ProcessListItem
-	oldestTime := time.Now()
-	for _, v := range pl {
-		if v.ImageName == "wininit.exe" && v.CreateTimestamp.Before(oldestTime) {
-			oldestTime = v.CreateTimestamp
-			process = v
-		}
-	}
-
-	return int(process.ProcessId), nil
 }

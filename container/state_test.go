@@ -1,6 +1,7 @@
 package container_test
 
 import (
+	"errors"
 	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/container"
@@ -58,14 +59,20 @@ var _ = Describe("State", func() {
 	})
 
 	Context("when the state manager fails to return the state", func() {
-		BeforeEach(func() {
-			stateManager.GetReturnsOnCall(0, nil, &state.FileNotFoundError{Id: "some-id"})
+		Context("when the state file cannot be found", func() {
+			BeforeEach(func() {
+				stateManager.GetReturnsOnCall(0, nil, &state.FileNotFoundError{Id: "some-id"})
+			})
+
+			It("calls the state manager and returns the error", func() {
+				_, err := containerManager.State()
+				Expect(stateManager.GetCallCount()).To(Equal(1))
+				Expect(err).To(MatchError("container not found: some-id"))
+			})
 		})
 
-		It("calls the state manager and returns the error", func() {
-			_, err := containerManager.State()
-			Expect(stateManager.GetCallCount()).To(Equal(1))
-			Expect(err).To(MatchError("container not found: some-id"))
+		Context("when the state manager cannot find the container", func() {
+			panic(errors.New("IMPLEMENT ME"))
 		})
 	})
 })
