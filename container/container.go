@@ -1,6 +1,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -319,7 +320,16 @@ func (m *Manager) Delete(force bool) error {
 }
 
 func (m *Manager) State() (*specs.State, error) {
-	return m.state.Get()
+	containerState, err := m.state.Get()
+	if _, ok := err.(*state.FileNotFoundError); ok {
+		return nil, errors.New(fmt.Sprintf("container not found: %s", m.id))
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	return containerState, nil
+
 }
 
 func (m *Manager) Start() error {

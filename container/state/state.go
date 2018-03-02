@@ -2,7 +2,7 @@ package state
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,6 +35,14 @@ type ContainerState struct {
 	UserProgramExecFailed bool             `json:"user_program_exec_failed"`
 }
 
+type FileNotFoundError struct {
+	Id string
+}
+
+func (e *FileNotFoundError) Error() string {
+	return fmt.Sprintf("unable to find state file for container: %s", e.Id)
+}
+
 func NewManager(hcsClient HCSClient, id, rootDir string) *Manager {
 	return &Manager{
 		hcsClient: hcsClient,
@@ -54,7 +62,7 @@ func (m *Manager) Initialize(bundlePath string) error {
 
 func (m *Manager) Get() (*specs.State, error) {
 	if !m.isInitialized() {
-		return nil, errors.New("manager has not been initialized")
+		return nil, &FileNotFoundError{Id: m.id}
 	}
 
 	cp, err := m.hcsClient.GetContainerProperties(m.id)
@@ -94,7 +102,7 @@ func (m *Manager) Get() (*specs.State, error) {
 
 func (m *Manager) SetRunning(pid int) error {
 	if !m.isInitialized() {
-		return errors.New("manager has not been initialized")
+		return &FileNotFoundError{Id: m.id}
 	}
 
 	state, err := m.readState()
@@ -113,7 +121,7 @@ func (m *Manager) SetRunning(pid int) error {
 
 func (m *Manager) SetExecFailed() error {
 	if !m.isInitialized() {
-		return errors.New("manager has not been initialized")
+		return &FileNotFoundError{Id: m.id}
 	}
 
 	state, err := m.readState()
@@ -131,6 +139,7 @@ func (m *Manager) stateDir() string {
 }
 
 func (m *Manager) isInitialized() bool {
+	//TODO: check for file instaed of just directory
 	_, err := os.Stat(m.stateDir())
 	return err == nil
 }

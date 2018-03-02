@@ -32,10 +32,10 @@ type StateManager struct {
 	initializeReturnsOnCall map[int]struct {
 		result1 error
 	}
-	SetRunningStub        func(uint32) error
+	SetRunningStub        func(int) error
 	setRunningMutex       sync.RWMutex
 	setRunningArgsForCall []struct {
-		arg1 uint32
+		arg1 int
 	}
 	setRunningReturns struct {
 		result1 error
@@ -171,11 +171,11 @@ func (fake *StateManager) InitializeReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *StateManager) SetRunning(arg1 uint32) error {
+func (fake *StateManager) SetRunning(arg1 int) error {
 	fake.setRunningMutex.Lock()
 	ret, specificReturn := fake.setRunningReturnsOnCall[len(fake.setRunningArgsForCall)]
 	fake.setRunningArgsForCall = append(fake.setRunningArgsForCall, struct {
-		arg1 uint32
+		arg1 int
 	}{arg1})
 	fake.recordInvocation("SetRunning", []interface{}{arg1})
 	fake.setRunningMutex.Unlock()
@@ -194,7 +194,7 @@ func (fake *StateManager) SetRunningCallCount() int {
 	return len(fake.setRunningArgsForCall)
 }
 
-func (fake *StateManager) SetRunningArgsForCall(i int) uint32 {
+func (fake *StateManager) SetRunningArgsForCall(i int) int {
 	fake.setRunningMutex.RLock()
 	defer fake.setRunningMutex.RUnlock()
 	return fake.setRunningArgsForCall[i].arg1
