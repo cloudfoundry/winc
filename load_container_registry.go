@@ -78,45 +78,56 @@ func main() {
 		}
 	}()
 
-	//	subKey := filepath.Join(id, "ControlSet001", "Services", "HTTP", "Parameters", "UrlAclInfo")
-	//	sk, err := syscall.UTF16PtrFromString(subKey)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//
-	//	var aclKey syscall.Handle
-	//	r0, _, _ = regOpenKeyExW.Call(
-	//		HKEY_LOCAL_MACHINE,
-	//		uintptr(unsafe.Pointer(sk)),
-	//		uintptr(0),
-	//		KEY_ALL_ACCESS,
-	//		uintptr(unsafe.Pointer(&aclKey)),
-	//	)
-	//	if r0 != 0 {
-	//		fmt.Printf("RegOpenKeyExW: %s\n", windowsErrorMessage(uint32(r0)))
-	//		return
-	//	}
-	//
-	//	url := "http://sams-cool-website:5566"
-	//	u, err := syscall.UTF16PtrFromString(url)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//
-	//	data := []byte{0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf}
-	//
-	//	r0, _, _ = regSetKeyValueW.Call(
-	//		uintptr(aclKey),
-	//		uintptr(0),
-	//		uintptr(unsafe.Pointer(u)),
-	//		REG_BINARY,
-	//		uintptr(unsafe.Pointer(&data[0])),
-	//		uintptr(8),
-	//	)
-	//	if r0 != 0 {
-	//		fmt.Printf("RegSetKeyValueW: %s\n", windowsErrorMessage(uint32(r0)))
-	//		return
-	//	}
+	num, err := getContainerControlSet(id)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(num)
+
+	subKey := filepath.Join(id, fmt.Sprintf("ControlSet00%d", num), "Services", "HTTP", "Parameters", "UrlAclInfo")
+	sk, err := syscall.UTF16PtrFromString(subKey)
+	if err != nil {
+		panic(err)
+	}
+
+	var aclKey syscall.Handle
+	r0, _, _ = regOpenKeyExW.Call(
+		HKEY_LOCAL_MACHINE,
+		uintptr(unsafe.Pointer(sk)),
+		uintptr(0),
+		KEY_ALL_ACCESS,
+		uintptr(unsafe.Pointer(&aclKey)),
+	)
+	if r0 != 0 {
+		fmt.Printf("RegOpenKeyExW: %s\n", windowsErrorMessage(uint32(r0)))
+		return
+	}
+
+	url := "http://sams-cool-website:5566"
+	u, err := syscall.UTF16PtrFromString(url)
+	if err != nil {
+		panic(err)
+	}
+
+	data := []byte{0xd, 0xe, 0xa, 0xd, 0xb, 0xe, 0xe, 0xf}
+
+	r0, _, _ = regSetKeyValueW.Call(
+		uintptr(aclKey),
+		uintptr(0),
+		uintptr(unsafe.Pointer(u)),
+		REG_BINARY,
+		uintptr(unsafe.Pointer(&data[0])),
+		uintptr(8),
+	)
+	if r0 != 0 {
+		fmt.Printf("RegSetKeyValueW: %s\n", windowsErrorMessage(uint32(r0)))
+		return
+	}
+
+	if err := closeKey(aclKey); err != nil {
+		fmt.Println(err.Error())
+	}
 
 }
 
