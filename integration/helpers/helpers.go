@@ -112,6 +112,7 @@ func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile 
 }
 
 func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile string) {
+	fmt.Println(networkConfig.GatewayAddress)
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
 	defer f.Close()
