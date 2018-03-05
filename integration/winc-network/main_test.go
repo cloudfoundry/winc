@@ -335,31 +335,31 @@ var _ = Describe("networking", func() {
 				It("cannot connect to a remote host over TCP", func() {
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "9.9.9.9", "--port", "53"}, false)
+					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 					Expect(err).To(HaveOccurred())
 
-					errStr := "dial tcp 9.9.9.9:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+					errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 					Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
 				})
 
 				It("cannot connect to a remote host over UDP", func() {
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "9.9.9.9", "--port", "53"}, false)
+					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 					Expect(err).To(HaveOccurred())
 
 					Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
-					Expect(stdout.String()).To(ContainSubstring("9.9.9.9:53: i/o timeout"))
+					Expect(stdout.String()).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
 				})
 
 				It("cannot connect to a remote host over ICMP", func() {
 					Skip("ping.exe elevates to admin, breaking this test")
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "9.9.9.9"}, false)
+					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 					Expect(err).To(HaveOccurred())
 
-					Expect(stdout.String()).To(ContainSubstring("Ping statistics for 9.9.9.9"))
+					Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 					Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 				})
 			})
@@ -373,7 +373,7 @@ var _ = Describe("networking", func() {
 				BeforeEach(func() {
 					netOutRule = netrules.NetOut{
 						Networks: []netrules.IPRange{
-							{Start: net.ParseIP("8.8.5.5"), End: net.ParseIP("10.0.0.0")},
+							{Start: net.ParseIP("8.8.5.5"), End: net.ParseIP("9.0.0.0")},
 						},
 						Ports: []netrules.PortRange{{Start: 40, End: 60}},
 					}
@@ -394,19 +394,19 @@ var _ = Describe("networking", func() {
 					It("can connect to a remote host over UDP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 9.9.9.9:53 over UDP"))
+						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
 					})
 
 					It("cannot connect to a remote host over TCP", func() {
 						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
-						errStr := "dial tcp 9.9.9.9:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+						errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
 					})
 
@@ -414,21 +414,21 @@ var _ = Describe("networking", func() {
 						Skip("ping.exe elevates to admin, breaking this test")
 						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "9.9.9.9"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).To(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 9.9.9.9"))
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 					})
 
 					It("cannot connect to a remote host over UDP prohibited by netout", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "149.112.112.112", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
-						Expect(stdout.String()).To(ContainSubstring("149.112.112.112:53: i/o timeout"))
+						Expect(stdout.String()).To(ContainSubstring("8.8.4.4:53: i/o timeout"))
 					})
 
 					Context("netout allows udp on port 53", func() {
@@ -467,40 +467,40 @@ var _ = Describe("networking", func() {
 					It("can connect to a remote host over TCP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 9.9.9.9:53 over tcp"))
+						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 					})
 
 					It("cannot connect to a remote host over UDP", func() {
 						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
-						Expect(stdout.String()).To(ContainSubstring("9.9.9.9:53: i/o timeout"))
+						Expect(stdout.String()).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
 					})
 
 					It("cannot connect to a remote host over ICMP", func() {
 						Skip("ping.exe elevates to admin, breaking this test")
 						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "9.9.9.9"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).To(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 9.9.9.9"))
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 					})
 
 					It("cannot connect to a remote server over TCP prohibited by netout", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "149.112.112.112", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
-						errStr := "dial tcp 149.112.112.112:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+						errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
 					})
 				})
@@ -517,10 +517,10 @@ var _ = Describe("networking", func() {
 					It("can connect to a remote host over ICMP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "9.9.9.9"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 9.9.9.9"))
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).NotTo(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received ="))
 					})
@@ -528,31 +528,31 @@ var _ = Describe("networking", func() {
 					It("cannot connect to a remote host over TCP", func() {
 						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
-						errStr := "dial tcp 9.9.9.9:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+						errStr := "dial tcp 8.8.8.8:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
 					})
 
 					It("cannot connect to a remote host over UDP", func() {
 						helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 
 						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
-						Expect(stdout.String()).To(ContainSubstring("9.9.9.9:53: i/o timeout"))
+						Expect(stdout.String()).To(ContainSubstring("8.8.8.8:53: i/o timeout"))
 					})
 
 					It("cannot connect to a remote host over ICMP prohibited by netout", func() {
 						Skip("ping.exe elevates to admin, breaking this test")
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "149.112.112.112"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
 						Expect(err).To(HaveOccurred())
 
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 149.112.112.112"))
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.4.4"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 					})
 				})
@@ -569,38 +569,38 @@ var _ = Describe("networking", func() {
 					It("allows access over all protocols to valid remote hosts", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 9.9.9.9:53 over UDP"))
+						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
 
-						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "9.9.9.9", "--port", "53"}, false)
+						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 9.9.9.9:53 over tcp"))
+						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 
-						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "9.9.9.9"}, false)
+						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 9.9.9.9"))
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
 					})
 
 					It("blocks access over all protocols to prohibited remote hosts", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "149.112.112.112", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
 						Expect(stdout.String()).To(ContainSubstring("failed to exchange: read udp"))
-						Expect(stdout.String()).To(ContainSubstring("149.112.112.112:53: i/o timeout"))
+						Expect(stdout.String()).To(ContainSubstring("8.8.4.4:53: i/o timeout"))
 
-						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "149.112.112.112", "--port", "53"}, false)
+						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.4.4", "--port", "53"}, false)
 						Expect(err).To(HaveOccurred())
-						errStr := "dial tcp 149.112.112.112:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
+						errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 						Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
 
 						// ping.exe elevates to admin, breaking this test
 
-						//	stdout, _, err = helpers.ExecInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "149.112.112.112"}, false)
+						//	stdout, _, err = helpers.ExecInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
 						//	Expect(err).To(HaveOccurred())
-						//	Expect(stdout.String()).To(ContainSubstring("Ping statistics for 149.112.112.112"))
+						//	Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.4.4"))
 						//	Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 					})
 				})
@@ -634,7 +634,7 @@ var _ = Describe("networking", func() {
 			BeforeEach(func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				networkConfig = helpers.GenerateNetworkConfig()
-				networkConfig.DNSServers = []string{"9.9.9.9", "149.112.112.112"}
+				networkConfig.DNSServers = []string{"8.8.8.8", "8.8.4.4"}
 				helpers.CreateNetwork(networkConfig, networkConfigFile)
 			})
 
@@ -647,7 +647,7 @@ var _ = Describe("networking", func() {
 
 				stdout, _, err := helpers.ExecInContainer(containerId, []string{"powershell.exe", "-Command", `(Get-DnsClientServerAddress -InterfaceAlias 'vEthernet*' -AddressFamily IPv4).ServerAddresses -join ","`}, false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(Equal("9.9.9.9,149.112.112.112"))
+				Expect(strings.TrimSpace(stdout.String())).To(Equal("8.8.8.8,8.8.4.4"))
 			})
 
 			It("allows traffic to those servers", func() {
@@ -656,9 +656,9 @@ var _ = Describe("networking", func() {
 				pid := helpers.GetContainerState(containerId).Pid
 				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
-				stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "9.9.9.9", "--port", "53"}, false)
+				stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 9.9.9.9:53 over tcp"))
+				Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 			})
 		})
 	})
