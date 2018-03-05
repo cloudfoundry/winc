@@ -24,6 +24,7 @@ type HCSClient interface {
 //go:generate counterfeiter -o fakes/process_manager.go --fake-name ProcessManager . ProcessManager
 type ProcessManager interface {
 	ContainerPid(string) (int, error)
+	ProcessStartTime(uint32) (syscall.Filetime, error)
 }
 
 type Manager struct {
@@ -125,7 +126,7 @@ func (m *Manager) SetRunning(pid int) error {
 	}
 
 	state.UserProgramPID = pid
-	state.UserProgramStartTime, err = ProcessStartTime(uint32(pid))
+	state.UserProgramStartTime, err = m.processManager.ProcessStartTime(uint32(pid))
 	if err != nil {
 		return err
 	}
@@ -217,7 +218,7 @@ func (m *Manager) userProgramStatus(state ContainerState) (string, error) {
 
 	for _, v := range pl {
 		if v.ProcessId == uint32(state.UserProgramPID) {
-			s, err := ProcessStartTime(v.ProcessId)
+			s, err := m.processManager.ProcessStartTime(v.ProcessId)
 			if err != nil {
 				return "", err
 			}
@@ -229,27 +230,6 @@ func (m *Manager) userProgramStatus(state ContainerState) (string, error) {
 	}
 
 	return "exited", nil
-}
-
-func ProcessStartTime(pid uint32) (syscall.Filetime, error) {
-	h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
-	if err != nil {
-		return syscall.Filetime{}, err
-	}
-	defer syscall.CloseHandle(h)
-
-	var (
-		creationTime syscall.Filetime
-		exitTime     syscall.Filetime
-		kernelTime   syscall.Filetime
-		userTime     syscall.Filetime
-	)
-
-	if err := syscall.GetProcessTimes(h, &creationTime, &exitTime, &kernelTime, &userTime); err != nil {
-		return syscall.Filetime{}, err
-	}
-
-	return creationTime, nil
 }
 
 func stateValid(state ContainerState) bool {

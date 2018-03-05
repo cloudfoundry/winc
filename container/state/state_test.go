@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/container/state/fakes"
@@ -249,6 +250,61 @@ var _ = Describe("StateManager", func() {
 						_, err := sm.Get()
 						Expect(err).To(Equal(&state.ContainerNotFoundError{Id: containerId}))
 					})
+				})
+			})
+		})
+	})
+	Context("modifying the state file", func() {
+		Context("after the manager has been initialized", func() {
+			BeforeEach(func() {
+				Expect(sm.Initialize(bundlePath)).To(Succeed())
+
+				//container = &hcsfakes.Container{}
+			})
+
+			Context("SetExecFailed", func() {
+				It("adds UserProgramExecFailed to the state file", func() {
+					var beforeState state.ContainerState
+					contents, err := ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(json.Unmarshal(contents, &beforeState)).To(Succeed())
+
+					Expect(beforeState.UserProgramExecFailed).To(BeFalse())
+
+					sm.SetExecFailed()
+
+					var afterState state.ContainerState
+					contents, err = ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(json.Unmarshal(contents, &afterState)).To(Succeed())
+
+					Expect(afterState.UserProgramExecFailed).To(BeTrue())
+				})
+			})
+
+			Context("SetRunning", func() {
+				It("adds UserProgramPID and UserProgramStartTime to the state file", func() {
+					var beforeState state.ContainerState
+					contents, err := ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(json.Unmarshal(contents, &beforeState)).To(Succeed())
+
+					Expect(beforeState.UserProgramPID).To(Equal(0))
+					Expect(beforeState.UserProgramStartTime).To(Equal(syscall.Filetime{LowDateTime: 0, HighDateTime: 0}))
+
+					expectedStartTime := syscall.Filetime{LowDateTime: 1, HighDateTime: 2}
+					processManager.ProcessStartTimeReturnsOnCall(0, expectedStartTime, nil)
+
+					err = sm.SetRunning(1)
+					Expect(err).NotTo(HaveOccurred())
+
+					var afterState state.ContainerState
+					contents, err = ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
+					Expect(err).NotTo(HaveOccurred())
+					Expect(json.Unmarshal(contents, &afterState)).To(Succeed())
+
+					Expect(afterState.UserProgramPID).To(Equal(1))
+					Expect(afterState.UserProgramStartTime).To(Equal(expectedStartTime))
 				})
 			})
 		})

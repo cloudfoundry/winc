@@ -1,6 +1,7 @@
 package process
 
 import (
+	"syscall"
 	"time"
 
 	"code.cloudfoundry.org/winc/hcs"
@@ -45,4 +46,25 @@ func (m *Manager) ContainerPid(id string) (int, error) {
 	}
 
 	return int(process.ProcessId), nil
+}
+
+func (m *Manager) ProcessStartTime(pid uint32) (syscall.Filetime, error) {
+	h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
+	if err != nil {
+		return syscall.Filetime{}, err
+	}
+	defer syscall.CloseHandle(h)
+
+	var (
+		creationTime syscall.Filetime
+		exitTime     syscall.Filetime
+		kernelTime   syscall.Filetime
+		userTime     syscall.Filetime
+	)
+
+	if err := syscall.GetProcessTimes(h, &creationTime, &exitTime, &kernelTime, &userTime); err != nil {
+		return syscall.Filetime{}, err
+	}
+
+	return creationTime, nil
 }

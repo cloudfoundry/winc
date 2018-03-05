@@ -24,7 +24,7 @@ type Manager struct {
 	logger         *logrus.Entry
 	hcsClient      HCSClient
 	mounter        Mounter
-	state          StateManager
+	stateManager   StateManager
 	id             string
 	rootDir        string
 	processManager ProcessManager
@@ -78,12 +78,12 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, state StateManager, id, rootDir string, processManager ProcessManager) *Manager {
+func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, stateManager StateManager, id, rootDir string, processManager ProcessManager) *Manager {
 	return &Manager{
 		logger:         logger,
 		hcsClient:      hcsClient,
 		mounter:        mounter,
-		state:          state,
+		stateManager:   stateManager,
 		id:             id,
 		rootDir:        rootDir,
 		processManager: processManager,
@@ -207,7 +207,7 @@ func (m *Manager) Create(bundlePath string) (*specs.Spec, error) {
 		return nil, err
 	}
 
-	if err := m.state.Initialize(bundlePath); err != nil {
+	if err := m.stateManager.Initialize(bundlePath); err != nil {
 		cleanupContainer()
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func (m *Manager) Delete(force bool) error {
 }
 
 func (m *Manager) State() (*specs.State, error) {
-	containerState, err := m.state.Get()
+	containerState, err := m.stateManager.Get()
 	if _, ok := err.(*state.FileNotFoundError); ok {
 		return nil, errors.New(fmt.Sprintf("container not found: %s", m.id))
 	}
@@ -355,13 +355,14 @@ func (m *Manager) Start() error {
 
 	containerState := state.ContainerState{Bundle: ociState.Bundle}
 	writeContainerState := func() error {
-		return m.state.WriteContainerState(containerState)
+		return m.stateManager.WriteContainerState(containerState)
 	}
 
 	proc, err := m.Exec(spec.Process, false)
 	if err != nil {
-		containerState.UserProgramExecFailed = true
-		writeContainerState()
+		if err2 := m.stateManager.SetExecFailed(); err2 != nil {
+			return err2
+		}
 		return err
 	}
 	defer proc.Close()
