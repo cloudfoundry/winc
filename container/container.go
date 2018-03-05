@@ -21,12 +21,13 @@ import (
 const destroyTimeout = time.Minute
 
 type Manager struct {
-	logger    *logrus.Entry
-	hcsClient HCSClient
-	mounter   Mounter
-	state     StateManager
-	id        string
-	rootDir   string
+	logger         *logrus.Entry
+	hcsClient      HCSClient
+	mounter        Mounter
+	state          StateManager
+	id             string
+	rootDir        string
+	processManager ProcessManager
 }
 
 type Statistics struct {
@@ -59,7 +60,11 @@ type StateManager interface {
 	SetRunning(int) error
 	SetExecFailed() error
 	WriteContainerState(state.ContainerState) error
-	ContainerPid(id string) (int, error)
+}
+
+//go:generate counterfeiter -o fakes/process_manager.go --fake-name ProcessManager . ProcessManager
+type ProcessManager interface {
+	ContainerPid(string) (int, error)
 }
 
 //go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
@@ -73,14 +78,15 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, state StateManager, id, rootDir string) *Manager {
+func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, state StateManager, id, rootDir string, processManager ProcessManager) *Manager {
 	return &Manager{
-		logger:    logger,
-		hcsClient: hcsClient,
-		mounter:   mounter,
-		state:     state,
-		id:        id,
-		rootDir:   rootDir,
+		logger:         logger,
+		hcsClient:      hcsClient,
+		mounter:        mounter,
+		state:          state,
+		id:             id,
+		rootDir:        rootDir,
+		processManager: processManager,
 	}
 }
 
@@ -190,7 +196,7 @@ func (m *Manager) Create(bundlePath string) (*specs.Spec, error) {
 		return nil, err
 	}
 
-	pid, err := m.state.ContainerPid(m.id)
+	pid, err := m.processManager.ContainerPid(m.id)
 	if err != nil {
 		cleanupContainer()
 		return nil, err
@@ -284,7 +290,7 @@ func (m *Manager) Delete(force bool) error {
 
 	var errors []string
 	for _, containerIdToDelete := range containerIdsToDelete {
-		pid, err := m.state.ContainerPid(containerIdToDelete)
+		pid, err := m.processManager.ContainerPid(containerIdToDelete)
 		if err != nil {
 			logrus.Error(err.Error())
 			errors = append(errors, err.Error())

@@ -63,19 +63,6 @@ type StateManager struct {
 	writeContainerStateReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ContainerPidStub        func(id string) (int, error)
-	containerPidMutex       sync.RWMutex
-	containerPidArgsForCall []struct {
-		id string
-	}
-	containerPidReturns struct {
-		result1 int
-		result2 error
-	}
-	containerPidReturnsOnCall map[int]struct {
-		result1 int
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -307,57 +294,6 @@ func (fake *StateManager) WriteContainerStateReturnsOnCall(i int, result1 error)
 	}{result1}
 }
 
-func (fake *StateManager) ContainerPid(id string) (int, error) {
-	fake.containerPidMutex.Lock()
-	ret, specificReturn := fake.containerPidReturnsOnCall[len(fake.containerPidArgsForCall)]
-	fake.containerPidArgsForCall = append(fake.containerPidArgsForCall, struct {
-		id string
-	}{id})
-	fake.recordInvocation("ContainerPid", []interface{}{id})
-	fake.containerPidMutex.Unlock()
-	if fake.ContainerPidStub != nil {
-		return fake.ContainerPidStub(id)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.containerPidReturns.result1, fake.containerPidReturns.result2
-}
-
-func (fake *StateManager) ContainerPidCallCount() int {
-	fake.containerPidMutex.RLock()
-	defer fake.containerPidMutex.RUnlock()
-	return len(fake.containerPidArgsForCall)
-}
-
-func (fake *StateManager) ContainerPidArgsForCall(i int) string {
-	fake.containerPidMutex.RLock()
-	defer fake.containerPidMutex.RUnlock()
-	return fake.containerPidArgsForCall[i].id
-}
-
-func (fake *StateManager) ContainerPidReturns(result1 int, result2 error) {
-	fake.ContainerPidStub = nil
-	fake.containerPidReturns = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *StateManager) ContainerPidReturnsOnCall(i int, result1 int, result2 error) {
-	fake.ContainerPidStub = nil
-	if fake.containerPidReturnsOnCall == nil {
-		fake.containerPidReturnsOnCall = make(map[int]struct {
-			result1 int
-			result2 error
-		})
-	}
-	fake.containerPidReturnsOnCall[i] = struct {
-		result1 int
-		result2 error
-	}{result1, result2}
-}
-
 func (fake *StateManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -371,8 +307,6 @@ func (fake *StateManager) Invocations() map[string][][]interface{} {
 	defer fake.setExecFailedMutex.RUnlock()
 	fake.writeContainerStateMutex.RLock()
 	defer fake.writeContainerStateMutex.RUnlock()
-	fake.containerPidMutex.RLock()
-	defer fake.containerPidMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

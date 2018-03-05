@@ -24,6 +24,7 @@ var _ = Describe("Delete", func() {
 		mounter          *fakes.Mounter
 		fakeContainer    *hcsfakes.Container
 		stateManager     *fakes.StateManager
+		processManager   *fakes.ProcessManager
 		containerManager *container.Manager
 		rootDir          string
 	)
@@ -44,13 +45,14 @@ var _ = Describe("Delete", func() {
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
 		stateManager = &fakes.StateManager{}
+		processManager = &fakes.ProcessManager{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "delete")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir, processManager)
 	})
 
 	AfterEach(func() {
@@ -62,18 +64,15 @@ var _ = Describe("Delete", func() {
 		var pid int
 		BeforeEach(func() {
 			pid = 42
-			fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
-				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
-			}, nil)
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
-			stateManager.ContainerPidReturnsOnCall(0, pid, nil)
+			processManager.ContainerPidReturnsOnCall(0, pid, nil)
 		})
 
 		It("deletes it", func() {
 			Expect(containerManager.Delete(false)).To(Succeed())
 
-			Expect(stateManager.ContainerPidCallCount()).To(Equal(1))
-			Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
+			Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+			Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 
 			Expect(mounter.UnmountCallCount()).To(Equal(1))
 			Expect(mounter.UnmountArgsForCall(0)).To(Equal(pid))
@@ -104,12 +103,9 @@ var _ = Describe("Delete", func() {
 				hcsClient.GetContainersReturns([]hcsshim.ContainerProperties{
 					hcsshim.ContainerProperties{ID: sidecarId, Owner: containerId},
 				}, nil)
-				fakeSidecar.ProcessListReturns([]hcsshim.ProcessListItem{
-					{ProcessId: uint32(sidecarPid), ImageName: "wininit.exe"},
-				}, nil)
 
-				stateManager.ContainerPidReturnsOnCall(0, sidecarPid, nil)
-				stateManager.ContainerPidReturnsOnCall(1, pid, nil)
+				processManager.ContainerPidReturnsOnCall(0, sidecarPid, nil)
+				processManager.ContainerPidReturnsOnCall(1, pid, nil)
 			})
 			It("deletes the sidecar container", func() {
 				hcsClient.OpenContainerReturnsOnCall(0, fakeSidecar, nil)
@@ -121,9 +117,9 @@ var _ = Describe("Delete", func() {
 				query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
 				Expect(hcsClient.GetContainersArgsForCall(0)).To(Equal(query))
 
-				Expect(stateManager.ContainerPidCallCount()).To(Equal(2))
-				Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(sidecarId))
-				Expect(stateManager.ContainerPidArgsForCall(1)).To(Equal(containerId))
+				Expect(processManager.ContainerPidCallCount()).To(Equal(2))
+				Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(sidecarId))
+				Expect(processManager.ContainerPidArgsForCall(1)).To(Equal(containerId))
 
 				Expect(mounter.UnmountCallCount()).To(Equal(2))
 				Expect(mounter.UnmountArgsForCall(0)).To(Equal(sidecarPid))

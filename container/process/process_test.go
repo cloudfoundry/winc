@@ -1,4 +1,4 @@
-package state_test
+package process_test
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/container/state/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
@@ -14,16 +14,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("StateManager", func() {
+var _ = Describe("ProcessManager", func() {
 	const (
 		containerId = "some-container-id"
 		bundlePath  = "some-bundle-path"
 	)
 
 	var (
-		hcsClient     *fakes.HCSClient
-		rootDir       string
-		fakeContainer *hcsfakes.Container
+		hcsClient *fakes.HCSClient
+		rootDir   string
+		pm        *process.Manager
+		container *hcsfakes.Container
 	)
 
 	BeforeEach(func() {
@@ -33,6 +34,7 @@ var _ = Describe("StateManager", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		hcsClient = &fakes.HCSClient{}
+		pm = process.NewManager(hcsClient)
 	})
 
 	AfterEach(func() {
@@ -42,13 +44,13 @@ var _ = Describe("StateManager", func() {
 	Context("ContainerPid", func() {
 		Context("when there are no wininit.exe processes in the container", func() {
 			BeforeEach(func() {
-				fakeContainer = &hcsfakes.Container{}
-				hcsClient.OpenContainerReturnsOnCall(0, fakeContainer, nil)
-				fakeContainer.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{}, nil)
+				container = &hcsfakes.Container{}
+				hcsClient.OpenContainerReturnsOnCall(0, container, nil)
+				container.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{}, nil)
 			})
 
 			It("returns 0 as the pid", func() {
-				pid, err := state.ContainerPid(hcsClient, containerId)
+				pid, err := pm.ContainerPid(containerId)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pid).To(Equal(0))
 			})
@@ -56,10 +58,10 @@ var _ = Describe("StateManager", func() {
 
 		Context("when there are multiple wininit.exe processes in the container", func() {
 			BeforeEach(func() {
-				fakeContainer = &hcsfakes.Container{}
-				hcsClient.OpenContainerReturnsOnCall(0, fakeContainer, nil)
+				container = &hcsfakes.Container{}
+				hcsClient.OpenContainerReturnsOnCall(0, container, nil)
 				now := time.Now()
-				fakeContainer.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{
+				container.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{
 					{ProcessId: 668, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -1, 0)},
 					{ProcessId: 667, ImageName: "wininit.exe", CreateTimestamp: now.AddDate(0, -2, 0)},
 					{ProcessId: 666, ImageName: "wininit.exe", CreateTimestamp: now},
@@ -67,7 +69,7 @@ var _ = Describe("StateManager", func() {
 			})
 
 			It("returns the pid of the oldest one as the container pid", func() {
-				pid, err := state.ContainerPid(hcsClient, containerId)
+				pid, err := pm.ContainerPid(containerId)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pid).To(Equal(667))
 			})
@@ -80,7 +82,7 @@ var _ = Describe("StateManager", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := state.ContainerPid(hcsClient, containerId)
+				_, err := pm.ContainerPid(containerId)
 				//TODO: use more specific error
 				Expect(err).To(MatchError("couldn't get pid"))
 			})

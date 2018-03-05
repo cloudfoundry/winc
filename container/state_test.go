@@ -1,7 +1,6 @@
 package container_test
 
 import (
-	"errors"
 	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/container"
@@ -23,6 +22,7 @@ var _ = Describe("State", func() {
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
 		stateManager     *fakes.StateManager
+		processManager   *fakes.ProcessManager
 		containerManager *container.Manager
 	)
 
@@ -30,11 +30,12 @@ var _ = Describe("State", func() {
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
 		stateManager = &fakes.StateManager{}
+		processManager = &fakes.ProcessManager{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "state")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "")
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "", processManager)
 	})
 
 	Context("when the state manager returns the state successfully", func() {

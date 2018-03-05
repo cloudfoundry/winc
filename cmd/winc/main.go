@@ -13,6 +13,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/hcs"
 
@@ -161,8 +162,9 @@ func fatal(err error) {
 
 func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, rootDir string) (*specs.Spec, error) {
 	client := hcs.Client{}
-	sm := state.NewManager(&client, containerId, rootDir)
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir)
+	pm := process.NewManager(&client)
+	sm := state.NewManager(&client, containerId, rootDir, pm)
+	cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir, pm)
 
 	spec, err := cm.Create(bundlePath)
 	if err != nil {
@@ -185,8 +187,9 @@ func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, roo
 
 func runProcess(logger *logrus.Entry, containerId string, spec *specs.Process, detach bool, pidFile, rootDir string, deleteContainer bool) error {
 	client := hcs.Client{}
-	sm := state.NewManager(&client, containerId, rootDir)
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir)
+	pm := process.NewManager(&client)
+	sm := state.NewManager(&client, containerId, rootDir, pm)
+	cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir, pm)
 
 	process, err := cm.Exec(spec, !detach)
 	if err != nil {

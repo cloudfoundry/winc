@@ -23,10 +23,11 @@ var _ = Describe("StateManager", func() {
 	)
 
 	var (
-		hcsClient *fakes.HCSClient
-		rootDir   string
-		sm        *state.Manager
-		container *hcsfakes.Container
+		hcsClient      *fakes.HCSClient
+		rootDir        string
+		sm             *state.Manager
+		processManager *fakes.ProcessManager
+		container      *hcsfakes.Container
 	)
 
 	BeforeEach(func() {
@@ -36,7 +37,8 @@ var _ = Describe("StateManager", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		hcsClient = &fakes.HCSClient{}
-		sm = state.NewManager(hcsClient, containerId, rootDir)
+		processManager = &fakes.ProcessManager{}
+		sm = state.NewManager(hcsClient, containerId, rootDir, processManager)
 	})
 
 	AfterEach(func() {
@@ -94,32 +96,24 @@ var _ = Describe("StateManager", func() {
 				Expect(sm.Initialize(bundlePath)).To(Succeed())
 
 				container = &hcsfakes.Container{}
-				container.ProcessListReturnsOnCall(0, []hcsshim.ProcessListItem{
-					hcsshim.ProcessListItem{
-						ProcessId: uint32(containerPid),
-						ImageName: "wininit.exe",
-					},
-				}, nil)
 			})
 
-			Context("when OpenContainer successfully returns", func() {
+			Context("when the container pid is found", func() {
 				BeforeEach(func() {
-					hcsClient.OpenContainerReturnsOnCall(0, container, nil)
+					processManager.ContainerPidReturnsOnCall(0, containerPid, nil)
 				})
 
 				It("returns the status as 'created' along with the other expected state fields", func() {
 					expectedState.Status = "created"
 					state, err := sm.Get()
+
 					Expect(err).NotTo(HaveOccurred())
 					Expect(state).To(Equal(expectedState))
 
 					Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 					Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
-					Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-					Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-
-					Expect(container.ProcessListCallCount()).To(Equal(1))
-					Expect(container.CloseCallCount()).To(Equal(1))
+					Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+					Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 				})
 
 				Context("after the container has been stopped", func() {
@@ -128,20 +122,21 @@ var _ = Describe("StateManager", func() {
 					})
 
 					It("returns the status as 'stopped' along with the other expected state fields", func() {
+						processManager.ContainerPidReturnsOnCall(0, containerPid, nil)
+
 						expectedState.Status = "stopped"
 						state, err := sm.Get()
+
 						Expect(err).NotTo(HaveOccurred())
 						Expect(state).To(Equal(expectedState))
 
 						Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 						Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
-						Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-						Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-
-						Expect(container.ProcessListCallCount()).To(Equal(1))
-						Expect(container.CloseCallCount()).To(Equal(1))
+						Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+						Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 					})
 				})
+
 				Context("after the init process has been successfully started", func() {
 					var initProcessPid int
 					BeforeEach(func() {
@@ -215,31 +210,23 @@ var _ = Describe("StateManager", func() {
 			Context("FAILURE", func() {
 				Context("when the container cannot be opened", func() {
 					BeforeEach(func() {
-						hcsClient.OpenContainerReturnsOnCall(0, nil, errors.New("cannot open container"))
+						processManager.ContainerPidReturnsOnCall(0, -1, errors.New("cannot open container"))
 					})
 
 					It("returns the error", func() {
 						_, err := sm.Get()
 						Expect(err).To(MatchError("cannot open container"))
 
-						Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-						Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
+						Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+						Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 					})
 				})
 
 				Context("after the init process has failed to start", func() {
 					BeforeEach(func() {
+						processManager.ContainerPidReturnsOnCall(0, containerPid, nil)
+
 						Expect(sm.SetExecFailed()).To(Succeed())
-
-						hcsClient.OpenContainerReturnsOnCall(0, container, nil)
-
-						processList := []hcsshim.ProcessListItem{
-							hcsshim.ProcessListItem{
-								ProcessId: uint32(containerPid),
-								ImageName: "wininit.exe",
-							},
-						}
-						container.ProcessListReturnsOnCall(0, processList, nil)
 					})
 
 					It("returns the status as 'exited' along with the other expected state fields", func() {
@@ -248,11 +235,8 @@ var _ = Describe("StateManager", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(state).To(Equal(expectedState))
 
-						Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-						Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-
-						Expect(container.ProcessListCallCount()).To(Equal(1))
-						Expect(container.CloseCallCount()).To(Equal(1))
+						Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+						Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 					})
 				})
 

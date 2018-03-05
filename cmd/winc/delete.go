@@ -3,6 +3,7 @@ package main
 import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
@@ -44,8 +45,9 @@ status of "windows01" as "stopped" the following will delete resources held for
 		logger.Debug("deleting container")
 
 		client := hcs.Client{}
-		sm := state.NewManager(&client, containerId, rootDir)
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir)
+		pm := process.NewManager(&client)
+		sm := state.NewManager(&client, containerId, rootDir, pm)
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir, pm)
 		return cm.Delete(force)
 	},
 }

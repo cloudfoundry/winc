@@ -21,10 +21,16 @@ type HCSClient interface {
 	OpenContainer(string) (hcs.Container, error)
 }
 
+//go:generate counterfeiter -o fakes/process_manager.go --fake-name ProcessManager . ProcessManager
+type ProcessManager interface {
+	ContainerPid(string) (int, error)
+}
+
 type Manager struct {
-	hcsClient HCSClient
-	id        string
-	rootDir   string
+	hcsClient      HCSClient
+	id             string
+	rootDir        string
+	processManager ProcessManager
 }
 
 type ContainerState struct {
@@ -50,11 +56,12 @@ func (e *FileNotFoundError) Error() string {
 	return fmt.Sprintf("unable to find state file for container: %s", e.Id)
 }
 
-func NewManager(hcsClient HCSClient, id, rootDir string) *Manager {
+func NewManager(hcsClient HCSClient, id, rootDir string, processManager ProcessManager) *Manager {
 	return &Manager{
-		hcsClient: hcsClient,
-		id:        id,
-		rootDir:   rootDir,
+		hcsClient:      hcsClient,
+		id:             id,
+		rootDir:        rootDir,
+		processManager: processManager,
 	}
 }
 
@@ -93,7 +100,7 @@ func (m *Manager) Get() (*specs.State, error) {
 	}
 
 	var pid int
-	pid, err = ContainerPid(m.hcsClient, m.id)
+	pid, err = m.processManager.ContainerPid(m.id)
 	if err != nil {
 		return nil, err
 	}

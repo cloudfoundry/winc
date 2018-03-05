@@ -22,6 +22,7 @@ var _ = Describe("Stats", func() {
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
 		stateManager     *fakes.StateManager
+		processManager   *fakes.ProcessManager
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
 	)
@@ -34,11 +35,12 @@ var _ = Describe("Stats", func() {
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
 		stateManager = &fakes.StateManager{}
+		processManager = &fakes.ProcessManager{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "stats")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "")
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "", processManager)
 
 		fakeContainer = &hcsfakes.Container{}
 		hcsClient.OpenContainerReturns(fakeContainer, nil)

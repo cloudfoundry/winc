@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
@@ -37,8 +38,9 @@ Where "<container-id>" is your name for the instance of the container.`,
 		logger.Debug("retrieving container events and info")
 
 		client := hcs.Client{}
-		sm := state.NewManager(&client, containerId, rootDir)
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir)
+		pm := process.NewManager(&client)
+		sm := state.NewManager(&client, containerId, rootDir, pm)
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, sm, containerId, rootDir, pm)
 
 		stats, err := cm.Stats()
 		if err != nil {

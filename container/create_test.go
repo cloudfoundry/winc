@@ -28,6 +28,7 @@ var _ = Describe("Create", func() {
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
 		stateManager     *fakes.StateManager
+		processManager   *fakes.ProcessManager
 		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
@@ -70,11 +71,12 @@ var _ = Describe("Create", func() {
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
 		stateManager = &fakes.StateManager{}
+		processManager = &fakes.ProcessManager{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "create")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, rootDir, processManager)
 	})
 
 	AfterEach(func() {
@@ -108,11 +110,7 @@ var _ = Describe("Create", func() {
 
 		It("creates and starts it", func() {
 			pid := 42
-			fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
-				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
-			}, nil)
-
-			stateManager.ContainerPidReturnsOnCall(0, pid, nil)
+			processManager.ContainerPidReturnsOnCall(0, pid, nil)
 
 			returnedSpec, err := containerManager.Create(bundlePath)
 			Expect(err).To(Succeed())
@@ -145,8 +143,8 @@ var _ = Describe("Create", func() {
 			Expect(actualPid).To(Equal(pid))
 			Expect(actualVolumePath).To(Equal(containerVolume))
 
-			Expect(stateManager.ContainerPidCallCount()).To(Equal(1))
-			Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
+			Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+			Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 		})
 
 		Context("when the volume path is empty", func() {
@@ -450,15 +448,15 @@ var _ = Describe("Create", func() {
 			BeforeEach(func() {
 				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
 
-				stateManager.ContainerPidReturnsOnCall(0, 0, errors.New("couldn't get pid"))
+				processManager.ContainerPidReturnsOnCall(0, 0, errors.New("couldn't get pid"))
 			})
 
 			It("deletes the container", func() {
 				_, err := containerManager.Create(bundlePath)
 				Expect(err).To(MatchError("couldn't get pid"))
 
-				Expect(stateManager.ContainerPidCallCount()).To(Equal(1))
-				Expect(stateManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
+				Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+				Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})

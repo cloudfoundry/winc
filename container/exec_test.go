@@ -24,6 +24,7 @@ var _ = Describe("Exec", func() {
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
 		stateManager     *fakes.StateManager
+		processManager   *fakes.ProcessManager
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
 		processSpec      specs.Process
@@ -39,13 +40,14 @@ var _ = Describe("Exec", func() {
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
 		stateManager = &fakes.StateManager{}
+		processManager = &fakes.ProcessManager{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "exec")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "")
+		containerManager = container.NewManager(logger, hcsClient, mounter, stateManager, containerId, "", processManager)
 	})
 
 	AfterEach(func() {
