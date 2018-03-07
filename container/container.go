@@ -55,7 +55,7 @@ type Mounter interface {
 
 //go:generate counterfeiter -o fakes/state_manager.go --fake-name StateManager . StateManager
 type StateManager interface {
-	Get() (*specs.State, error)
+	Get() (string, string, error)
 	Initialize(string) error
 	SetRunning(int) error
 	SetExecFailed() error
@@ -65,6 +65,7 @@ type StateManager interface {
 //go:generate counterfeiter -o fakes/process_manager.go --fake-name ProcessManager . ProcessManager
 type ProcessManager interface {
 	ContainerPid(string) (int, error)
+	ProcessStartTime(uint32) (syscall.Filetime, error)
 }
 
 //go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
@@ -326,16 +327,23 @@ func (m *Manager) Delete(force bool) error {
 }
 
 func (m *Manager) State() (*specs.State, error) {
-	containerState, err := m.stateManager.Get()
-	if _, ok := err.(*state.FileNotFoundError); ok {
+	status, bundlePath, err := m.stateManager.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	containerPid, err := m.processManager.ContainerPid(m.id)
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("container not found: %s", m.id))
 	}
-	if err != nil {
-		panic(err)
-	}
 
-	return containerState, nil
-
+	return &specs.State{
+		Version: specs.Version,
+		Status:  status,
+		Bundle:  bundlePath,
+		ID:      m.id,
+		Pid:     containerPid,
+	}, nil
 }
 
 func (m *Manager) Start() error {
@@ -375,7 +383,7 @@ func (m *Manager) Start() error {
 	//
 	// https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803
 
-	containerState.UserProgramStartTime, err = state.ProcessStartTime(uint32(proc.Pid()))
+	containerState.UserProgramStartTime, err = m.processManager.ProcessStartTime(uint32(proc.Pid()))
 	if err != nil {
 		writeContainerState()
 		return err

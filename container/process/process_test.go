@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"time"
 
 	"code.cloudfoundry.org/winc/container/process"
@@ -12,6 +13,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("ProcessManager", func() {
@@ -91,8 +93,34 @@ var _ = Describe("ProcessManager", func() {
 	})
 
 	Context("ProcessStartTime", func() {
+		var session *gexec.Session
+
+		BeforeEach(func() {
+			var err error
+			cmd := exec.Command("cmd.exe", "/C", "waitfor /t 9999 forever")
+			session, err = gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			session.Kill()
+		})
+
 		It("returns the start time for the process", func() {
-			panic("IMPLEMENT ME")
+			startTime, err := pm.ProcessStartTime(uint32(session.Command.Process.Pid))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(startTime.LowDateTime).To(BeNumerically(">", 0))
+			Expect(startTime.HighDateTime).To(BeNumerically(">", 0))
+		})
+
+		Context("when the pid does not exist", func() {
+			It("", func() {
+				pid := uint32(session.Command.Process.Pid)
+				session.Kill()
+				Eventually(session).Should(gexec.Exit())
+				_, err := pm.ProcessStartTime(pid)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })

@@ -10,7 +10,6 @@ import (
 
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 const stateFile = "state.json"
@@ -75,19 +74,19 @@ func (m *Manager) Initialize(bundlePath string) error {
 	return m.writeState(state)
 }
 
-func (m *Manager) Get() (*specs.State, error) {
+func (m *Manager) Get() (string, string, error) {
 	if !m.isInitialized() {
-		return nil, &FileNotFoundError{Id: m.id}
+		return "", "", &FileNotFoundError{Id: m.id}
 	}
 
 	cp, err := m.hcsClient.GetContainerProperties(m.id)
 	if err != nil {
-		return nil, &ContainerNotFoundError{Id: m.id}
+		return "", "", &ContainerNotFoundError{Id: m.id}
 	}
 
 	state, err := m.readState()
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
 	var status string
@@ -100,19 +99,7 @@ func (m *Manager) Get() (*specs.State, error) {
 		}
 	}
 
-	var pid int
-	pid, err = m.processManager.ContainerPid(m.id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &specs.State{
-		Version: specs.Version,
-		ID:      m.id,
-		Status:  status,
-		Bundle:  state.Bundle,
-		Pid:     pid,
-	}, nil
+	return status, state.Bundle, nil
 }
 
 func (m *Manager) SetRunning(pid int) error {

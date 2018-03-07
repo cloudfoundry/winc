@@ -6,20 +6,21 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/state"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 type StateManager struct {
-	GetStub        func() (*specs.State, error)
+	GetStub        func() (string, string, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct{}
 	getReturns     struct {
-		result1 *specs.State
-		result2 error
+		result1 string
+		result2 string
+		result3 error
 	}
 	getReturnsOnCall map[int]struct {
-		result1 *specs.State
-		result2 error
+		result1 string
+		result2 string
+		result3 error
 	}
 	InitializeStub        func(string) error
 	initializeMutex       sync.RWMutex
@@ -67,7 +68,7 @@ type StateManager struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *StateManager) Get() (*specs.State, error) {
+func (fake *StateManager) Get() (string, string, error) {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct{}{})
@@ -77,9 +78,9 @@ func (fake *StateManager) Get() (*specs.State, error) {
 		return fake.GetStub()
 	}
 	if specificReturn {
-		return ret.result1, ret.result2
+		return ret.result1, ret.result2, ret.result3
 	}
-	return fake.getReturns.result1, fake.getReturns.result2
+	return fake.getReturns.result1, fake.getReturns.result2, fake.getReturns.result3
 }
 
 func (fake *StateManager) GetCallCount() int {
@@ -88,26 +89,29 @@ func (fake *StateManager) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *StateManager) GetReturns(result1 *specs.State, result2 error) {
+func (fake *StateManager) GetReturns(result1 string, result2 string, result3 error) {
 	fake.GetStub = nil
 	fake.getReturns = struct {
-		result1 *specs.State
-		result2 error
-	}{result1, result2}
+		result1 string
+		result2 string
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *StateManager) GetReturnsOnCall(i int, result1 *specs.State, result2 error) {
+func (fake *StateManager) GetReturnsOnCall(i int, result1 string, result2 string, result3 error) {
 	fake.GetStub = nil
 	if fake.getReturnsOnCall == nil {
 		fake.getReturnsOnCall = make(map[int]struct {
-			result1 *specs.State
-			result2 error
+			result1 string
+			result2 string
+			result3 error
 		})
 	}
 	fake.getReturnsOnCall[i] = struct {
-		result1 *specs.State
-		result2 error
-	}{result1, result2}
+		result1 string
+		result2 string
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *StateManager) Initialize(arg1 string) error {

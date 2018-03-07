@@ -14,7 +14,6 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("StateManager", func() {
@@ -51,31 +50,15 @@ var _ = Describe("StateManager", func() {
 			containerPid = 99
 		)
 
-		var (
-			expectedState *specs.State
-		)
-
-		BeforeEach(func() {
-
-			expectedState = &specs.State{
-				Version: specs.Version,
-				ID:      containerId,
-				Pid:     containerPid,
-				Bundle:  bundlePath,
-			}
-		})
-
 		Context("before the manager has been initialized", func() {
-
 			It("doing anything else returns an error", func() {
-				_, err := sm.Get()
+				_, _, err := sm.Get()
 				Expect(err).To(MatchError(&state.FileNotFoundError{Id: containerId}))
 				err = sm.SetRunning(0)
 				Expect(err).To(MatchError(&state.FileNotFoundError{Id: containerId}))
 				err = sm.SetExecFailed()
 				Expect(err).To(MatchError(&state.FileNotFoundError{Id: containerId}))
 			})
-
 		})
 
 		Context("initializing the manager", func() {
@@ -105,16 +88,14 @@ var _ = Describe("StateManager", func() {
 				})
 
 				It("returns the status as 'created' along with the other expected state fields", func() {
-					expectedState.Status = "created"
-					state, err := sm.Get()
+					status, resultBundlePath, err := sm.Get()
 
 					Expect(err).NotTo(HaveOccurred())
-					Expect(state).To(Equal(expectedState))
+					Expect(status).To(Equal("created"))
+					Expect(resultBundlePath).To(Equal(bundlePath))
 
 					Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 					Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
-					Expect(processManager.ContainerPidCallCount()).To(Equal(1))
-					Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 				})
 
 				Context("after the container has been stopped", func() {
@@ -123,18 +104,14 @@ var _ = Describe("StateManager", func() {
 					})
 
 					It("returns the status as 'stopped' along with the other expected state fields", func() {
-						processManager.ContainerPidReturnsOnCall(0, containerPid, nil)
-
-						expectedState.Status = "stopped"
-						state, err := sm.Get()
+						status, resultBundlePath, err := sm.Get()
 
 						Expect(err).NotTo(HaveOccurred())
-						Expect(state).To(Equal(expectedState))
+						Expect(status).To(Equal("stopped"))
+						Expect(resultBundlePath).To(Equal(bundlePath))
 
 						Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 						Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
-						Expect(processManager.ContainerPidCallCount()).To(Equal(1))
-						Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 					})
 				})
 
@@ -142,7 +119,8 @@ var _ = Describe("StateManager", func() {
 					var initProcessPid int
 					BeforeEach(func() {
 						initProcessPid = 89
-						//Expect(sm.SetRunning(initProcessPid)).To(Succeed())
+						processManager.ProcessStartTimeReturns(syscall.Filetime{LowDateTime: 10, HighDateTime: 100}, nil)
+						Expect(sm.SetRunning(initProcessPid)).To(Succeed())
 
 						hcsClient.OpenContainerReturnsOnCall(0, container, nil)
 						hcsClient.OpenContainerReturnsOnCall(1, container, nil)
@@ -164,18 +142,20 @@ var _ = Describe("StateManager", func() {
 							container.ProcessListReturnsOnCall(1, processList, nil)
 						})
 
-						XIt("returns the status as 'running' along with the other expected state fields", func() {
-							expectedState.Status = "running"
-							state, err := sm.Get()
+						It("returns the status as 'running' along with the other expected state fields", func() {
+							status, resultBundlePath, err := sm.Get()
+
 							Expect(err).NotTo(HaveOccurred())
-							Expect(state).To(Equal(expectedState))
+							Expect(status).To(Equal("running"))
+							Expect(resultBundlePath).To(Equal(bundlePath))
 
-							Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+							Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 							Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-							Expect(hcsClient.OpenContainerArgsForCall(1)).To(Equal(containerId))
 
-							Expect(container.ProcessListCallCount()).To(Equal(2))
-							Expect(container.CloseCallCount()).To(Equal(2))
+							Expect(container.ProcessListCallCount()).To(Equal(1))
+							Expect(container.CloseCallCount()).To(Equal(1))
+
+							Expect(processManager.ProcessStartTimeCallCount()).To(Equal(2))
 						})
 					})
 
@@ -191,53 +171,35 @@ var _ = Describe("StateManager", func() {
 							container.ProcessListReturnsOnCall(0, processList, nil)
 						})
 
-						XIt("returns the status as 'exited' along with the other expected state fields", func() {
-							expectedState.Status = "exited"
-							state, err := sm.Get()
+						It("returns the status as 'exited' along with the other expected state fields", func() {
+							status, resultBundlePath, err := sm.Get()
+
 							Expect(err).NotTo(HaveOccurred())
-							Expect(state).To(Equal(expectedState))
+							Expect(status).To(Equal("exited"))
+							Expect(resultBundlePath).To(Equal(bundlePath))
 
-							Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+							Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 							Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-							Expect(hcsClient.OpenContainerArgsForCall(1)).To(Equal(containerId))
 
-							Expect(container.ProcessListCallCount()).To(Equal(2))
-							Expect(container.CloseCallCount()).To(Equal(2))
+							Expect(container.ProcessListCallCount()).To(Equal(1))
+							Expect(container.CloseCallCount()).To(Equal(1))
 						})
 					})
 				})
 			})
 
 			Context("FAILURE", func() {
-				Context("when the container cannot be opened", func() {
-					BeforeEach(func() {
-						processManager.ContainerPidReturnsOnCall(0, -1, errors.New("cannot open container"))
-					})
-
-					It("returns the error", func() {
-						_, err := sm.Get()
-						Expect(err).To(MatchError("cannot open container"))
-
-						Expect(processManager.ContainerPidCallCount()).To(Equal(1))
-						Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
-					})
-				})
-
 				Context("after the init process has failed to start", func() {
 					BeforeEach(func() {
-						processManager.ContainerPidReturnsOnCall(0, containerPid, nil)
-
 						Expect(sm.SetExecFailed()).To(Succeed())
 					})
 
 					It("returns the status as 'exited' along with the other expected state fields", func() {
-						expectedState.Status = "exited"
-						state, err := sm.Get()
-						Expect(err).NotTo(HaveOccurred())
-						Expect(state).To(Equal(expectedState))
+						status, resultBundlePath, err := sm.Get()
 
-						Expect(processManager.ContainerPidCallCount()).To(Equal(1))
-						Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
+						Expect(err).NotTo(HaveOccurred())
+						Expect(status).To(Equal("exited"))
+						Expect(resultBundlePath).To(Equal(bundlePath))
 					})
 				})
 
@@ -247,7 +209,7 @@ var _ = Describe("StateManager", func() {
 					})
 
 					It("errors", func() {
-						_, err := sm.Get()
+						_, _, err := sm.Get()
 						Expect(err).To(Equal(&state.ContainerNotFoundError{Id: containerId}))
 					})
 				})

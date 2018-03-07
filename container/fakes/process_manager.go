@@ -3,6 +3,7 @@ package fakes
 
 import (
 	"sync"
+	"syscall"
 
 	"code.cloudfoundry.org/winc/container"
 )
@@ -19,6 +20,19 @@ type ProcessManager struct {
 	}
 	containerPidReturnsOnCall map[int]struct {
 		result1 int
+		result2 error
+	}
+	ProcessStartTimeStub        func(uint32) (syscall.Filetime, error)
+	processStartTimeMutex       sync.RWMutex
+	processStartTimeArgsForCall []struct {
+		arg1 uint32
+	}
+	processStartTimeReturns struct {
+		result1 syscall.Filetime
+		result2 error
+	}
+	processStartTimeReturnsOnCall map[int]struct {
+		result1 syscall.Filetime
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -76,11 +90,64 @@ func (fake *ProcessManager) ContainerPidReturnsOnCall(i int, result1 int, result
 	}{result1, result2}
 }
 
+func (fake *ProcessManager) ProcessStartTime(arg1 uint32) (syscall.Filetime, error) {
+	fake.processStartTimeMutex.Lock()
+	ret, specificReturn := fake.processStartTimeReturnsOnCall[len(fake.processStartTimeArgsForCall)]
+	fake.processStartTimeArgsForCall = append(fake.processStartTimeArgsForCall, struct {
+		arg1 uint32
+	}{arg1})
+	fake.recordInvocation("ProcessStartTime", []interface{}{arg1})
+	fake.processStartTimeMutex.Unlock()
+	if fake.ProcessStartTimeStub != nil {
+		return fake.ProcessStartTimeStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.processStartTimeReturns.result1, fake.processStartTimeReturns.result2
+}
+
+func (fake *ProcessManager) ProcessStartTimeCallCount() int {
+	fake.processStartTimeMutex.RLock()
+	defer fake.processStartTimeMutex.RUnlock()
+	return len(fake.processStartTimeArgsForCall)
+}
+
+func (fake *ProcessManager) ProcessStartTimeArgsForCall(i int) uint32 {
+	fake.processStartTimeMutex.RLock()
+	defer fake.processStartTimeMutex.RUnlock()
+	return fake.processStartTimeArgsForCall[i].arg1
+}
+
+func (fake *ProcessManager) ProcessStartTimeReturns(result1 syscall.Filetime, result2 error) {
+	fake.ProcessStartTimeStub = nil
+	fake.processStartTimeReturns = struct {
+		result1 syscall.Filetime
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ProcessManager) ProcessStartTimeReturnsOnCall(i int, result1 syscall.Filetime, result2 error) {
+	fake.ProcessStartTimeStub = nil
+	if fake.processStartTimeReturnsOnCall == nil {
+		fake.processStartTimeReturnsOnCall = make(map[int]struct {
+			result1 syscall.Filetime
+			result2 error
+		})
+	}
+	fake.processStartTimeReturnsOnCall[i] = struct {
+		result1 syscall.Filetime
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *ProcessManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.containerPidMutex.RLock()
 	defer fake.containerPidMutex.RUnlock()
+	fake.processStartTimeMutex.RLock()
+	defer fake.processStartTimeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

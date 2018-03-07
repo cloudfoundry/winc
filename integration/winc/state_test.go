@@ -121,7 +121,7 @@ var _ = Describe("State", func() {
 			stdOut, stdErr, err := helpers.Execute(cmd)
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			Expect(stdErr.String()).To(ContainSubstring("container not found: doesntexist"))
+			Expect(stdErr.String()).To(ContainSubstring("state not found for container: doesntexist"))
 		})
 	})
 })

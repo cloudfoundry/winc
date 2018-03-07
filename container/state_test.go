@@ -1,6 +1,7 @@
 package container_test
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/container"
@@ -40,20 +41,28 @@ var _ = Describe("State", func() {
 
 	Context("when the state manager returns the state successfully", func() {
 		var expectedState specs.State
+		var status string
+		var bundlePath string
 		BeforeEach(func() {
 			expectedState = specs.State{
 				Version: specs.Version,
-				ID:      "some-container-id",
+				ID:      containerId,
 				Status:  "some-status",
 				Bundle:  "some-bundle-path",
 				Pid:     99,
 			}
-			stateManager.GetReturnsOnCall(0, &expectedState, nil)
+
+			status = "some-status"
+			bundlePath = "some-bundle-path"
+			stateManager.GetReturnsOnCall(0, status, bundlePath, nil)
+			processManager.ContainerPidReturnsOnCall(0, 99, nil)
 		})
 
 		It("calls the state manager and returns the state", func() {
 			state, err := containerManager.State()
 			Expect(stateManager.GetCallCount()).To(Equal(1))
+			Expect(processManager.ContainerPidCallCount()).To(Equal(1))
+			Expect(processManager.ContainerPidArgsForCall(0)).To(Equal(containerId))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(state).To(Equal(&expectedState))
 		})
@@ -62,7 +71,19 @@ var _ = Describe("State", func() {
 	Context("when the state manager fails to return the state", func() {
 		Context("when the state file cannot be found", func() {
 			BeforeEach(func() {
-				stateManager.GetReturnsOnCall(0, nil, &state.FileNotFoundError{Id: "some-id"})
+				stateManager.GetReturnsOnCall(0, "", "", fmt.Errorf("error getting state"))
+			})
+
+			It("calls the state manager and returns the error", func() {
+				_, err := containerManager.State()
+				Expect(stateManager.GetCallCount()).To(Equal(1))
+				Expect(err).To(MatchError("error getting state"))
+			})
+		})
+
+		Context("when the container cannot be found", func() {
+			BeforeEach(func() {
+				processManager.ContainerPidReturnsOnCall(0, -1, &state.ContainerNotFoundError{Id: "some-id"})
 			})
 
 			It("calls the state manager and returns the error", func() {
@@ -70,10 +91,6 @@ var _ = Describe("State", func() {
 				Expect(stateManager.GetCallCount()).To(Equal(1))
 				Expect(err).To(MatchError("container not found: some-id"))
 			})
-		})
-
-		Context("when the state manager cannot find the container", func() {
-			panic(errors.New("IMPLEMENT ME"))
 		})
 	})
 })
