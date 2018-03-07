@@ -30,6 +30,7 @@ var (
 	tempDir           string
 	networkConfigFile string
 	networkConfig     network.Config
+	skipCleanup       bool
 )
 
 const gatewayFileName = "c:\\var\\vcap\\data\\winc-network\\gateways.json"
@@ -44,13 +45,16 @@ var _ = Describe("networking", func() {
 		bundlePath, err = ioutil.TempDir("", "win-container-1")
 		Expect(err).NotTo(HaveOccurred())
 		containerId = filepath.Base(bundlePath)
+		skipCleanup = false
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
-		fmt.Printf("tempdir: %s\n", tempDir)
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
-		fmt.Printf("bundlePath: %s\n", bundlePath)
+		if !skipCleanup {
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
+			fmt.Printf("tempdir: %s\n", tempDir)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			fmt.Printf("bundlePath: %s\n", bundlePath)
+		}
 	})
 
 	Describe("Create", func() {
@@ -172,7 +176,9 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			if !skipCleanup {
+				Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			}
 		})
 
 		Context("default network config", func() {
@@ -183,7 +189,9 @@ var _ = Describe("networking", func() {
 			})
 
 			AfterEach(func() {
-			  deleteContainerAndNetwork(containerId, networkConfig)
+				if !skipCleanup {
+					deleteContainerAndNetwork(containerId, networkConfig)
+				}
 			})
 
 			It("sets the host MTU in the container", func() {
@@ -572,15 +580,24 @@ var _ = Describe("networking", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						if err != nil {
+							skipCleanup = true
+						}
 						Expect(err).NotTo(HaveOccurred())
 						Expect(stdout.String()).To(ContainSubstring("recieved response to DNS query from 8.8.8.8:53 over UDP"))
 
 						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						if err != nil {
+							skipCleanup = true
+						}
 						Expect(err).NotTo(HaveOccurred())
 						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
 
 						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 						Expect(err).NotTo(HaveOccurred())
+						if err != nil {
+							skipCleanup = true
+						}
 						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
 						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
 					})
@@ -652,7 +669,7 @@ var _ = Describe("networking", func() {
 				Expect(strings.TrimSpace(stdout.String())).To(Equal("8.8.8.8,8.8.4.4"))
 			})
 
-			FIt("allows traffic to those servers", func() {
+			It("allows traffic to those servers", func() {
 				helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
 				pid := helpers.GetContainerState(containerId).Pid
