@@ -47,9 +47,9 @@ var _ = Describe("networking", func() {
 	})
 
 	AfterEach(func() {
-		//Expect(os.RemoveAll(tempDir)).To(Succeed())
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
 		fmt.Printf("tempdir: %s\n", tempDir)
-		//Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		fmt.Printf("bundlePath: %s\n", bundlePath)
 	})
 
@@ -172,7 +172,7 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			//Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		Context("default network config", func() {
@@ -183,7 +183,7 @@ var _ = Describe("networking", func() {
 			})
 
 			AfterEach(func() {
-				// deleteContainerAndNetwork(containerId, networkConfig)
+			  deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("sets the host MTU in the container", func() {
