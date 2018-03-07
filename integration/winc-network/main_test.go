@@ -47,8 +47,10 @@ var _ = Describe("networking", func() {
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		//Expect(os.RemoveAll(tempDir)).To(Succeed())
+		fmt.Printf("tempdir: %s\n", tempDir)
+		//Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		fmt.Printf("bundlePath: %s\n", bundlePath)
 	})
 
 	Describe("Create", func() {
@@ -170,7 +172,7 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			//Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		Context("default network config", func() {
@@ -639,7 +641,7 @@ var _ = Describe("networking", func() {
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork(containerId, networkConfig)
+				//deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("uses those IP addresses as DNS servers", func() {
@@ -650,7 +652,7 @@ var _ = Describe("networking", func() {
 				Expect(strings.TrimSpace(stdout.String())).To(Equal("8.8.8.8,8.8.4.4"))
 			})
 
-			It("allows traffic to those servers", func() {
+			FIt("allows traffic to those servers", func() {
 				helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
 				pid := helpers.GetContainerState(containerId).Pid
