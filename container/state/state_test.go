@@ -115,11 +115,13 @@ var _ = Describe("StateManager", func() {
 					})
 				})
 
-				Context("after the init process has been successfully started", func() {
+				FContext("after the init process has been successfully started", func() {
 					var initProcessPid int
+					var initProcessStartTime syscall.Filetime
 					BeforeEach(func() {
 						initProcessPid = 89
-						processManager.ProcessStartTimeReturns(syscall.Filetime{LowDateTime: 10, HighDateTime: 100}, nil)
+						initProcessStartTime = syscall.Filetime{LowDateTime: 10, HighDateTime: 100}
+						processManager.ProcessStartTimeReturnsOnCall(0, initProcessStartTime, nil)
 						Expect(sm.SetRunning(initProcessPid)).To(Succeed())
 
 						hcsClient.OpenContainerReturnsOnCall(0, container, nil)
@@ -128,34 +130,21 @@ var _ = Describe("StateManager", func() {
 
 					Context("and the init process is still running", func() {
 						BeforeEach(func() {
-							processList := []hcsshim.ProcessListItem{
-								hcsshim.ProcessListItem{
-									ProcessId: uint32(containerPid),
-									ImageName: "wininit.exe",
-								},
-								hcsshim.ProcessListItem{
-									ProcessId: uint32(initProcessPid),
-									ImageName: "init-process.exe",
-								},
-							}
-							container.ProcessListReturnsOnCall(0, processList, nil)
-							container.ProcessListReturnsOnCall(1, processList, nil)
+							processManager.IsProcessRunningReturnsOnCall(0, true, nil)
 						})
 
-						It("returns the status as 'running' along with the other expected state fields", func() {
+						FIt("returns the status as 'running' along with the other expected state fields", func() {
 							status, resultBundlePath, err := sm.Get()
 
 							Expect(err).NotTo(HaveOccurred())
 							Expect(status).To(Equal("running"))
 							Expect(resultBundlePath).To(Equal(bundlePath))
 
-							Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
-							Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-
-							Expect(container.ProcessListCallCount()).To(Equal(1))
-							Expect(container.CloseCallCount()).To(Equal(1))
-
-							Expect(processManager.ProcessStartTimeCallCount()).To(Equal(2))
+							Expect(processManager.ProcessStartTimeCallCount()).To(Equal(1))
+							pid, startTime := processManager.IsProcessRunningArgsForCall(0)
+							Expect(pid).To(Equal(uint32(initProcessPid)))
+							Expect(startTime).To(Equal(initProcessStartTime))
+							Expect(processManager.IsProcessRunningCallCount()).To(Equal(1))
 						})
 					})
 

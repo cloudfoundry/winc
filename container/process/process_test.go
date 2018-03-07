@@ -44,7 +44,7 @@ var _ = Describe("ProcessManager", func() {
 	})
 
 	Context("ContainerPid", func() {
-		Context("when there are no wininit.exe processes in the container", func() {
+		Context("when there are hjjjno wininit.exe processes in the container", func() {
 			BeforeEach(func() {
 				container = &hcsfakes.Container{}
 				hcsClient.OpenContainerReturnsOnCall(0, container, nil)
@@ -121,6 +121,29 @@ var _ = Describe("ProcessManager", func() {
 				_, err := pm.ProcessStartTime(pid)
 				Expect(err).To(HaveOccurred())
 			})
+		})
+	})
+
+	Context("IsProcessRunning", func() {
+		It("", func() {
+			containerPid = 123
+			otherProcessPid = 456
+			//							processList := []hcsshim.ProcessListItem{
+			//								hcsshim.ProcessListItem{
+			//									ProcessId: uint32(containerPid),
+			//									ImageName: "wininit.exe",
+			//								},
+			//								hcsshim.ProcessListItem{
+			//									ProcessId: uint32(initProcessPid),
+			//									ImageName: "init-process.exe",
+			//								},
+			//							}
+			//							container.ProcessListReturnsOnCall(0, processList, nil)
+			//							container.ProcessListReturnsOnCall(1, processList, nil)
+			result, err = pm.IsProcessRunning(containerPid)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeTrue())
+
 		})
 	})
 })

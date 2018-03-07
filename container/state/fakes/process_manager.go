@@ -35,6 +35,20 @@ type ProcessManager struct {
 		result1 syscall.Filetime
 		result2 error
 	}
+	IsProcessRunningStub        func(uint32, syscall.Filetime) (bool, error)
+	isProcessRunningMutex       sync.RWMutex
+	isProcessRunningArgsForCall []struct {
+		arg1 uint32
+		arg2 syscall.Filetime
+	}
+	isProcessRunningReturns struct {
+		result1 bool
+		result2 error
+	}
+	isProcessRunningReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -141,6 +155,58 @@ func (fake *ProcessManager) ProcessStartTimeReturnsOnCall(i int, result1 syscall
 	}{result1, result2}
 }
 
+func (fake *ProcessManager) IsProcessRunning(arg1 uint32, arg2 syscall.Filetime) (bool, error) {
+	fake.isProcessRunningMutex.Lock()
+	ret, specificReturn := fake.isProcessRunningReturnsOnCall[len(fake.isProcessRunningArgsForCall)]
+	fake.isProcessRunningArgsForCall = append(fake.isProcessRunningArgsForCall, struct {
+		arg1 uint32
+		arg2 syscall.Filetime
+	}{arg1, arg2})
+	fake.recordInvocation("IsProcessRunning", []interface{}{arg1, arg2})
+	fake.isProcessRunningMutex.Unlock()
+	if fake.IsProcessRunningStub != nil {
+		return fake.IsProcessRunningStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.isProcessRunningReturns.result1, fake.isProcessRunningReturns.result2
+}
+
+func (fake *ProcessManager) IsProcessRunningCallCount() int {
+	fake.isProcessRunningMutex.RLock()
+	defer fake.isProcessRunningMutex.RUnlock()
+	return len(fake.isProcessRunningArgsForCall)
+}
+
+func (fake *ProcessManager) IsProcessRunningArgsForCall(i int) (uint32, syscall.Filetime) {
+	fake.isProcessRunningMutex.RLock()
+	defer fake.isProcessRunningMutex.RUnlock()
+	return fake.isProcessRunningArgsForCall[i].arg1, fake.isProcessRunningArgsForCall[i].arg2
+}
+
+func (fake *ProcessManager) IsProcessRunningReturns(result1 bool, result2 error) {
+	fake.IsProcessRunningStub = nil
+	fake.isProcessRunningReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ProcessManager) IsProcessRunningReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.IsProcessRunningStub = nil
+	if fake.isProcessRunningReturnsOnCall == nil {
+		fake.isProcessRunningReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.isProcessRunningReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *ProcessManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -148,6 +214,8 @@ func (fake *ProcessManager) Invocations() map[string][][]interface{} {
 	defer fake.containerPidMutex.RUnlock()
 	fake.processStartTimeMutex.RLock()
 	defer fake.processStartTimeMutex.RUnlock()
+	fake.isProcessRunningMutex.RLock()
+	defer fake.isProcessRunningMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

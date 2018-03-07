@@ -24,6 +24,7 @@ type HCSClient interface {
 type ProcessManager interface {
 	ContainerPid(string) (int, error)
 	ProcessStartTime(uint32) (syscall.Filetime, error)
+	IsProcessRunning(uint32, syscall.Filetime) (bool, error)
 }
 
 type Manager struct {
@@ -141,7 +142,6 @@ func (m *Manager) stateDir() string {
 }
 
 func (m *Manager) isInitialized() bool {
-	//TODO: check for file instaed of just directory
 	_, err := os.Stat(m.stateDir())
 	return err == nil
 }
@@ -191,30 +191,39 @@ func (m *Manager) userProgramStatus(state ContainerState) (string, error) {
 		return "created", nil
 	}
 
-	//TODO: MOVE TO PROCESS????
-	container, err := m.hcsClient.OpenContainer(m.id)
+	isRunning, err := m.processManager.IsProcessRunning(uint32(state.UserProgramPID), state.UserProgramStartTime)
 	if err != nil {
 		return "", err
 	}
-	defer container.Close()
-
-	pl, err := container.ProcessList()
-	if err != nil {
-		return "", err
+	if isRunning {
+		return "running", nil
 	}
 
-	for _, v := range pl {
-		if v.ProcessId == uint32(state.UserProgramPID) {
-			s, err := m.processManager.ProcessStartTime(v.ProcessId)
-			if err != nil {
-				return "", err
-			}
+	//start(containerId, state.UserProgramPID, state.UserProgramStartTime) (bool)
+	//container, err := m.hcsClient.OpenContainer(m.id)
+	//if err != nil {
+	//	return "", err
+	//}
+	//defer container.Close()
 
-			if s == state.UserProgramStartTime {
-				return "running", nil
-			}
-		}
-	}
+	//pl, err := container.ProcessList()
+	//if err != nil {
+	//	return "", err
+	//}
+
+	//for _, v := range pl {
+	//	if v.ProcessId == uint32(state.UserProgramPID) {
+	//		s, err := m.processManager.ProcessStartTime(v.ProcessId)
+	//		if err != nil {
+	//			return "", err
+	//		}
+
+	//		if s == state.UserProgramStartTime {
+	//			return "running", nil
+	//		}
+	//	}
+	//}
+	//end
 
 	return "exited", nil
 }

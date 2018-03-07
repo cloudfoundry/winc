@@ -158,6 +158,9 @@ func (m *Manager) parseMountOptions(options []string) (bool, error) {
 	return readOnly, nil
 }
 
+func ociToHCSContainerConfig() {
+}
+
 func destToWindowsPath(input string) string {
 	vol := filepath.VolumeName(input)
 	if vol == "" {

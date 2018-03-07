@@ -14,6 +14,13 @@ type HCSClient interface {
 	OpenContainer(string) (hcs.Container, error)
 }
 
+//go:generate counterfeiter -o fakes/syscallclient.go --fake-name SyscallClient . SyscallClient
+type SyscallClient interface {
+	OpenProcess(dword, boolean, uint32) (Handle, err)
+	CloseHandle(Handle)
+	GetProcessTimes(Handle, *Filetime, *Filetime, *Filetime, *Filetime)
+}
+
 type Manager struct {
 	hcsClient HCSClient
 }
@@ -67,4 +74,10 @@ func (m *Manager) ProcessStartTime(pid uint32) (syscall.Filetime, error) {
 	}
 
 	return creationTime, nil
+}
+
+func (m *Manager) IsProcessRunning(userProgramPID uint32, userProcessStartTime syscall.Filetime) (bool, error) {
+	_, _ = userProgramPID, userProcessStartTime
+
+	return false, nil
 }
