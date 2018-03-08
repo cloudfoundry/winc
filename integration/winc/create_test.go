@@ -38,14 +38,13 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
-		//		helpers.DeleteVolume(containerId)
-		//		Expect(os.RemoveAll(bundlePath)).To(Succeed())
-		fmt.Println(containerId)
+		helpers.DeleteVolume(containerId)
+		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
 	Context("when provided valid arguments", func() {
 		AfterEach(func() {
-			//	helpers.DeleteContainer(containerId)
+			helpers.DeleteContainer(containerId)
 		})
 
 		It("creates and starts a container", func() {
@@ -149,7 +148,6 @@ var _ = Describe("Create", func() {
 				var err error
 				mountSource, err = ioutil.TempDir("", "mountsource")
 				Expect(err).ToNot(HaveOccurred())
-				helpers.CopyFile(filepath.Join(mountSource, "sleep.exe"), sleepBin)
 				Expect(ioutil.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
 				Expect(acl.Apply(mountSource, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 
@@ -157,19 +155,15 @@ var _ = Describe("Create", func() {
 
 				mount := specs.Mount{Destination: mountDest, Source: mountSource}
 				bundleSpec.Mounts = []specs.Mount{mount}
-				bundleSpec.Process.Args = []string{filepath.Join(mountDest, "sleep.exe")}
 			})
 
 			AfterEach(func() {
-				//			helpers.DeleteContainer(containerId)
-				//			Expect(os.RemoveAll(mountSource)).To(Succeed())
+				helpers.DeleteContainer(containerId)
+				Expect(os.RemoveAll(mountSource)).To(Succeed())
 			})
 
-			FIt("creates a container with the specified directories as mounts", func() {
-				helpers.GenerateBundle(bundleSpec, bundlePath)
-				//helpers.CreateContainer(bundleSpec, bundlePath, containerId)
-				_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
-				Expect(err).ToNot(HaveOccurred())
+			It("creates a container with the specified directories as mounts", func() {
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(stdOut.String()).To(ContainSubstring("hello"))

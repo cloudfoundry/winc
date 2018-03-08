@@ -39,8 +39,7 @@ var _ = Describe("Run", func() {
 		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: "C:\\mountSomewhereElse"}}
 		Expect(ioutil.WriteFile(filepath.Join(mountSrc, "hi.txt"), []byte("hello"), 0644)).To(Succeed())
 		Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
-		//		bundleSpec.Process.Args = []string{filepath.Join("c:\\mountSomewhereElse", "sleep.exe")}
-		bundleSpec.Process.Args = []string{filepath.Join("sleep.exe")}
+		bundleSpec.Process.Args = []string{filepath.Join("c:\\mountSomewhereElse", "sleep.exe")}
 		fmt.Println(mountSrc)
 	})
 
