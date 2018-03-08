@@ -48,7 +48,7 @@ var _ = Describe("Run", func() {
 
 	FIt("creates a container and runs the init process", func() {
 		helpers.GenerateBundle(bundleSpec, bundlePath)
-		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+		_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())

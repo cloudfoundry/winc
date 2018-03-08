@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
@@ -195,10 +194,11 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	outputs.Properties.MappedPorts = string(portBytes)
-	outputs.Properties.ContainerIP, err = localip.LocalIP()
-	if err != nil {
-		return outputs, err
-	}
+	//	outputs.Properties.ContainerIP, err = localip.LocalIP()
+	//	if err != nil {
+	//		return outputs, err
+	//	}
+	outputs.Properties.ContainerIP = createdEndpoint.IPAddress.String()
 	outputs.Properties.DeprecatedHostIP = "255.255.255.255"
 
 	return outputs, nil

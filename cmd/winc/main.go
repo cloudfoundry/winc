@@ -43,7 +43,8 @@ func main() {
 			Usage: "enable debug output for logging",
 		},
 		cli.StringFlag{
-			Name:  "log",
+			Name: "log",
+			//			Value: os.DevNull,
 			Value: os.DevNull,
 			Usage: "set the log file path where internal debug information is written",
 		},
@@ -80,6 +81,7 @@ func main() {
 		var logWriter io.Writer
 		if logFile == "" || logFile == os.DevNull {
 			logWriter = ioutil.Discard
+			logWriter = os.Stderr
 		} else {
 			if err := os.MkdirAll(filepath.Dir(logFile), 0666); err != nil {
 				return err
