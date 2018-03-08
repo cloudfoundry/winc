@@ -149,6 +149,7 @@ var _ = Describe("Create", func() {
 				var err error
 				mountSource, err = ioutil.TempDir("", "mountsource")
 				Expect(err).ToNot(HaveOccurred())
+				helpers.CopyFile(filepath.Join(mountSource, "sleep.exe"), sleepBin)
 				Expect(ioutil.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
 				Expect(acl.Apply(mountSource, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 
