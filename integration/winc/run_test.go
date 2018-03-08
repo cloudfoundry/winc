@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/Microsoft/hcsshim"
+	acl "github.com/hectane/go-acl"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -33,6 +34,9 @@ var _ = Describe("Run", func() {
 		containerId = filepath.Base(bundlePath)
 
 		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+		bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
+		Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
+		bundleSpec.Process.Args = []string{"sleep.exe"}
 	})
 
 	AfterEach(func() {
@@ -41,14 +45,14 @@ var _ = Describe("Run", func() {
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
-	It("creates a container and runs the init process", func() {
+	FIt("creates a container and runs the init process", func() {
 		helpers.GenerateBundle(bundleSpec, bundlePath)
 		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 
-		pl := containerProcesses(containerId, "powershell.exe")
+		pl := containerProcesses(containerId, "sleep.exe")
 		Expect(len(pl)).To(Equal(1))
 
 		containerPid := helpers.GetContainerState(containerId).Pid
