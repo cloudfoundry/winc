@@ -1,20 +1,9 @@
 package main
 
-import (
-	"os"
-	"strconv"
-	"time"
-)
+import "time"
 
 func main() {
-	sleepSeconds := 99999
-	if len(os.Args) > 1 {
-		var err error
-		sleepSeconds, err = strconv.Atoi(os.Args[1])
-		if err != nil {
-			panic(err)
-		}
+	for {
+		time.Sleep(time.Hour * 24 * 365)
 	}
-
-	time.Sleep(time.Duration(sleepSeconds) * time.Second)
 }
