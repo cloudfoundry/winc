@@ -157,6 +157,7 @@ var _ = Describe("Create", func() {
 
 				mount := specs.Mount{Destination: mountDest, Source: mountSource}
 				bundleSpec.Mounts = []specs.Mount{mount}
+				bundleSpec.Process.Args = []string{filepath.Join(mountDest, "sleep.exe")}
 			})
 
 			AfterEach(func() {
@@ -165,7 +166,10 @@ var _ = Describe("Create", func() {
 			})
 
 			FIt("creates a container with the specified directories as mounts", func() {
-				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				helpers.GenerateBundle(bundleSpec, bundlePath)
+				//helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
+				Expect(err).ToNot(HaveOccurred())
 				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(stdOut.String()).To(ContainSubstring("hello"))
