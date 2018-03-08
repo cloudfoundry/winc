@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/windows"
 )
 
 var _ = Describe("Run", func() {
