@@ -22,11 +22,12 @@ const destroyTimeout = time.Minute
 const stateFile = "state.json"
 
 type Manager struct {
-	logger    *logrus.Entry
-	hcsClient HCSClient
-	mounter   Mounter
-	id        string
-	rootDir   string
+	logger        *logrus.Entry
+	hcsClient     HCSClient
+	mounter       Mounter
+	processClient ProcessClient
+	id            string
+	rootDir       string
 }
 
 type State struct {
@@ -70,13 +71,19 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, id, rootDir string) *Manager {
+//go:generate counterfeiter -o fakes/processclient.go --fake-name ProcessClient . ProcessClient
+type ProcessClient interface {
+	StartTime(pid uint32) (syscall.Filetime, error)
+}
+
+func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, processClient ProcessClient, id, rootDir string) *Manager {
 	return &Manager{
-		logger:    logger,
-		hcsClient: hcsClient,
-		mounter:   mounter,
-		id:        id,
-		rootDir:   rootDir,
+		logger:        logger,
+		hcsClient:     hcsClient,
+		mounter:       mounter,
+		processClient: processClient,
+		id:            id,
+		rootDir:       rootDir,
 	}
 }
 
@@ -398,7 +405,7 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 
 	for _, v := range pl {
 		if v.ProcessId == uint32(state.UserProgramPID) {
-			s, err := processStartTime(v.ProcessId)
+			s, err := m.processClient.StartTime(v.ProcessId)
 			if err != nil {
 				return "", err
 			}
@@ -526,6 +533,7 @@ func (m *Manager) containerPid(id string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+	defer container.Close()
 
 	pl, err := container.ProcessList()
 	if err != nil {
