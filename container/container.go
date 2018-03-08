@@ -465,7 +465,7 @@ func (m *Manager) Start() error {
 	//
 	// https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803
 
-	containerState.UserProgramStartTime, err = processStartTime(uint32(proc.Pid()))
+	containerState.UserProgramStartTime, err = m.processClient.StartTime(uint32(proc.Pid()))
 	if err != nil {
 		writeContainerState()
 		return err
