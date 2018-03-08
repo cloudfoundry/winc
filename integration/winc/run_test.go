@@ -41,6 +41,7 @@ var _ = Describe("Run", func() {
 		Expect(ioutil.WriteFile(filepath.Join(mountSrc, "hi.txt"), []byte("hello"), 0644)).To(Succeed())
 		Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 		bundleSpec.Process.Args = []string{filepath.Join(destDir, "sleep.exe")}
+		bundleSpec.Process.Cwd = "/"
 		fmt.Println(mountSrc)
 	})
 
