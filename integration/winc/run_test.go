@@ -36,10 +36,11 @@ var _ = Describe("Run", func() {
 
 		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 		mountSrc := filepath.Dir(sleepBin)
-		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: "C:\\mountSomewhereElse"}}
+		destDir := "c:\\windows\\temp\\bin"
+		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: destDir}}
 		Expect(ioutil.WriteFile(filepath.Join(mountSrc, "hi.txt"), []byte("hello"), 0644)).To(Succeed())
 		Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
-		bundleSpec.Process.Args = []string{filepath.Join("c:\\mountSomewhereElse", "sleep.exe")}
+		bundleSpec.Process.Args = []string{filepath.Join(destDir, "sleep.exe")}
 		fmt.Println(mountSrc)
 	})
 
