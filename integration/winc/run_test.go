@@ -36,7 +36,7 @@ var _ = Describe("Run", func() {
 
 		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 		mountSrc := filepath.Dir(sleepBin)
-		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: "C:\\tmp"}}
+		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: "C:\\mountSomewhereElse"}}
 		Expect(ioutil.WriteFile(filepath.Join(mountSrc, "hi.txt"), []byte("hello"), 0644)).To(Succeed())
 		Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 		bundleSpec.Process.Args = []string{"sleep.exe"}
@@ -52,8 +52,8 @@ var _ = Describe("Run", func() {
 
 	FIt("creates a container and runs the init process", func() {
 		helpers.GenerateBundle(bundleSpec, bundlePath)
-		_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "create", "-b", bundlePath, containerId))
-		//_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
+		//	_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "create", "-b", bundlePath, containerId))
+		_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())

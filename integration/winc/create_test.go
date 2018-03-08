@@ -38,13 +38,14 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
-		helpers.DeleteVolume(containerId)
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		//		helpers.DeleteVolume(containerId)
+		//		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		fmt.Println(containerId)
 	})
 
 	Context("when provided valid arguments", func() {
 		AfterEach(func() {
-			helpers.DeleteContainer(containerId)
+			//	helpers.DeleteContainer(containerId)
 		})
 
 		It("creates and starts a container", func() {
@@ -158,8 +159,8 @@ var _ = Describe("Create", func() {
 			})
 
 			AfterEach(func() {
-				helpers.DeleteContainer(containerId)
-				Expect(os.RemoveAll(mountSource)).To(Succeed())
+				//			helpers.DeleteContainer(containerId)
+				//			Expect(os.RemoveAll(mountSource)).To(Succeed())
 			})
 
 			FIt("creates a container with the specified directories as mounts", func() {
