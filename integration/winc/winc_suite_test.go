@@ -90,7 +90,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	//	gexec.CleanupBuildArtifacts()
+	gexec.CleanupBuildArtifacts()
 })
 
 func processSpecGenerator() specs.Process {

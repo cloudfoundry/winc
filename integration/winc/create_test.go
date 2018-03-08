@@ -162,7 +162,7 @@ var _ = Describe("Create", func() {
 				Expect(os.RemoveAll(mountSource)).To(Succeed())
 			})
 
-			It("creates a container with the specified directories as mounts", func() {
+			FIt("creates a container with the specified directories as mounts", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
 				Expect(err).NotTo(HaveOccurred())
