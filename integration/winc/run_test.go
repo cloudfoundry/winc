@@ -41,14 +41,16 @@ var _ = Describe("Run", func() {
 	})
 
 	AfterEach(func() {
-		helpers.DeleteContainer(containerId)
-		helpers.DeleteVolume(containerId)
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		//		helpers.DeleteContainer(containerId)
+		//		helpers.DeleteVolume(containerId)
+		//		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		fmt.Println(containerId)
 	})
 
 	FIt("creates a container and runs the init process", func() {
 		helpers.GenerateBundle(bundleSpec, bundlePath)
-		_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
+		_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "create", "-b", bundlePath, containerId))
+		//_, _, err := helpers.Execute(exec.Command(wincBin, "--debug", "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())
