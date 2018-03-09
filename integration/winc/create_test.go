@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	acl "github.com/hectane/go-acl"
 	ps "github.com/mitchellh/go-ps"
@@ -167,6 +168,29 @@ var _ = Describe("Create", func() {
 				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(stdOut.String()).To(ContainSubstring("hello"))
+			})
+
+			Context("the source of the bind mount is a symlink", func() {
+				var symlinkDir string
+
+				BeforeEach(func() {
+					var err error
+					symlinkDir, err = ioutil.TempDir("", "symlinkdir")
+					Expect(err).ToNot(HaveOccurred())
+					symlink := filepath.Join(symlinkDir, "link-dir")
+					Expect(createSymlinkToDir(mountSource, symlink)).To(Succeed())
+				})
+
+				AfterEach(func() {
+					Expect(os.RemoveAll(symlinkDir)).To(Succeed())
+				})
+
+				FIt("creates a container with the specified directories as mounts", func() {
+					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+					stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(stdOut.String()).To(ContainSubstring("hello"))
+				})
 			})
 
 			Context("no mount options are specified", func() {
@@ -392,3 +416,27 @@ var _ = Describe("Create", func() {
 		})
 	})
 })
+
+func createSymlinkToDir(oldname, newname string) error {
+	// CreateSymbolicLink is not supported before Windows Vista
+	if syscall.LoadCreateSymbolicLink() != nil {
+		return &os.LinkError{Op: "symlink", Old: oldname, New: newname, Err: syscall.EWINDOWS}
+	}
+
+	n, err := syscall.UTF16PtrFromString(newname)
+	if err != nil {
+		return &os.LinkError{Op: "symlink", Old: oldname, New: newname, Err: err}
+	}
+	o, err := syscall.UTF16PtrFromString(oldname)
+	if err != nil {
+		return &os.LinkError{Op: "symlink", Old: oldname, New: newname, Err: err}
+	}
+
+	var flags uint32
+	flags |= syscall.SYMBOLIC_LINK_FLAG_DIRECTORY
+	err = syscall.CreateSymbolicLink(n, o, flags)
+	if err != nil {
+		return &os.LinkError{Op: "symlink", Old: oldname, New: newname, Err: err}
+	}
+	return nil
+}
