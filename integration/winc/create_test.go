@@ -180,7 +180,7 @@ var _ = Describe("Create", func() {
 					symlink := filepath.Join(symlinkDir, "link-dir")
 					Expect(createSymlinkToDir(mountSource, symlink)).To(Succeed())
 
-					bundleSpec.Mounts = []specs.Mount{{Destination: mountDest, Source: symlinkDir}}
+					bundleSpec.Mounts = []specs.Mount{{Destination: mountDest, Source: symlink}}
 				})
 
 				AfterEach(func() {
