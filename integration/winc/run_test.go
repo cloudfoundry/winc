@@ -11,13 +11,11 @@ import (
 	"syscall"
 
 	"github.com/Microsoft/hcsshim"
-	acl "github.com/hectane/go-acl"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"golang.org/x/sys/windows"
 )
 
 var _ = Describe("Run", func() {
@@ -39,7 +37,7 @@ var _ = Describe("Run", func() {
 		destDir := "c:\\windows\\temp\\bin"
 		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: destDir}}
 		Expect(ioutil.WriteFile(filepath.Join(mountSrc, "hi.txt"), []byte("hello"), 0644)).To(Succeed())
-		Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
+		//	Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 		bundleSpec.Process.Args = []string{filepath.Join(destDir, "sleep.exe")}
 		bundleSpec.Process.Cwd = "/"
 		fmt.Println(mountSrc)
