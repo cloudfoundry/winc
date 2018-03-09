@@ -179,6 +179,8 @@ var _ = Describe("Create", func() {
 					Expect(err).ToNot(HaveOccurred())
 					symlink := filepath.Join(symlinkDir, "link-dir")
 					Expect(createSymlinkToDir(mountSource, symlink)).To(Succeed())
+
+					bundleSpec.Mounts = []specs.Mount{{Destination: mountDest, Source: mountSource}}
 				})
 
 				AfterEach(func() {
