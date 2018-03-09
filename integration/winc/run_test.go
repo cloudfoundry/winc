@@ -40,6 +40,7 @@ var _ = Describe("Run", func() {
 		//	Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 		bundleSpec.Process.Args = []string{filepath.Join(destDir, "sleep.exe")}
 		bundleSpec.Process.Cwd = "/"
+		bundleSpec.Process.User = specs.User{Username: "vcap"}
 		fmt.Println(mountSrc)
 	})
 
