@@ -22,15 +22,19 @@ const destroyTimeout = time.Minute
 const stateFile = "state.json"
 
 type Manager struct {
-	logger    *logrus.Entry
-	hcsClient HCSClient
-	mounter   Mounter
-	id        string
-	rootDir   string
+	logger        *logrus.Entry
+	hcsClient     HCSClient
+	mounter       Mounter
+	processClient ProcessClient
+	id            string
+	rootDir       string
 }
 
 type State struct {
-	Bundle string `json:"bundle"`
+	Bundle                string           `json:"bundle"`
+	UserProgramPID        int              `json:"user_program_pid"`
+	UserProgramStartTime  syscall.Filetime `json:"user_program_start_time"`
+	UserProgramExecFailed bool             `json:"user_program_exec_failed"`
 }
 
 type Statistics struct {
@@ -67,13 +71,19 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, id, rootDir string) *Manager {
+//go:generate counterfeiter -o fakes/processclient.go --fake-name ProcessClient . ProcessClient
+type ProcessClient interface {
+	StartTime(pid uint32) (syscall.Filetime, error)
+}
+
+func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, processClient ProcessClient, id, rootDir string) *Manager {
 	return &Manager{
-		logger:    logger,
-		hcsClient: hcsClient,
-		mounter:   mounter,
-		id:        id,
-		rootDir:   rootDir,
+		logger:        logger,
+		hcsClient:     hcsClient,
+		mounter:       mounter,
+		processClient: processClient,
+		id:            id,
+		rootDir:       rootDir,
 	}
 }
 
@@ -349,7 +359,10 @@ func (m *Manager) State() (*specs.State, error) {
 	if cp.Stopped {
 		status = "stopped"
 	} else {
-		status = "created"
+		status, err = m.userProgramStatus(state)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pid, err := m.containerPid(m.id)
@@ -364,6 +377,102 @@ func (m *Manager) State() (*specs.State, error) {
 		Bundle:  state.Bundle,
 		Pid:     pid,
 	}, nil
+}
+
+func (m *Manager) userProgramStatus(state State) (string, error) {
+	if state.UserProgramExecFailed {
+		return "exited", nil
+	}
+
+	if !stateValid(state) {
+		return "", fmt.Errorf("invalid state: user PID %d, user start time %+v", state.UserProgramPID, state.UserProgramStartTime)
+	}
+
+	if (state.UserProgramPID == 0) && (state.UserProgramStartTime == syscall.Filetime{}) {
+		return "created", nil
+	}
+
+	container, err := m.hcsClient.OpenContainer(m.id)
+	if err != nil {
+		return "", err
+	}
+	defer container.Close()
+
+	pl, err := container.ProcessList()
+	if err != nil {
+		return "", err
+	}
+
+	for _, v := range pl {
+		if v.ProcessId == uint32(state.UserProgramPID) {
+			s, err := m.processClient.StartTime(v.ProcessId)
+			if err != nil {
+				return "", err
+			}
+
+			if s == state.UserProgramStartTime {
+				return "running", nil
+			}
+		}
+	}
+
+	return "exited", nil
+}
+
+func stateValid(state State) bool {
+	return (state.UserProgramPID == 0 && state.UserProgramStartTime == syscall.Filetime{}) ||
+		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
+}
+
+func (m *Manager) Start() error {
+	ociState, err := m.State()
+	if err != nil {
+		return err
+	}
+
+	if ociState.Status != "created" {
+		return fmt.Errorf("cannot start a container in the %s state", ociState.Status)
+	}
+
+	spec, err := m.loadBundle(ociState.Bundle)
+	if err != nil {
+		return err
+	}
+
+	containerState := State{Bundle: ociState.Bundle}
+	writeContainerState := func() error {
+		contents, err := json.Marshal(containerState)
+		if err != nil {
+			return err
+		}
+
+		return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
+	}
+
+	proc, err := m.Exec(spec.Process, false)
+	if err != nil {
+		containerState.UserProgramExecFailed = true
+		writeContainerState()
+		return err
+	}
+	defer proc.Close()
+
+	containerState.UserProgramPID = proc.Pid()
+
+	// trying to open the process to get a handle + its start time should be valid
+	// here, since the hcsshim.process struct has an open handle to the process,
+	// and the PID will not be reused until all open handles are closed.
+	//
+	// https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803
+
+	containerState.UserProgramStartTime, err = m.processClient.StartTime(uint32(proc.Pid()))
+	if err != nil {
+		containerState.UserProgramExecFailed = true
+		writeContainerState()
+		return err
+	}
+
+	return writeContainerState()
 }
 
 func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {
@@ -425,6 +534,7 @@ func (m *Manager) containerPid(id string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+	defer container.Close()
 
 	pl, err := container.ProcessList()
 	if err != nil {

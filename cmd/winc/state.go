@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -33,7 +34,7 @@ instance of a container.`,
 		logger.Debug("retrieving state of container")
 
 		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
 
 		state, err := cm.State()
 		if err != nil {

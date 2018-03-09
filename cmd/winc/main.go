@@ -13,6 +13,7 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -68,6 +69,7 @@ func main() {
 		deleteCommand,
 		runCommand,
 		stateCommand,
+		startCommand,
 		execCommand,
 		eventsCommand,
 	}
@@ -159,7 +161,7 @@ func fatal(err error) {
 
 func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, rootDir string) (*specs.Spec, error) {
 	client := hcs.Client{}
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
+	cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
 
 	spec, err := cm.Create(bundlePath)
 	if err != nil {
@@ -182,7 +184,7 @@ func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, roo
 
 func runProcess(logger *logrus.Entry, containerId string, spec *specs.Process, detach bool, pidFile, rootDir string, deleteContainer bool) error {
 	client := hcs.Client{}
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, containerId, rootDir)
+	cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
 
 	process, err := cm.Exec(spec, !detach)
 	if err != nil {

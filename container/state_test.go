@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"code.cloudfoundry.org/winc/container"
@@ -28,6 +29,7 @@ var _ = Describe("State", func() {
 	var (
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
+		processClient    *fakes.ProcessClient
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
 		rootDir          string
@@ -49,11 +51,12 @@ var _ = Describe("State", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
+		processClient = &fakes.ProcessClient{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "state")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, rootDir)
 
 		fakeContainer = &hcsfakes.Container{}
 		fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
@@ -76,7 +79,6 @@ var _ = Describe("State", func() {
 	Context("when the specified container exists", func() {
 		var (
 			expectedState               *specs.State
-			actualState                 *specs.State
 			expectedContainerProperties hcsshim.ContainerProperties
 		)
 
@@ -92,13 +94,7 @@ var _ = Describe("State", func() {
 				ID:   containerId,
 				Name: bundlePath,
 			}
-		})
-
-		JustBeforeEach(func() {
-			var err error
 			hcsClient.GetContainerPropertiesReturns(expectedContainerProperties, nil)
-			actualState, err = containerManager.State()
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("when the container has just been created", func() {
@@ -107,6 +103,8 @@ var _ = Describe("State", func() {
 			})
 
 			It("returns the correct state", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
 				Expect(actualState).To(Equal(expectedState))
 				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
@@ -120,9 +118,12 @@ var _ = Describe("State", func() {
 			BeforeEach(func() {
 				expectedState.Status = "stopped"
 				expectedContainerProperties.Stopped = true
+				hcsClient.GetContainerPropertiesReturns(expectedContainerProperties, nil)
 			})
 
 			It("returns the correct state", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
 				Expect(actualState).To(Equal(expectedState))
 				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
@@ -132,12 +133,102 @@ var _ = Describe("State", func() {
 			})
 		})
 
+		Context("when the user process failed to start", func() {
+			BeforeEach(func() {
+				expectedState.Status = "exited"
+				state := container.State{Bundle: bundlePath, UserProgramExecFailed: true}
+				contents, err := json.Marshal(state)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ioutil.WriteFile(filepath.Join(rootDir, containerId, "state.json"), contents, 0644)).To(Succeed())
+			})
+
+			It("returns the correct state", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+			})
+		})
+
+		Context("when the user process is still running", func() {
+			BeforeEach(func() {
+				expectedState.Status = "running"
+				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+					hcsshim.ProcessListItem{ProcessId: 100},
+					hcsshim.ProcessListItem{ProcessId: 666, ImageName: "wininit.exe"},
+				}, nil)
+				processClient.StartTimeReturns(syscall.Filetime{LowDateTime: 100, HighDateTime: 20}, nil)
+				state := container.State{Bundle: bundlePath, UserProgramPID: 100, UserProgramStartTime: syscall.Filetime{LowDateTime: 100, HighDateTime: 20}}
+				contents, err := json.Marshal(state)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ioutil.WriteFile(filepath.Join(rootDir, containerId, "state.json"), contents, 0644)).To(Succeed())
+			})
+
+			It("returns the correct state", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.OpenContainerArgsForCall(1)).To(Equal(containerId))
+				Expect(fakeContainer.CloseCallCount()).To(Equal(2))
+				Expect(fakeContainer.ProcessListCallCount()).To(Equal(2))
+			})
+
+			Context("when the process client fails to get the process start", func() {
+				BeforeEach(func() {
+					fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+						hcsshim.ProcessListItem{ProcessId: 100},
+						hcsshim.ProcessListItem{ProcessId: 666, ImageName: "wininit.exe"},
+					}, nil)
+					processClient.StartTimeReturns(syscall.Filetime{}, errors.New("failed to get process start time"))
+					state := container.State{Bundle: bundlePath, UserProgramPID: 100, UserProgramStartTime: syscall.Filetime{LowDateTime: 100, HighDateTime: 20}}
+					contents, err := json.Marshal(state)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ioutil.WriteFile(filepath.Join(rootDir, containerId, "state.json"), contents, 0644)).To(Succeed())
+				})
+
+				It("returns the error", func() {
+					_, err := containerManager.State()
+					Expect(err).To(HaveOccurred())
+				})
+			})
+		})
+
+		Context("when the user process runs and exits", func() {
+			BeforeEach(func() {
+				expectedState.Status = "exited"
+				state := container.State{Bundle: bundlePath, UserProgramPID: 100, UserProgramStartTime: syscall.Filetime{LowDateTime: 100, HighDateTime: 20}}
+				contents, err := json.Marshal(state)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ioutil.WriteFile(filepath.Join(rootDir, containerId, "state.json"), contents, 0644)).To(Succeed())
+			})
+
+			It("returns the correct state", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actualState).To(Equal(expectedState))
+				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
+				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
+				Expect(hcsClient.OpenContainerArgsForCall(1)).To(Equal(containerId))
+				Expect(fakeContainer.CloseCallCount()).To(Equal(2))
+				Expect(fakeContainer.ProcessListCallCount()).To(Equal(2))
+			})
+		})
+
 		Context("when there are no wininit.exe processes in the container", func() {
 			BeforeEach(func() {
 				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{}, nil)
 			})
 
 			It("returns 0 as the pid", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
 				Expect(actualState.Pid).To(Equal(0))
 			})
 		})
@@ -153,6 +244,8 @@ var _ = Describe("State", func() {
 			})
 
 			It("returns the pid of the oldest one as the container pid", func() {
+				actualState, err := containerManager.State()
+				Expect(err).ToNot(HaveOccurred())
 				Expect(actualState.Pid).To(Equal(667))
 			})
 		})
@@ -168,6 +261,34 @@ var _ = Describe("State", func() {
 		It("errors", func() {
 			_, err := containerManager.State()
 			Expect(err).To(Equal(missingContainerError))
+		})
+	})
+
+	Context("when the state file has a user PID but no user start time", func() {
+		BeforeEach(func() {
+			state := container.State{Bundle: bundlePath, UserProgramPID: 100}
+			contents, err := json.Marshal(state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(rootDir, containerId, "state.json"), contents, 0644)).To(Succeed())
+		})
+
+		It("errors", func() {
+			_, err := containerManager.State()
+			Expect(err.Error()).To(ContainSubstring("invalid state"))
+		})
+	})
+
+	Context("when the state file has a user start time but no user PID", func() {
+		BeforeEach(func() {
+			state := container.State{Bundle: bundlePath, UserProgramStartTime: syscall.Filetime{LowDateTime: 100, HighDateTime: 20}}
+			contents, err := json.Marshal(state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ioutil.WriteFile(filepath.Join(rootDir, containerId, "state.json"), contents, 0644)).To(Succeed())
+		})
+
+		It("errors", func() {
+			_, err := containerManager.State()
+			Expect(err.Error()).To(ContainSubstring("invalid state"))
 		})
 	})
 })

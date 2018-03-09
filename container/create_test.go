@@ -27,6 +27,7 @@ var _ = Describe("Create", func() {
 		layerFolders     []string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
+		processClient    *fakes.ProcessClient
 		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
@@ -68,11 +69,12 @@ var _ = Describe("Create", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
+		processClient = &fakes.ProcessClient{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "create")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, rootDir)
 	})
 
 	AfterEach(func() {

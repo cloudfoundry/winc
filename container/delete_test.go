@@ -23,6 +23,7 @@ var _ = Describe("Delete", func() {
 		bundlePath       string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
+		processClient    *fakes.ProcessClient
 		fakeContainer    *hcsfakes.Container
 		containerManager *container.Manager
 		rootDir          string
@@ -48,13 +49,14 @@ var _ = Describe("Delete", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
+		processClient = &fakes.ProcessClient{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "delete")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, rootDir)
 	})
 
 	AfterEach(func() {
@@ -181,7 +183,7 @@ var _ = Describe("Delete", func() {
 			It("closes the container but skips shutting down and terminating it", func() {
 				Expect(containerManager.Delete(false)).To(Succeed())
 
-				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
+				Expect(fakeContainer.CloseCallCount()).To(Equal(2))
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
 			})
