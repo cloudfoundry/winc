@@ -35,12 +35,15 @@ var _ = Describe("Run", func() {
 		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 		mountSrc := filepath.Dir(sleepBin)
 		destDir := "c:\\windows\\temp\\bin"
+
+		mountSrc = "C:\\var\\vcap\\data\\concourse_windows\\containers\\00003joqe7g\\tmp\\build\\7e717650\\garden-init-binary"
+
 		bundleSpec.Mounts = []specs.Mount{{Source: mountSrc, Destination: destDir}}
 		Expect(ioutil.WriteFile(filepath.Join(mountSrc, "hi.txt"), []byte("hello"), 0644)).To(Succeed())
 		//	Expect(acl.Apply(mountSrc, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
-		bundleSpec.Process.Args = []string{filepath.Join(destDir, "sleep.exe")}
+		bundleSpec.Process.Args = []string{filepath.Join(destDir, "garden-init.exe")}
 		bundleSpec.Process.Cwd = "/"
-		bundleSpec.Process.User = specs.User{Username: "vcap"}
+		//bundleSpec.Process.User = specs.User{Username: "vcap"}
 		fmt.Println(mountSrc)
 	})
 
