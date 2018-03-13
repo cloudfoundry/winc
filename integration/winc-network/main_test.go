@@ -242,7 +242,8 @@ var _ = Describe("networking", func() {
 
 					hostPort1 = mappedPorts[0].HostPort
 
-					hostIp := outputs.Properties.ContainerIP
+					hostIp, err := localip.LocalIP()
+					Expect(err).NotTo(HaveOccurred())
 
 					resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
 					Expect(err).NotTo(HaveOccurred())
@@ -310,9 +311,11 @@ var _ = Describe("networking", func() {
 						Expect(outputs.Properties.MappedPorts).To(Equal("[]"))
 						Expect(outputs.Properties.DeprecatedHostIP).To(Equal("255.255.255.255"))
 
-						localIP, err := localip.LocalIP()
+						_, network, err := net.ParseCIDR(networkConfig.SubnetRange)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(outputs.Properties.ContainerIP).To(Equal(localIP))
+						ip := net.ParseIP(outputs.Properties.ContainerIP)
+						Expect(ip).NotTo(BeNil())
+						Expect(network.Contains(ip)).To(BeTrue())
 					})
 				})
 			})
@@ -881,7 +884,8 @@ var _ = Describe("networking", func() {
 
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
-				hostIp := outputs.Properties.ContainerIP
+				hostIp, err := localip.LocalIP()
+				Expect(err).NotTo(HaveOccurred())
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 				hostPort := findExternalPort(outputs.Properties.MappedPorts, containerPort)
 				serverURL = fmt.Sprintf("http://%s:%d", hostIp, hostPort)

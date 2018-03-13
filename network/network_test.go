@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net"
 
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/fakes"
 	"code.cloudfoundry.org/winc/network/netrules"
@@ -190,16 +189,11 @@ var _ = Describe("NetworkManager", func() {
 			inputs          network.UpInputs
 			createdEndpoint hcsshim.HNSEndpoint
 			containerIP     net.IP
-			localIP         string
 			mapping1        netrules.PortMapping
 			mapping2        netrules.PortMapping
 		)
 
 		BeforeEach(func() {
-			var err error
-			localIP, err = localip.LocalIP()
-			Expect(err).NotTo(HaveOccurred())
-
 			containerIP = net.ParseIP("111.222.33.44")
 
 			createdEndpoint = hcsshim.HNSEndpoint{
@@ -231,7 +225,7 @@ var _ = Describe("NetworkManager", func() {
 			output, err := networkManager.Up(inputs)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(output.Properties.ContainerIP).To(Equal(localIP))
+			Expect(output.Properties.ContainerIP).To(Equal(containerIP.String()))
 			Expect(output.Properties.DeprecatedHostIP).To(Equal("255.255.255.255"))
 			Expect(output.Properties.MappedPorts).To(Equal(`[{"HostPort":111,"ContainerPort":666},{"HostPort":222,"ContainerPort":888}]`))
 
