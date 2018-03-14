@@ -16,6 +16,7 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
@@ -57,14 +58,20 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			helpers.DeleteNetwork(networkConfig, networkConfigFile)
-			Expect(os.Remove(networkConfigFile)).To(Succeed())
+			//	helpers.DeleteNetwork(networkConfig, networkConfigFile)
+			//		Expect(os.Remove(networkConfigFile)).To(Succeed())
 		})
 
-		It("creates the network with the correct name", func() {
+		FIt("creates the network with the correct name", func() {
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
 
-			psCommand := fmt.Sprintf(`(Get-NetAdapter -name "vEthernet (%s)").InterfaceAlias`, networkConfig.NetworkName)
+			hostIP := "192.168.158.128"
+			ni := netinterface.NetInterface{}
+			iface, err := ni.ByIP(hostIP)
+			Expect(err).NotTo(HaveOccurred())
+
+			psCommand := fmt.Sprintf(`(Get-NetAdapter -name "%s").InterfaceAlias`, iface.Name)
+			//	psCommand := fmt.Sprintf(`(Get-NetAdapter -name "vEthernet (%s)").InterfaceAlias`, networkConfig.NetworkName)
 			output, err := exec.Command("powershell.exe", "-command", psCommand).CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), string(output))
 			Expect(strings.TrimSpace(string(output))).To(Equal(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName)))

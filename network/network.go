@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 
-	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
@@ -85,7 +84,19 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		}
 	}
 
-	subnets := []hcsshim.Subnet{{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}}
+	subnet := hcsshim.Subnet{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}
+	vsidPolicy, err := json.Marshal(hcsshim.VsidPolicy{
+		Type: "VSID",
+		// must be at least 4096
+		VSID: 5120,
+	})
+	subnet.Policies = append(subnet.Policies, vsidPolicy)
+
+	if err != nil {
+		return err
+	}
+
+	subnets := []hcsshim.Subnet{subnet}
 
 	if existingNetwork != nil {
 		if len(existingNetwork.Subnets) == 1 && subnetsMatch(existingNetwork.Subnets[0], subnets[0]) {
@@ -97,21 +108,29 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 
 	network := &hcsshim.HNSNetwork{
 		Name:    n.config.NetworkName,
-		Type:    "nat",
+		Type:    "overlay",
 		Subnets: subnets,
 	}
 
+	//networkReady := func() (bool, error) {
+	//	interfaceAlias := fmt.Sprintf("vEthernet (%s)", network.Name)
+	//	return netinterface.InterfaceExists(interfaceAlias)
+	//}
+
+	// no new networks are being created -- just the host ethernet is being modified
 	networkReady := func() (bool, error) {
-		interfaceAlias := fmt.Sprintf("vEthernet (%s)", network.Name)
-		return netinterface.InterfaceExists(interfaceAlias)
+		return true, nil
 	}
 
 	_, err = n.hcsClient.CreateNetwork(network, networkReady)
-	if err != nil {
-		return err
-	}
+	return err
 
-	return n.applier.NatMTU(n.config.MTU)
+	// since we're just modifying host ethernet, probably don't need to change MTU
+	//if err != nil {
+	//	return err
+	//}
+
+	//return n.applier.NatMTU(n.config.MTU)
 }
 
 func subnetsMatch(a, b hcsshim.Subnet) bool {
