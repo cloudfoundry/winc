@@ -2,14 +2,15 @@ package endpoint
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"math/rand"
+	"net"
 	"strings"
 	"time"
 
 	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/firewall"
 	"code.cloudfoundry.org/winc/network/netinterface"
-	"code.cloudfoundry.org/winc/network/netrules"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 )
@@ -54,9 +55,35 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 		return hcsshim.HNSEndpoint{}, err
 	}
 
+	providerAddress := network.ManagementIP
+	paPolicy, err := json.Marshal(hcsshim.PaPolicy{
+		Type: hcsshim.PA,
+		PA:   providerAddress,
+	})
+
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+
+	natPolicy, err := json.Marshal(hcsshim.OutboundNatPolicy{
+		Policy: hcsshim.Policy{Type: hcsshim.OutboundNat},
+	})
+
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+
+	policies := []json.RawMessage{paPolicy, natPolicy}
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	endpointIP := strings.TrimSuffix(network.Subnets[0].GatewayAddress, ".1") + fmt.Sprintf(".%d", r.Intn(256))
+
 	endpoint := &hcsshim.HNSEndpoint{
 		VirtualNetwork: network.Id,
 		Name:           e.containerId,
+		Policies:       policies,
+		IPAddress:      net.ParseIP(endpointIP),
+		GatewayAddress: network.Subnets[0].GatewayAddress,
 	}
 
 	if e.config.MaximumOutgoingBandwidth != 0 {
@@ -68,7 +95,7 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 			return hcsshim.HNSEndpoint{}, err
 		}
 
-		endpoint.Policies = []json.RawMessage{policy}
+		endpoint.Policies = append(endpoint.Policies, policy)
 	}
 
 	if len(e.config.DNSServers) > 0 {
@@ -123,10 +150,10 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 		return nil, fmt.Errorf("invalid endpoint %s allocators: %+v", endpoint.Id, allocatedEndpoint.Resources.Allocators)
 	}
 
-	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
-	if err := e.deleteFirewallRule(ruleName); err != nil {
-		return nil, err
-	}
+	//	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
+	//	if err := e.deleteFirewallRule(ruleName); err != nil {
+	//		return nil, err
+	//	}
 
 	return allocatedEndpoint, nil
 
@@ -161,19 +188,59 @@ func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
 	return nil
 }
 
-func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []netrules.PortMapping) (hcsshim.HNSEndpoint, error) {
+func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []hcsshim.NatPolicy, acls []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error) {
 	var policies []json.RawMessage
-	if len(mappings) == 0 {
-		return endpoint, nil
-	}
 
 	for _, mapping := range mappings {
-		policy, err := json.Marshal(hcsshim.NatPolicy{
-			Type:         hcsshim.Nat,
-			Protocol:     "TCP",
-			InternalPort: uint16(mapping.ContainerPort),
-			ExternalPort: uint16(mapping.HostPort),
-		})
+		policy, err := json.Marshal(mapping)
+		if err != nil {
+			return hcsshim.HNSEndpoint{}, err
+		}
+		policies = append(policies, policy)
+	}
+
+	if len(acls) == 0 {
+		// make sure everything's blocked if no netout rules present
+		acls = []hcsshim.ACLPolicy{
+			{
+				Type:      hcsshim.ACL,
+				RuleType:  hcsshim.Switch,
+				Action:    hcsshim.Block,
+				Direction: hcsshim.Out,
+				Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
+			},
+			{
+				Type:      hcsshim.ACL,
+				RuleType:  hcsshim.Switch,
+				Action:    hcsshim.Block,
+				Direction: hcsshim.In,
+				Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
+			},
+		}
+	}
+
+	// these rules are necessary to get throught the host firewall
+	// Priority: 100 is some sort of magic number that makes this work...
+	acls = append(acls, hcsshim.ACLPolicy{
+		Type:      hcsshim.ACL,
+		RuleType:  hcsshim.Host,
+		Action:    hcsshim.Allow,
+		Direction: hcsshim.In,
+		Priority:  100,
+		Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
+	},
+		hcsshim.ACLPolicy{
+			Type:      hcsshim.ACL,
+			RuleType:  hcsshim.Host,
+			Action:    hcsshim.Allow,
+			Direction: hcsshim.Out,
+			Priority:  100,
+			Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
+		},
+	)
+
+	for _, acl := range acls {
+		policy, err := json.Marshal(acl)
 		if err != nil {
 			return hcsshim.HNSEndpoint{}, err
 		}
@@ -181,39 +248,40 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 	}
 
 	endpoint.Policies = append(endpoint.Policies, policies...)
-
 	updatedEndpoint, err := e.hcsClient.UpdateEndpoint(&endpoint)
 	if err != nil {
+		fmt.Println("are we really here?")
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	id := updatedEndpoint.Id
-	var natAllocated bool
-	var allocatedEndpoint *hcsshim.HNSEndpoint
+	//id := updatedEndpoint.Id
+	//var natAllocated bool
+	//var allocatedEndpoint *hcsshim.HNSEndpoint
 
-	for i := 0; i < 10; i++ {
-		natAllocated = false
-		allocatedEndpoint, err = e.hcsClient.GetHNSEndpointByID(id)
+	//for i := 0; i < 10; i++ {
+	//	natAllocated = false
+	//	allocatedEndpoint, err = e.hcsClient.GetHNSEndpointByID(id)
 
-		for _, a := range allocatedEndpoint.Resources.Allocators {
-			if a.Type == hcsshim.NATPolicyType {
-				natAllocated = true
-				break
-			}
-		}
+	//	for _, a := range allocatedEndpoint.Resources.Allocators {
+	//		if a.Type == hcsshim.NATPolicyType {
+	//			natAllocated = true
+	//			break
+	//		}
+	//	}
 
-		if natAllocated {
-			break
-		}
+	//	if natAllocated {
+	//		break
+	//	}
 
-		time.Sleep(200 * time.Millisecond)
-	}
+	//	time.Sleep(200 * time.Millisecond)
+	//}
 
-	if !natAllocated {
-		return hcsshim.HNSEndpoint{}, errors.New("NAT not initialized in time")
-	}
+	//if !natAllocated {
+	//	return hcsshim.HNSEndpoint{}, errors.New("NAT not initialized in time")
+	//}
 
-	return *allocatedEndpoint, nil
+	//return *allocatedEndpoint, nil
+	return *updatedEndpoint, nil
 }
 
 func (e *EndpointManager) Delete() error {

@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -39,11 +40,9 @@ var (
 	clientBin         string
 	rootfsURI         string
 	helpers           *testhelpers.Helpers
-	containerId       string
-	bundlePath        string
-	tempDir           string
+	snetworkTempDir   string
 	networkConfigFile string
-	networkConfig     network.Config
+	snetworkConfig    network.Config
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -94,9 +93,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin)
+
+	tempDir, err = ioutil.TempDir("", "winc-network.config")
+	Expect(err).NotTo(HaveOccurred())
+	networkConfigFile = filepath.Join(tempDir, "winc-network.json")
+
+	snetworkConfig = helpers.GenerateNetworkConfig()
+	fmt.Printf("%+v\n", snetworkConfig)
+	helpers.CreateNetwork(snetworkConfig, networkConfigFile)
 })
 
 var _ = AfterSuite(func() {
+	helpers.DeleteNetwork(snetworkConfig, networkConfigFile)
 	gexec.CleanupBuildArtifacts()
 })
 

@@ -73,7 +73,7 @@ func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork, networkReady func() 
 
 	networkUp := false
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 600; i++ {
 		time.Sleep(200 * time.Duration(i) * time.Millisecond)
 		networkUp, err = networkReady()
 		if err != nil {

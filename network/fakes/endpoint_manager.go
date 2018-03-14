@@ -2,6 +2,7 @@
 package fakes
 
 import (
+	"os"
 	"sync"
 
 	"code.cloudfoundry.org/winc/network"
@@ -49,6 +50,7 @@ type EndpointManager struct {
 }
 
 func (fake *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
+	os.Rename("foo", "bar")
 	fake.createMutex.Lock()
 	ret, specificReturn := fake.createReturnsOnCall[len(fake.createArgsForCall)]
 	fake.createArgsForCall = append(fake.createArgsForCall, struct{}{})

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
+	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
@@ -13,8 +15,8 @@ import (
 
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
-	In(netrules.NetIn, string) (netrules.PortMapping, error)
-	Out(netrules.NetOut, string) error
+	In(netrules.NetIn, string) (hcsshim.NatPolicy, hcsshim.ACLPolicy, error)
+	Out(netrules.NetOut, string) (hcsshim.ACLPolicy, error)
 	NatMTU(int) error
 	ContainerMTU(int) error
 	Cleanup() error
@@ -24,7 +26,7 @@ type NetRuleApplier interface {
 type EndpointManager interface {
 	Create() (hcsshim.HNSEndpoint, error)
 	Delete() error
-	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
+	ApplyMappings(hcsshim.HNSEndpoint, []hcsshim.NatPolicy, []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error)
 }
 
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
@@ -85,7 +87,19 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		}
 	}
 
-	subnets := []hcsshim.Subnet{{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}}
+	subnet := hcsshim.Subnet{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}
+	vsidPolicy, err := json.Marshal(hcsshim.VsidPolicy{
+		Type: "VSID",
+		// must be at least 4096
+		VSID: 5120,
+	})
+	subnet.Policies = append(subnet.Policies, vsidPolicy)
+
+	if err != nil {
+		return err
+	}
+
+	subnets := []hcsshim.Subnet{subnet}
 
 	if existingNetwork != nil {
 		if len(existingNetwork.Subnets) == 1 && subnetsMatch(existingNetwork.Subnets[0], subnets[0]) {
@@ -96,22 +110,52 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 	}
 
 	network := &hcsshim.HNSNetwork{
-		Name:    n.config.NetworkName,
-		Type:    "nat",
-		Subnets: subnets,
+		Name:         n.config.NetworkName,
+		Type:         "overlay",
+		Subnets:      subnets,
+		AutomaticDNS: true,
 	}
 
-	networkReady := func() (bool, error) {
-		interfaceAlias := fmt.Sprintf("vEthernet (%s)", network.Name)
-		return netinterface.InterfaceExists(interfaceAlias)
-	}
-
-	_, err = n.hcsClient.CreateNetwork(network, networkReady)
+	localIP, err := localip.LocalIP()
 	if err != nil {
 		return err
 	}
 
-	return n.applier.NatMTU(n.config.MTU)
+	ni := netinterface.NetInterface{}
+	physicalInterface, err := ni.ByIP(localIP)
+	if err != nil {
+		return err
+	}
+
+	physicalName := physicalInterface.Name
+	interfaceAlias := fmt.Sprintf("vEthernet (%s)", physicalName)
+
+	networkReady := func() (bool, error) {
+		exists, err := netinterface.InterfaceExists(interfaceAlias)
+		if err != nil {
+			return false, err
+		}
+
+		if !exists {
+			return false, nil
+		}
+
+		if _, err := net.LookupHost("www.google.com"); err != nil {
+			return false, nil
+		}
+
+		return true, nil
+	}
+
+	_, err = n.hcsClient.CreateNetwork(network, networkReady)
+	return err
+
+	// since we're just modifying host ethernet, probably don't need to change MTU
+	//if err != nil {
+	//	return err
+	//}
+
+	//return n.applier.NatMTU(n.config.MTU)
 }
 
 func subnetsMatch(a, b hcsshim.Subnet) bool {
@@ -128,6 +172,7 @@ func (n *NetworkManager) DeleteHostNATNetwork() error {
 		return err
 	}
 	_, err = n.hcsClient.DeleteNetwork(network)
+	time.Sleep(10 * time.Second)
 	return err
 }
 
@@ -147,15 +192,21 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	if err != nil {
 		return outputs, err
 	}
+	ip := createdEndpoint.IPAddress.String()
 
+	natPolicies := []hcsshim.NatPolicy{}
 	mappedPorts := []netrules.PortMapping{}
+	aclPolicies := []hcsshim.ACLPolicy{}
+
 	for _, rule := range inputs.NetIn {
-		mapping, err := n.applier.In(rule, createdEndpoint.IPAddress.String())
+		nat, acl, err := n.applier.In(rule, ip)
 		if err != nil {
 			return outputs, err
 		}
 
-		mappedPorts = append(mappedPorts, mapping)
+		natPolicies = append(natPolicies, nat)
+		aclPolicies = append(aclPolicies, acl)
+		mappedPorts = append(mappedPorts, netrules.PortMapping{HostPort: uint32(nat.ExternalPort), ContainerPort: uint32(nat.InternalPort)})
 	}
 
 	for _, dnsServer := range n.config.DNSServers {
@@ -175,18 +226,20 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	for _, rule := range inputs.NetOut {
-		if err := n.applier.Out(rule, createdEndpoint.IPAddress.String()); err != nil {
+		p, err := n.applier.Out(rule, ip)
+		if err != nil {
 			return outputs, err
 		}
+		aclPolicies = append(aclPolicies, p)
 	}
 
-	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts); err != nil {
+	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, natPolicies, aclPolicies); err != nil {
 		return outputs, err
 	}
 
-	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
-		return outputs, err
-	}
+	//	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
+	//		return outputs, err
+	//	}
 
 	portBytes, err := json.Marshal(mappedPorts)
 	if err != nil {
@@ -194,7 +247,7 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	outputs.Properties.MappedPorts = string(portBytes)
-	outputs.Properties.ContainerIP = createdEndpoint.IPAddress.String()
+	outputs.Properties.ContainerIP = ip
 	outputs.Properties.DeprecatedHostIP = "255.255.255.255"
 
 	return outputs, nil
