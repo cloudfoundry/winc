@@ -74,3 +74,7 @@ required = ["github.com/onsi/ginkgo/ginkgo"]
 [[constraint]]
   branch = "master"
   name = "github.com/hectane/go-acl"
+
+[[constraint]]
+  branch = "master"
+  name = "code.cloudfoundry.org/filelock"

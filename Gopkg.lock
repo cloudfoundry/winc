@@ -3,6 +3,15 @@
 
 [[projects]]
   branch = "master"
+  name = "code.cloudfoundry.org/filelock"
+  packages = [
+    ".",
+    "fakes"
+  ]
+  revision = "13cd4136463908a96faf1876aa0d9ada358f0b41"
+
+[[projects]]
+  branch = "master"
   name = "code.cloudfoundry.org/localip"
   packages = ["."]
   revision = "b88ad0dea95cd41f302cf7eb6ed951efafaf47f2"
@@ -189,6 +198,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "495a42db20aabeea64e1b64c8b8bb9d69966227251acd95efa2871069db6d400"
+  inputs-digest = "da178c18948026d39582e5acb6e9294d51efe363f644294963808cf8843a1adc"
   solver-name = "gps-cdcl"
   solver-version = 1

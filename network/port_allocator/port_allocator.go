@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"code.cloudfoundry.org/winc/network/filelock"
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/winc/network/port_allocator/serial"
 )
 

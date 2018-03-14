@@ -17,9 +17,9 @@ import (
 	"strings"
 	"syscall"
 
+	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/network/filelock"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
