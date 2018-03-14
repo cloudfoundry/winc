@@ -203,9 +203,9 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		return outputs, err
 	}
 
-	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
-		return outputs, err
-	}
+	//	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
+	//		return outputs, err
+	//	}
 
 	portBytes, err := json.Marshal(mappedPorts)
 	if err != nil {

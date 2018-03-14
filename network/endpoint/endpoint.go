@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -54,9 +55,24 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 		return hcsshim.HNSEndpoint{}, err
 	}
 
+	providerAddress := network.ManagementIP
+	paPolicy, err := json.Marshal(hcsshim.PaPolicy{
+		Type: "PA",
+		PA:   providerAddress,
+	})
+
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+
+	endpointIP := strings.TrimSuffix(network.Subnets[0].GatewayAddress, ".1") + ".2"
+
 	endpoint := &hcsshim.HNSEndpoint{
 		VirtualNetwork: network.Id,
 		Name:           e.containerId,
+		Policies:       []json.RawMessage{paPolicy},
+		IPAddress:      net.ParseIP(endpointIP),
+		GatewayAddress: network.Subnets[0].GatewayAddress,
 	}
 
 	if e.config.MaximumOutgoingBandwidth != 0 {
@@ -68,7 +84,7 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 			return hcsshim.HNSEndpoint{}, err
 		}
 
-		endpoint.Policies = []json.RawMessage{policy}
+		endpoint.Policies = append(endpoint.Policies, policy)
 	}
 
 	if len(e.config.DNSServers) > 0 {

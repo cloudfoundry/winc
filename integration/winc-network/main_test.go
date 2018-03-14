@@ -58,11 +58,11 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			//	helpers.DeleteNetwork(networkConfig, networkConfigFile)
-			//		Expect(os.Remove(networkConfigFile)).To(Succeed())
+			helpers.DeleteNetwork(networkConfig, networkConfigFile)
+			Expect(os.Remove(networkConfigFile)).To(Succeed())
 		})
 
-		FIt("creates the network with the correct name", func() {
+		It("creates the network with the correct name", func() {
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
 
 			hostIP := "192.168.158.128"
@@ -401,7 +401,7 @@ var _ = Describe("networking", func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-					It("can connect to a remote host over UDP", func() {
+					FIt("can connect to a remote host over UDP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
