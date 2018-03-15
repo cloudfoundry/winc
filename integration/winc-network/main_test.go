@@ -58,8 +58,8 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			//helpers.DeleteNetwork(networkConfig, networkConfigFile)
-			//Expect(os.Remove(networkConfigFile)).To(Succeed())
+			helpers.DeleteNetwork(networkConfig, networkConfigFile)
+			Expect(os.Remove(networkConfigFile)).To(Succeed())
 		})
 
 		It("creates the network with the correct name", func() {
@@ -188,21 +188,22 @@ var _ = Describe("networking", func() {
 			})
 
 			AfterEach(func() {
-				//deleteContainerAndNetwork(containerId, networkConfig)
+				deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
-			It("sets the host MTU in the container", func() {
+			FIt("sets the host MTU in the container", func() {
 				helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
-				powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, networkConfig.GatewayAddress)
+				powershellCommand := `test-netconnection -port 50000 -computername 10.55.7.14`
 				cmd := exec.Command("powershell.exe", "-Command", powershellCommand)
 				output, err := cmd.CombinedOutput()
+				fmt.Println(string(output))
 				Expect(err).ToNot(HaveOccurred(), string(output))
-				hostMTU := strings.TrimSpace(string(output))
 
-				stdout, _, err := helpers.ExecInContainer(containerId, []string{"powershell.exe", "-Command", "(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet *').NlMtu"}, false)
+				stdout, stderr, err := helpers.ExecInContainer(containerId, []string{"powershell.exe", "-command", powershellCommand}, false)
+				fmt.Println(stdout.String())
+				fmt.Println(stderr.String())
 				Expect(err).NotTo(HaveOccurred())
-				Expect(strings.TrimSpace(stdout.String())).To(Equal(hostMTU))
 			})
 
 			Context("stdin contains a net in rule", func() {
@@ -477,10 +478,10 @@ var _ = Describe("networking", func() {
 					FIt("can connect to a remote host over TCP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
-						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)
+						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "10.55.7.14", "--port", "50000"}, false)
 						Expect(err).NotTo(HaveOccurred())
 
-						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 8.8.8.8:53 over tcp"))
+						Expect(strings.TrimSpace(stdout.String())).To(Equal("connected to 10.55.7.14:50000 over tcp"))
 					})
 
 					It("cannot connect to a remote host over UDP", func() {

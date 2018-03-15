@@ -97,7 +97,7 @@ func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error
 		Action:    hcsshim.Allow,
 		Direction: hcsshim.Out,
 		//	LocalAddresses: containerIP + "/32",
-		//	RuleType: hcsshim.Switch,
+		RuleType: hcsshim.Switch,
 	}
 
 	remoteAddresses := []string{}
