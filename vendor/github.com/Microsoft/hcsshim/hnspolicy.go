@@ -82,8 +82,8 @@ type ACLPolicy struct {
 	Direction       DirectionType
 	LocalAddresses  string
 	RemoteAddresses string
-	LocalPort       uint16
-	RemotePort      uint16
+	LocalPort       string
+	RemotePort      string
 	RuleType        RuleType `json:"RuleType,omitempty"`
 	Priority        uint16
 	ServiceName     string

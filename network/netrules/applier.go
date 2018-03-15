@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/firewall"
+	"github.com/Microsoft/hcsshim"
 )
 
 //go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
@@ -89,31 +91,38 @@ func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
 	}, nil
 }
 
-func (a *Applier) Out(rule NetOut, containerIP string) error {
-	fr := firewall.Rule{
-		Name:            a.containerId,
-		Action:          firewall.NET_FW_ACTION_ALLOW,
-		Direction:       firewall.NET_FW_RULE_DIR_OUT,
-		LocalAddresses:  containerIP,
-		RemoteAddresses: firewallRuleIPRange(rule.Networks),
+func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error) {
+	p := hcsshim.ACLPolicy{
+		Type:      hcsshim.ACL,
+		Action:    hcsshim.Allow,
+		Direction: hcsshim.Out,
+		//	LocalAddresses: containerIP + "/32",
+		//	RuleType: hcsshim.Switch,
 	}
+
+	remoteAddresses := []string{}
+	for _, r := range rule.Networks {
+		remoteAddresses = append(remoteAddresses, strings.Join(IPRangeToCIDRs(r), ", "))
+	}
+
+	p.RemoteAddresses = strings.Join(remoteAddresses, ", ")
 
 	switch rule.Protocol {
 	case ProtocolTCP:
-		fr.RemotePorts = firewallRulePortRange(rule.Ports)
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_TCP
+		p.RemotePort = firewallRulePortRange(rule.Ports)
+		p.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_TCP)
 	case ProtocolUDP:
-		fr.RemotePorts = firewallRulePortRange(rule.Ports)
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_UDP
+		p.RemotePort = firewallRulePortRange(rule.Ports)
+		p.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_UDP)
 	case ProtocolICMP:
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ICMP
+		p.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ICMP)
 	case ProtocolAll:
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ANY
+		p.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ANY)
 	default:
-		return fmt.Errorf("invalid protocol: %d", rule.Protocol)
+		return hcsshim.ACLPolicy{}, fmt.Errorf("invalid protocol: %d", rule.Protocol)
 	}
 
-	return a.firewall.CreateRule(fr)
+	return p, nil
 }
 
 func (a *Applier) ContainerMTU(mtu int) error {

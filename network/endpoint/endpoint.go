@@ -2,7 +2,6 @@ package endpoint
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -49,7 +48,7 @@ func NewEndpointManager(hcsClient HCSClient, firewall Firewall, containerId stri
 	}
 }
 
-func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
+func (e *EndpointManager) Create(mappings []netrules.PortMapping, acls []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error) {
 	network, err := e.hcsClient.GetHNSNetworkByName(e.config.NetworkName)
 	if err != nil {
 		return hcsshim.HNSEndpoint{}, err
@@ -57,7 +56,7 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 
 	providerAddress := network.ManagementIP
 	paPolicy, err := json.Marshal(hcsshim.PaPolicy{
-		Type: "PA",
+		Type: hcsshim.PA,
 		PA:   providerAddress,
 	})
 
@@ -65,12 +64,44 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 		return hcsshim.HNSEndpoint{}, err
 	}
 
+	natPolicy, err := json.Marshal(hcsshim.OutboundNatPolicy{
+		Policy: hcsshim.Policy{Type: hcsshim.OutboundNat},
+	})
+
+	if err != nil {
+		return hcsshim.HNSEndpoint{}, err
+	}
+
+	policies := []json.RawMessage{paPolicy, natPolicy}
+
+	for _, mapping := range mappings {
+		policy, err := json.Marshal(hcsshim.NatPolicy{
+			Type:         hcsshim.Nat,
+			Protocol:     "TCP",
+			InternalPort: uint16(mapping.ContainerPort),
+			ExternalPort: uint16(mapping.HostPort),
+		})
+		if err != nil {
+			return hcsshim.HNSEndpoint{}, err
+		}
+		policies = append(policies, policy)
+	}
+
 	endpointIP := strings.TrimSuffix(network.Subnets[0].GatewayAddress, ".1") + ".2"
+
+	for _, acl := range acls {
+		acl.LocalAddresses = endpointIP
+		policy, err := json.Marshal(acl)
+		if err != nil {
+			return hcsshim.HNSEndpoint{}, err
+		}
+		policies = append(policies, policy)
+	}
 
 	endpoint := &hcsshim.HNSEndpoint{
 		VirtualNetwork: network.Id,
 		Name:           e.containerId,
-		Policies:       []json.RawMessage{paPolicy},
+		Policies:       policies,
 		IPAddress:      net.ParseIP(endpointIP),
 		GatewayAddress: network.Subnets[0].GatewayAddress,
 	}
@@ -139,10 +170,10 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 		return nil, fmt.Errorf("invalid endpoint %s allocators: %+v", endpoint.Id, allocatedEndpoint.Resources.Allocators)
 	}
 
-	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
-	if err := e.deleteFirewallRule(ruleName); err != nil {
-		return nil, err
-	}
+	//	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
+	//	if err := e.deleteFirewallRule(ruleName); err != nil {
+	//		return nil, err
+	//	}
 
 	return allocatedEndpoint, nil
 
@@ -177,9 +208,9 @@ func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
 	return nil
 }
 
-func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []netrules.PortMapping) (hcsshim.HNSEndpoint, error) {
+func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings []netrules.PortMapping, acls []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error) {
 	var policies []json.RawMessage
-	if len(mappings) == 0 {
+	if len(mappings) == 0 && len(acls) == 0 {
 		return endpoint, nil
 	}
 
@@ -196,40 +227,50 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 		policies = append(policies, policy)
 	}
 
+	for _, acl := range acls {
+		policy, err := json.Marshal(acl)
+		if err != nil {
+			return hcsshim.HNSEndpoint{}, err
+		}
+		policies = append(policies, policy)
+	}
+
 	endpoint.Policies = append(endpoint.Policies, policies...)
 
 	updatedEndpoint, err := e.hcsClient.UpdateEndpoint(&endpoint)
 	if err != nil {
+		fmt.Println("are we really here?")
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	id := updatedEndpoint.Id
-	var natAllocated bool
-	var allocatedEndpoint *hcsshim.HNSEndpoint
+	//id := updatedEndpoint.Id
+	//var natAllocated bool
+	//var allocatedEndpoint *hcsshim.HNSEndpoint
 
-	for i := 0; i < 10; i++ {
-		natAllocated = false
-		allocatedEndpoint, err = e.hcsClient.GetHNSEndpointByID(id)
+	//for i := 0; i < 10; i++ {
+	//	natAllocated = false
+	//	allocatedEndpoint, err = e.hcsClient.GetHNSEndpointByID(id)
 
-		for _, a := range allocatedEndpoint.Resources.Allocators {
-			if a.Type == hcsshim.NATPolicyType {
-				natAllocated = true
-				break
-			}
-		}
+	//	for _, a := range allocatedEndpoint.Resources.Allocators {
+	//		if a.Type == hcsshim.NATPolicyType {
+	//			natAllocated = true
+	//			break
+	//		}
+	//	}
 
-		if natAllocated {
-			break
-		}
+	//	if natAllocated {
+	//		break
+	//	}
 
-		time.Sleep(200 * time.Millisecond)
-	}
+	//	time.Sleep(200 * time.Millisecond)
+	//}
 
-	if !natAllocated {
-		return hcsshim.HNSEndpoint{}, errors.New("NAT not initialized in time")
-	}
+	//if !natAllocated {
+	//	return hcsshim.HNSEndpoint{}, errors.New("NAT not initialized in time")
+	//}
 
-	return *allocatedEndpoint, nil
+	//return *allocatedEndpoint, nil
+	return *updatedEndpoint, nil
 }
 
 func (e *EndpointManager) Delete() error {

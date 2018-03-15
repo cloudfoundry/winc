@@ -58,8 +58,8 @@ var _ = Describe("networking", func() {
 		})
 
 		AfterEach(func() {
-			helpers.DeleteNetwork(networkConfig, networkConfigFile)
-			Expect(os.Remove(networkConfigFile)).To(Succeed())
+			//helpers.DeleteNetwork(networkConfig, networkConfigFile)
+			//Expect(os.Remove(networkConfigFile)).To(Succeed())
 		})
 
 		It("creates the network with the correct name", func() {
@@ -188,7 +188,7 @@ var _ = Describe("networking", func() {
 			})
 
 			AfterEach(func() {
-				deleteContainerAndNetwork(containerId, networkConfig)
+				//deleteContainerAndNetwork(containerId, networkConfig)
 			})
 
 			It("sets the host MTU in the container", func() {
@@ -401,7 +401,7 @@ var _ = Describe("networking", func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-					FIt("can connect to a remote host over UDP", func() {
+					It("can connect to a remote host over UDP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "udp", "--addr", "8.8.8.8", "--port", "53"}, false)
@@ -474,7 +474,7 @@ var _ = Describe("networking", func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-					It("can connect to a remote host over TCP", func() {
+					FIt("can connect to a remote host over TCP", func() {
 						helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 						stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "8.8.8.8", "--port", "53"}, false)

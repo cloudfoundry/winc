@@ -13,7 +13,7 @@ import (
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
 	In(netrules.NetIn, string) (netrules.PortMapping, error)
-	Out(netrules.NetOut, string) error
+	Out(netrules.NetOut, string) (hcsshim.ACLPolicy, error)
 	NatMTU(int) error
 	ContainerMTU(int) error
 	Cleanup() error
@@ -21,9 +21,9 @@ type NetRuleApplier interface {
 
 //go:generate counterfeiter -o fakes/endpoint_manager.go --fake-name EndpointManager . EndpointManager
 type EndpointManager interface {
-	Create() (hcsshim.HNSEndpoint, error)
+	Create([]netrules.PortMapping, []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error)
 	Delete() error
-	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
+	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping, []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error)
 }
 
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
@@ -162,14 +162,9 @@ func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	outputs := UpOutputs{}
 
-	createdEndpoint, err := n.endpointManager.Create()
-	if err != nil {
-		return outputs, err
-	}
-
 	mappedPorts := []netrules.PortMapping{}
 	for _, rule := range inputs.NetIn {
-		mapping, err := n.applier.In(rule, createdEndpoint.IPAddress.String())
+		mapping, err := n.applier.In(rule, "")
 		if err != nil {
 			return outputs, err
 		}
@@ -193,15 +188,23 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		)
 	}
 
+	outAcls := []hcsshim.ACLPolicy{}
 	for _, rule := range inputs.NetOut {
-		if err := n.applier.Out(rule, createdEndpoint.IPAddress.String()); err != nil {
+		p, err := n.applier.Out(rule, "")
+		if err != nil {
 			return outputs, err
 		}
+		outAcls = append(outAcls, p)
 	}
 
-	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts); err != nil {
+	createdEndpoint, err := n.endpointManager.Create(mappedPorts, outAcls)
+	if err != nil {
 		return outputs, err
 	}
+
+	//if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts, outAcls); err != nil {
+	//	return outputs, err
+	//}
 
 	//	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
 	//		return outputs, err
