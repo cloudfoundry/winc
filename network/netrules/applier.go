@@ -91,13 +91,12 @@ func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
 	}, nil
 }
 
-func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error) {
+func (a *Applier) Out(rule NetOut, containerIP string) ([]hcsshim.ACLPolicy, error) {
 	p := hcsshim.ACLPolicy{
 		Type:      hcsshim.ACL,
 		Action:    hcsshim.Allow,
 		Direction: hcsshim.Out,
 		//	LocalAddresses: containerIP + "/32",
-		RuleType: hcsshim.Switch,
 	}
 
 	remoteAddresses := []string{}
@@ -119,10 +118,13 @@ func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error
 	case ProtocolAll:
 		p.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ANY)
 	default:
-		return hcsshim.ACLPolicy{}, fmt.Errorf("invalid protocol: %d", rule.Protocol)
+		return nil, fmt.Errorf("invalid protocol: %d", rule.Protocol)
 	}
 
-	return p, nil
+	ps := []hcsshim.ACLPolicy{p, p}
+	ps[0].RuleType = hcsshim.Switch
+
+	return ps, nil
 }
 
 func (a *Applier) ContainerMTU(mtu int) error {

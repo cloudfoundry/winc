@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
@@ -13,7 +15,7 @@ import (
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
 	In(netrules.NetIn, string) (netrules.PortMapping, error)
-	Out(netrules.NetOut, string) (hcsshim.ACLPolicy, error)
+	Out(netrules.NetOut, string) ([]hcsshim.ACLPolicy, error)
 	NatMTU(int) error
 	ContainerMTU(int) error
 	Cleanup() error
@@ -112,14 +114,20 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		Subnets: subnets,
 	}
 
-	//networkReady := func() (bool, error) {
-	//	interfaceAlias := fmt.Sprintf("vEthernet (%s)", network.Name)
-	//	return netinterface.InterfaceExists(interfaceAlias)
-	//}
+	localIP, err := localip.LocalIP()
+	if err != nil {
+		return err
+	}
 
-	// no new networks are being created -- just the host ethernet is being modified
+	ni := netinterface.NetInterface{}
+	physicalInterface, err := ni.ByIP(localIP)
+	if err != nil {
+		return err
+	}
+
 	networkReady := func() (bool, error) {
-		return true, nil
+		interfaceAlias := fmt.Sprintf("vEthernet (%s)", physicalInterface.Name)
+		return netinterface.InterfaceExists(interfaceAlias)
 	}
 
 	_, err = n.hcsClient.CreateNetwork(network, networkReady)
@@ -190,11 +198,11 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 
 	outAcls := []hcsshim.ACLPolicy{}
 	for _, rule := range inputs.NetOut {
-		p, err := n.applier.Out(rule, "")
+		ps, err := n.applier.Out(rule, "")
 		if err != nil {
 			return outputs, err
 		}
-		outAcls = append(outAcls, p)
+		outAcls = append(outAcls, ps...)
 	}
 
 	createdEndpoint, err := n.endpointManager.Create(mappedPorts, outAcls)
