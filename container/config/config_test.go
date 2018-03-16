@@ -251,6 +251,25 @@ var _ = Describe("Config", func() {
 				Expect(spec).To(Equal(&expectedSpec))
 			})
 
+			Context("the specified environment variables have non digit characters", func() {
+				BeforeEach(func() {
+					spec := specs.Process{
+						Cwd:  "C:\\Windows",
+						Args: []string{"cmd.exe"},
+						Env: []string{
+							`_(){}[]$*+-\/"#',;.@!?=bar`,
+						},
+					}
+					config, err := json.Marshal(&spec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+				})
+
+				It("validates the process spec", func() {
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+
 			Context("when overrides are specified", func() {
 				BeforeEach(func() {
 					processConfigOverrides = &specs.Process{

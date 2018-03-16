@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/blang/semver"
@@ -113,7 +112,7 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 
 	for _, env := range spec.Env {
 		if !envValid(env) {
-			msgs = append(msgs, fmt.Sprintf("env %q should be in the form of 'key=value'. The left hand side must consist solely of letters, digits, and underscores '_'.", env))
+			msgs = append(msgs, fmt.Sprintf("env %q should be in the form of 'key=value'.", env))
 		}
 	}
 
@@ -131,14 +130,6 @@ func envValid(env string) bool {
 	items := strings.Split(env, "=")
 	if len(items) < 2 {
 		return false
-	}
-	for i, ch := range strings.TrimSpace(items[0]) {
-		if !unicode.IsDigit(ch) && !unicode.IsLetter(ch) && ch != '_' {
-			return false
-		}
-		if i == 0 && unicode.IsDigit(ch) {
-			logrus.Warnf("Env %v: variable name beginning with digit is not recommended.", env)
-		}
 	}
 	return true
 }
