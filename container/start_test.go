@@ -73,7 +73,7 @@ var _ = Describe("Start", func() {
 		})
 
 		It("errors", func() {
-			err := containerManager.Start()
+			_, err := containerManager.Start(true)
 			Expect(err).To(Equal(missingContainerError))
 		})
 	})
@@ -85,12 +85,6 @@ var _ = Describe("Start", func() {
 		)
 
 		BeforeEach(func() {
-			expectedProcessConfig = &hcsshim.ProcessConfig{
-				CommandLine:      `powershell.exe "Write-Host 'hi'"`,
-				WorkingDirectory: "C:\\",
-				User:             "someuser",
-				Environment:      map[string]string{},
-			}
 			spec := &specs.Spec{
 				Version: specs.Version,
 				Process: &specs.Process{
@@ -127,79 +121,123 @@ var _ = Describe("Start", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("runs the user process", func() {
-			Expect(containerManager.Start()).To(Succeed())
-			Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
-			Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
-		})
-
-		Context("the container has been stopped", func() {
+		Context("when detach is true", func() {
 			BeforeEach(func() {
-				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: true}, nil)
+				expectedProcessConfig = &hcsshim.ProcessConfig{
+					CommandLine:      `powershell.exe "Write-Host 'hi'"`,
+					WorkingDirectory: "C:\\",
+					User:             "someuser",
+					Environment:      map[string]string{},
+					CreateStdInPipe:  false,
+					CreateStdOutPipe: false,
+					CreateStdErrPipe: false,
+				}
 			})
 
-			It("errors and does not start the user process", func() {
-				Expect(containerManager.Start()).To(MatchError("cannot start a container in the stopped state"))
-				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(0))
-			})
-		})
-
-		Context("the user process is running", func() {
-			BeforeEach(func() {
-				Expect(containerManager.Start()).To(Succeed())
-			})
-
-			It("errors and does not start the user process", func() {
-				Expect(containerManager.Start()).To(MatchError("cannot start a container in the running state"))
+			It("runs the user process", func() {
+				proc, err := containerManager.Start(true)
+				Expect(proc).To(Equal(fakeProcess))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+			})
+			Context("the container has been stopped", func() {
+				BeforeEach(func() {
+					hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: true}, nil)
+				})
+
+				It("errors and does not start the user process", func() {
+					_, err := containerManager.Start(true)
+					Expect(err).To(MatchError("cannot start a container in the stopped state"))
+					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(0))
+				})
+			})
+
+			Context("the user process is running", func() {
+				BeforeEach(func() {
+					_, err := containerManager.Start(true)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("errors and does not start the user process", func() {
+					_, err := containerManager.Start(true)
+					Expect(err).To(MatchError("cannot start a container in the running state"))
+					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("the user process has exited", func() {
+				BeforeEach(func() {
+					_, err := containerManager.Start(true)
+					Expect(err).ToNot(HaveOccurred())
+					fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
+						{ProcessId: 666, ImageName: "wininit.exe"},
+					}, nil)
+				})
+
+				It("errors and does not start the user process", func() {
+					_, err := containerManager.Start(true)
+					Expect(err).To(MatchError("cannot start a container in the exited state"))
+					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("exec of the user process fails", func() {
+				BeforeEach(func() {
+					fakeContainer.CreateProcessReturnsOnCall(0, nil, errors.New("couldn't exec process"))
+				})
+
+				It("returns an error", func() {
+					_, err := containerManager.Start(true)
+					Expect(err).To(BeAssignableToTypeOf(&container.CouldNotCreateProcessError{}))
+				})
+
+				It("sets the state to 'exited'", func() {
+					containerManager.Start(true)
+					s, err := containerManager.State()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(s.Status).To(Equal("exited"))
+				})
+			})
+
+			Context("getting the user start time fails", func() {
+				BeforeEach(func() {
+					processClient.StartTimeReturnsOnCall(0, syscall.Filetime{}, errors.New("blue screen"))
+				})
+
+				It("returns an error", func() {
+					_, err := containerManager.Start(true)
+					Expect(err).To(MatchError("blue screen"))
+				})
+
+				It("sets the state to 'exited'", func() {
+					containerManager.Start(true)
+					s, err := containerManager.State()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(s.Status).To(Equal("exited"))
+				})
 			})
 		})
 
-		Context("the user process has exited", func() {
+		Context("when detach is false", func() {
 			BeforeEach(func() {
-				Expect(containerManager.Start()).To(Succeed())
-				fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
-					{ProcessId: 666, ImageName: "wininit.exe"},
-				}, nil)
+				expectedProcessConfig = &hcsshim.ProcessConfig{
+					CommandLine:      `powershell.exe "Write-Host 'hi'"`,
+					WorkingDirectory: "C:\\",
+					User:             "someuser",
+					Environment:      map[string]string{},
+					CreateStdInPipe:  true,
+					CreateStdOutPipe: true,
+					CreateStdErrPipe: true,
+				}
 			})
 
-			It("errors and does not start the user process", func() {
-				Expect(containerManager.Start()).To(MatchError("cannot start a container in the exited state"))
+			It("runs the user process with i/o pipes", func() {
+				proc, err := containerManager.Start(false)
+				Expect(proc).To(Equal(fakeProcess))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
-			})
-		})
-
-		Context("exec of the user process fails", func() {
-			BeforeEach(func() {
-				fakeContainer.CreateProcessReturnsOnCall(0, nil, errors.New("couldn't exec process"))
-			})
-
-			It("returns an error", func() {
-				Expect(containerManager.Start()).To(BeAssignableToTypeOf(&container.CouldNotCreateProcessError{}))
-			})
-
-			It("sets the state to 'exited'", func() {
-				containerManager.Start()
-				s, err := containerManager.State()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(s.Status).To(Equal("exited"))
-			})
-		})
-
-		Context("getting the user start time fails", func() {
-			BeforeEach(func() {
-				processClient.StartTimeReturnsOnCall(0, syscall.Filetime{}, errors.New("blue screen"))
-			})
-
-			It("returns an error", func() {
-				Expect(containerManager.Start()).To(MatchError("blue screen"))
-			})
-
-			It("sets the state to 'exited'", func() {
-				containerManager.Start()
-				s, err := containerManager.State()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(s.Status).To(Equal("exited"))
+				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
 			})
 		})
 	})

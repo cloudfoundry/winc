@@ -1,6 +1,10 @@
 package main
 
 import (
+	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
+	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -59,12 +63,19 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		})
 		logger.Debug("creating container")
 
-		spec, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
+		_, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
 		if err != nil {
 			return err
 		}
 
-		return runProcess(logger, containerId, spec.Process, detach, "", rootDir, true)
+		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
+		process, err := cm.Start(detach)
+		if err != nil {
+			return err
+		}
+		defer process.Close()
+
+		return manageProcess(process, detach, "", cm, true)
 	},
 	SkipArgReorder: true,
 }

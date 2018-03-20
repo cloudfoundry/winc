@@ -424,19 +424,19 @@ func stateValid(state State) bool {
 		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
 }
 
-func (m *Manager) Start() error {
+func (m *Manager) Start(detach bool) (hcsshim.Process, error) {
 	ociState, err := m.State()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if ociState.Status != "created" {
-		return fmt.Errorf("cannot start a container in the %s state", ociState.Status)
+		return nil, fmt.Errorf("cannot start a container in the %s state", ociState.Status)
 	}
 
 	spec, err := m.loadBundle(ociState.Bundle)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	containerState := State{Bundle: ociState.Bundle}
@@ -449,13 +449,12 @@ func (m *Manager) Start() error {
 		return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
 	}
 
-	proc, err := m.Exec(spec.Process, false)
+	proc, err := m.Exec(spec.Process, !detach)
 	if err != nil {
 		containerState.UserProgramExecFailed = true
 		writeContainerState()
-		return err
+		return nil, err
 	}
-	defer proc.Close()
 
 	containerState.UserProgramPID = proc.Pid()
 
@@ -469,10 +468,15 @@ func (m *Manager) Start() error {
 	if err != nil {
 		containerState.UserProgramExecFailed = true
 		writeContainerState()
-		return err
+		return nil, err
 	}
 
-	return writeContainerState()
+	err = writeContainerState()
+	if err != nil {
+		return nil, err
+	}
+
+	return proc, nil
 }
 
 func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {

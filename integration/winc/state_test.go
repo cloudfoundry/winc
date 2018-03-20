@@ -77,6 +77,25 @@ var _ = Describe("State", func() {
 		})
 	})
 
+	Context("the process is exectuted with run and is still running", func() {
+		BeforeEach(func() {
+			bundleSpec.Process = &specs.Process{
+				Cwd:  "C:\\",
+				Args: []string{"cmd.exe", "/C", "waitfor /t 9999 forever"},
+			}
+
+			helpers.GenerateBundle(bundleSpec, bundlePath)
+			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the status as 'running'", func() {
+			state := helpers.GetContainerState(containerId)
+
+			Expect(state.Status).To(Equal("running"))
+		})
+	})
+
 	Context("the init process has already been started and has exited", func() {
 		BeforeEach(func() {
 			bundleSpec.Process = &specs.Process{

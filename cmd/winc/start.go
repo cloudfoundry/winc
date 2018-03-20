@@ -29,7 +29,13 @@ Where "<container-id>" is the name for the instance of the container`,
 
 		client := hcs.Client{}
 		cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		return cm.Start()
+		process, err := cm.Start(true)
+		if err != nil {
+			return err
+		}
+		defer process.Close()
+
+		return nil
 	},
 
 	SkipArgReorder: true,

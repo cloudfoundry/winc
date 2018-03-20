@@ -1,7 +1,11 @@
 package main
 
 import (
+	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/config"
+	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/process"
+	"code.cloudfoundry.org/winc/hcs"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -96,7 +100,14 @@ following will output a list of processes running in the container:
 		})
 		logger.Debug("executing process in container")
 
-		return runProcess(logger, containerId, processSpec, detach, pidFile, rootDir, false)
+		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
+		process, err := cm.Exec(processSpec, !detach)
+		if err != nil {
+			return err
+		}
+		defer process.Close()
+
+		return manageProcess(process, detach, pidFile, cm, false)
 	},
 	SkipArgReorder: true,
 }

@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
 
+	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -182,15 +183,7 @@ func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, roo
 	return spec, nil
 }
 
-func runProcess(logger *logrus.Entry, containerId string, spec *specs.Process, detach bool, pidFile, rootDir string, deleteContainer bool) error {
-	client := hcs.Client{}
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-
-	process, err := cm.Exec(spec, !detach)
-	if err != nil {
-		return err
-	}
-
+func manageProcess(process hcsshim.Process, detach bool, pidFile string, cm *container.Manager, deleteContainer bool) error {
 	if pidFile != "" {
 		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(process.Pid()), 10)), 0666); err != nil {
 			return err
