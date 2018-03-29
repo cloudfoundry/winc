@@ -1,13 +1,22 @@
 package main_test
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
+	"code.cloudfoundry.org/winc/network"
+	"code.cloudfoundry.org/winc/network/netrules"
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -21,15 +30,20 @@ const (
 )
 
 var (
-	wincBin         string
-	wincNetworkBin  string
-	grootBin        string
-	grootImageStore string
-	serverBin       string
-	netoutBin       string
-	clientBin       string
-	rootfsURI       string
-	helpers         *testhelpers.Helpers
+	wincBin           string
+	wincNetworkBin    string
+	grootBin          string
+	grootImageStore   string
+	serverBin         string
+	netoutBin         string
+	clientBin         string
+	rootfsURI         string
+	helpers           *testhelpers.Helpers
+	containerId       string
+	bundlePath        string
+	tempDir           string
+	networkConfigFile string
+	networkConfig     network.Config
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -85,3 +99,121 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
+
+var _ = BeforeEach(func() {
+	var err error
+	tempDir, err = ioutil.TempDir("", "winc-network.config")
+	Expect(err).NotTo(HaveOccurred())
+	networkConfigFile = filepath.Join(tempDir, "winc-network.json")
+
+	bundlePath, err = ioutil.TempDir("", "winccontainer")
+	Expect(err).NotTo(HaveOccurred())
+	containerId = filepath.Base(bundlePath)
+})
+
+var _ = AfterEach(func() {
+	Expect(os.RemoveAll(tempDir)).To(Succeed())
+	Expect(os.RemoveAll(bundlePath)).To(Succeed())
+})
+
+func uploadFile(containerId string, fileSize int, serverURL string) int {
+	stdout, _, err := helpers.ExecInContainer(containerId, []string{"C:\\client.exe", serverURL, "upload", strconv.Itoa(fileSize)}, false)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	outputRegex := regexp.MustCompile(`uploaded in ([0-9]+) miliseconds`)
+	match := outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
+	ExpectWithOffset(1, len(match)).To(Equal(2))
+	uploadTime, err := strconv.Atoi(match[1])
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	return uploadTime
+}
+
+func downloadFile(containerId string, fileSize int, serverURL string) int {
+	stdout, _, err := helpers.ExecInContainer(containerId, []string{"C:\\client.exe", serverURL, "download", strconv.Itoa(fileSize)}, false)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	outputRegex := regexp.MustCompile(`downloaded in ([0-9]+) miliseconds`)
+	match := outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
+	ExpectWithOffset(1, len(match)).To(Equal(2))
+	downloadTime, err := strconv.Atoi(match[1])
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	return downloadTime
+}
+
+func deleteContainerAndNetwork(id string, config network.Config) {
+	helpers.NetworkDown(id, networkConfigFile)
+	helpers.DeleteContainer(id)
+	helpers.DeleteVolume(id)
+	helpers.DeleteNetwork(config, networkConfigFile)
+}
+
+func getContainerIp(containerId string) net.IP {
+	container, err := hcsshim.OpenContainer(containerId)
+	Expect(err).NotTo(HaveOccurred(), "no containers with id: "+containerId)
+
+	stats, err := container.Statistics()
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(stats.Network).NotTo(BeEmpty(), "container has no networks attached: "+containerId)
+	endpoint, err := hcsshim.GetHNSEndpointByID(stats.Network[0].EndpointId)
+	Expect(err).NotTo(HaveOccurred())
+
+	return endpoint.IPAddress
+}
+
+func randomPort() int {
+	l, err := net.Listen("tcp", ":0")
+	Expect(err).NotTo(HaveOccurred())
+	defer l.Close()
+	split := strings.Split(l.Addr().String(), ":")
+	port, err := strconv.Atoi(split[len(split)-1])
+	Expect(err).NotTo(HaveOccurred())
+	return port
+}
+
+func endpointExists(endpointName string) bool {
+	_, err := hcsshim.GetHNSEndpointByName(endpointName)
+	if err != nil {
+		if _, ok := err.(hcsshim.EndpointNotFoundError); ok {
+			return false
+		}
+
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	return true
+}
+
+func allEndpoints(containerID string) []string {
+	container, err := hcsshim.OpenContainer(containerID)
+	Expect(err).To(Succeed())
+
+	stats, err := container.Statistics()
+	Expect(err).To(Succeed())
+
+	var endpointIDs []string
+	for _, network := range stats.Network {
+		endpointIDs = append(endpointIDs, network.EndpointId)
+	}
+
+	return endpointIDs
+}
+
+func findExternalPort(portMappings, containerPort string) int {
+	var mappedPorts []netrules.PortMapping
+	err := json.Unmarshal([]byte(portMappings), &mappedPorts)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	var externalPort, internalPort int
+	internalPort, err = strconv.Atoi(containerPort)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	for _, v := range mappedPorts {
+		if v.ContainerPort == uint32(internalPort) {
+			externalPort = int(v.HostPort)
+			break
+		}
+	}
+	ExpectWithOffset(1, externalPort).ToNot(Equal(0))
+	return externalPort
+}
