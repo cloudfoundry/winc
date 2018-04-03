@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,7 +29,7 @@ var _ = Describe("Logging", func() {
 	})
 
 	AfterEach(func() {
-		helpers.DeleteNetwork(networkConfig, networkConfigFile)
+		deleteContainerAndNetwork(containerId, networkConfig)
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 
@@ -45,13 +46,31 @@ var _ = Describe("Logging", func() {
 	})
 
 	Context("when it runs successfully", func() {
-		It("does not log to the specified file", func() {
+		It("does not log to the specified file when creating a network", func() {
 			helpers.CreateNetwork(networkConfig, networkConfigFile, "--log", logFile)
 
 			contents, err := ioutil.ReadFile(logFile)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(string(contents)).To(BeEmpty())
+		})
+
+		It("logs any netsh commands to a file", func() {
+			helpers.CreateNetwork(networkConfig, networkConfigFile, "--log", logFile)
+			bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+
+			netin := `{"Pid": 123, "Properties": {},"netin": [{"host_port": 0, "container_port": 8080}]}`
+			args := []string{"--log", logFile, "--action", "up", "--configFile", networkConfigFile, "--handle", containerId}
+			cmd := exec.Command(wincNetworkBin, args...)
+			cmd.Stdin = strings.NewReader(netin)
+			_, _, err := helpers.Execute(cmd)
+			Expect(err).NotTo(HaveOccurred())
+
+			contents, err := ioutil.ReadFile(logFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(string(contents)).To(ContainSubstring("netsh http add urlacl url=http://*:8080/ user=Users"))
 		})
 
 		Context("when provided --debug", func() {

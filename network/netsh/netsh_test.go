@@ -1,7 +1,9 @@
 package netsh_test
 
 import (
+	"bytes"
 	"errors"
+	"io/ioutil"
 	"time"
 
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
@@ -10,6 +12,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Netsh", func() {
@@ -23,6 +26,7 @@ var _ = Describe("Netsh", func() {
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
 		runner = netsh.NewRunner(hcsClient, containerId)
+		logrus.SetOutput(ioutil.Discard)
 	})
 
 	Describe("RunContainer", func() {
@@ -58,6 +62,14 @@ var _ = Describe("Netsh", func() {
 			Expect(fakeContainer.CloseCallCount()).To(Equal(1))
 		})
 
+		It("writes the netsh command line to the log", func() {
+			buffer := new(bytes.Buffer)
+			logrus.SetOutput(buffer)
+
+			Expect(runner.RunContainer([]string{"some", "command"})).To(Succeed())
+			Expect(buffer.String()).To(ContainSubstring("running 'netsh some command' in container123"))
+		})
+
 		Context("netsh fails with a nonzero exit code", func() {
 			BeforeEach(func() {
 				fakeProcess.ExitCodeReturns(1, nil)
@@ -65,8 +77,16 @@ var _ = Describe("Netsh", func() {
 
 			It("returns an error", func() {
 				err := runner.RunContainer([]string{"some", "command"})
-				Expect(err).To(MatchError(errors.New("failed to exec netsh some command in container container123: exit code 1")))
+				Expect(err).To(MatchError(errors.New("running 'netsh some command' in container123 failed: exit code 1")))
 				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
+			})
+
+			It("writes the netsh command line and exit code to the log", func() {
+				buffer := new(bytes.Buffer)
+				logrus.SetOutput(buffer)
+
+				runner.RunContainer([]string{"some", "command"})
+				Expect(buffer.String()).To(ContainSubstring("running 'netsh some command' in container123 failed: exit code 1"))
 			})
 		})
 	})

@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 )
 
 const CMD_TIMEOUT = time.Second * 2
@@ -30,6 +31,7 @@ func NewRunner(hcsClient HCSClient, containerId string) *Runner {
 
 func (nr *Runner) RunContainer(args []string) error {
 	commandLine := "netsh " + strings.Join(args, " ")
+	logrus.Infof("running '%s' in %s", commandLine, nr.id)
 
 	container, err := nr.hcsClient.OpenContainer(nr.id)
 	if err != nil {
@@ -53,7 +55,9 @@ func (nr *Runner) RunContainer(args []string) error {
 		return err
 	}
 	if exitCode != 0 {
-		return fmt.Errorf("failed to exec %s in container %s: exit code %d", commandLine, nr.id, exitCode)
+		errRet := fmt.Errorf("running '%s' in %s failed: exit code %d", commandLine, nr.id, exitCode)
+		logrus.Error(errRet.Error())
+		return errRet
 	}
 
 	return nil
