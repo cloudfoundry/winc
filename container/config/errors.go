@@ -31,11 +31,12 @@ func (e *MissingProcessConfigError) Error() string {
 }
 
 type BundleConfigInvalidJSONError struct {
-	BundlePath string
+	BundlePath    string
+	InternalError error
 }
 
 func (e *BundleConfigInvalidJSONError) Error() string {
-	return fmt.Sprintf("bundle %s contains invalid JSON: %s", SpecConfig, e.BundlePath)
+	return fmt.Sprintf("bundle %s contains invalid JSON: %s: %s", SpecConfig, e.BundlePath, e.InternalError)
 }
 
 type ProcessConfigInvalidJSONError struct {
@@ -63,11 +64,17 @@ func (e *ProcessConfigInvalidEncodingError) Error() string {
 }
 
 type BundleConfigValidationError struct {
-	BundlePath string
+	BundlePath    string
+	ErrorMessages []string
 }
 
 func (e *BundleConfigValidationError) Error() string {
-	return fmt.Sprintf("bundle %s is invalid: %s", SpecConfig, e.BundlePath)
+	errorStr := fmt.Sprintf("bundle %s is invalid: %s:", SpecConfig, e.BundlePath)
+	for _, m := range e.ErrorMessages {
+		errorStr += "\n\t" + m
+	}
+
+	return errorStr
 }
 
 type ProcessConfigValidationError struct {

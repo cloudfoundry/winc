@@ -128,7 +128,8 @@ var _ = Describe("Config", func() {
 
 			It("errors", func() {
 				spec, err := config.ValidateBundle(logger, bundlePath)
-				Expect(err).To(MatchError(&config.BundleConfigInvalidJSONError{BundlePath: bundlePath}))
+				Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigInvalidJSONError{}))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("bundle config.json contains invalid JSON: %s: unexpected end of JSON input", bundlePath)))
 				Expect(spec).To(BeNil())
 			})
 		})
@@ -143,14 +144,11 @@ var _ = Describe("Config", func() {
 				invalidSpec = specs.Spec{
 					Version: "",
 					Process: &specs.Process{
-						Args: []string{"powershell"},
-						Cwd:  "C:\\",
+						Args: []string{},
+						Cwd:  "",
 					},
 					Root: &specs.Root{
 						Path: "some-volume-guid",
-					},
-					Windows: &specs.Windows{
-						LayerFolders: []string{"a layer", "another layer"},
 					},
 				}
 				config, err := json.Marshal(&invalidSpec)
@@ -161,9 +159,15 @@ var _ = Describe("Config", func() {
 				logrus.SetOutput(logOutput)
 			})
 
-			It("errors", func() {
+			It("returns an error describing what is invalid in the config.json", func() {
 				spec, err := config.ValidateBundle(logger, bundlePath)
-				Expect(err).To(MatchError(&config.BundleConfigValidationError{BundlePath: bundlePath}))
+				Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigValidationError{}))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("bundle config.json is invalid: %s:", bundlePath)))
+				Expect(err.Error()).To(ContainSubstring("'windows' MUST be set when platform is `windows`"))
+				Expect(err.Error()).To(ContainSubstring(`'Spec.Version' should not be empty.`))
+				Expect(err.Error()).To(ContainSubstring(`'Process.Args' should not be empty.`))
+				Expect(err.Error()).To(ContainSubstring(`'Process.Cwd' should not be empty.`))
+				Expect(err.Error()).To(ContainSubstring(`"" is not a valid SemVer: Version string empty`))
 				Expect(spec).To(BeNil())
 			})
 

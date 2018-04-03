@@ -37,7 +37,7 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 	}
 	var spec specs.Spec
 	if err = json.Unmarshal(content, &spec); err != nil {
-		return nil, &BundleConfigInvalidJSONError{BundlePath: bundlePath}
+		return nil, &BundleConfigInvalidJSONError{BundlePath: bundlePath, InternalError: err}
 	}
 
 	validator := validate.NewValidator(&spec, bundlePath, true, "windows")
@@ -46,7 +46,7 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 		for _, m := range msgs {
 			logger.WithField("bundleConfigError", m).Error(fmt.Sprintf("error in bundle %s", SpecConfig))
 		}
-		return nil, &BundleConfigValidationError{BundlePath: bundlePath}
+		return nil, &BundleConfigValidationError{BundlePath: bundlePath, ErrorMessages: msgs}
 	}
 
 	return &spec, nil
