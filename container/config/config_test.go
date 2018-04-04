@@ -351,8 +351,12 @@ var _ = Describe("Config", func() {
 					logrus.SetOutput(logOutput)
 				})
 
-				It("errors", func() {
-					Expect(err).To(MatchError(&config.ProcessConfigValidationError{ProcessSpec: processConfigOverrides}))
+				It("returns an error describing what is invalid", func() {
+					Expect(err).To(BeAssignableToTypeOf(&config.ProcessConfigValidationError{}))
+					Expect(err.Error()).To(ContainSubstring("process config is invalid"))
+					Expect(err.Error()).To(ContainSubstring("cwd \"C:foo\\\\bar\" is not an absolute path"))
+					Expect(err.Error()).To(ContainSubstring("args must not be empty"))
+					Expect(err.Error()).To(ContainSubstring("env \"var1\" should be in the form of 'key=value'"))
 					Expect(spec).To(BeNil())
 				})
 
@@ -400,17 +404,14 @@ var _ = Describe("Config", func() {
 				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
 			})
 
-			It("errors", func() {
-				Expect(err).To(MatchError(&config.ProcessConfigInvalidJSONError{ProcessConfig: processConfig}))
+			It("the returned error describes the underlying JSON unmarshal error", func() {
+				Expect(err).To(BeAssignableToTypeOf(&config.ProcessConfigInvalidJSONError{}))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("process config contains invalid JSON: %s: unexpected end of JSON input", processConfig)))
 				Expect(spec).To(BeNil())
 			})
 		})
 
 		Context("when the process config file does not conform to the runtime spec", func() {
-			recieveSpec := &specs.Process{
-				Cwd: "C:foo\\bar",
-				Env: []string{"var1"},
-			}
 			var (
 				logOutput   *bytes.Buffer
 				invalidSpec *specs.Process
@@ -430,8 +431,12 @@ var _ = Describe("Config", func() {
 				logrus.SetOutput(logOutput)
 			})
 
-			It("errors", func() {
-				Expect(err).To(MatchError(&config.ProcessConfigValidationError{ProcessSpec: recieveSpec}))
+			It("returns an error describing what is invalid", func() {
+				Expect(err).To(BeAssignableToTypeOf(&config.ProcessConfigValidationError{}))
+				Expect(err.Error()).To(ContainSubstring("process config is invalid"))
+				Expect(err.Error()).To(ContainSubstring("cwd \"C:foo\\\\bar\" is not an absolute path"))
+				Expect(err.Error()).To(ContainSubstring("args must not be empty"))
+				Expect(err.Error()).To(ContainSubstring("env \"var1\" should be in the form of 'key=value'"))
 				Expect(spec).To(BeNil())
 			})
 

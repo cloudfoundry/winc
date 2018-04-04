@@ -78,7 +78,7 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 			return nil, &ProcessConfigInvalidEncodingError{ProcessConfig: processConfig}
 		}
 		if err = json.Unmarshal(content, &spec); err != nil {
-			return nil, &ProcessConfigInvalidJSONError{ProcessConfig: processConfig}
+			return nil, &ProcessConfigInvalidJSONError{ProcessConfig: processConfig, InternalError: err}
 		}
 	}
 
@@ -120,7 +120,7 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 		for _, m := range msgs {
 			logger.WithField("processConfigError", m).Error("error in process config")
 		}
-		return nil, &ProcessConfigValidationError{ProcessSpec: &spec}
+		return nil, &ProcessConfigValidationError{ErrorMessages: msgs}
 	}
 
 	return &spec, nil

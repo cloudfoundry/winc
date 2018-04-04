@@ -2,8 +2,6 @@ package config
 
 import (
 	"fmt"
-
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 type MissingBundleError struct {
@@ -41,10 +39,11 @@ func (e *BundleConfigInvalidJSONError) Error() string {
 
 type ProcessConfigInvalidJSONError struct {
 	ProcessConfig string
+	InternalError error
 }
 
 func (e *ProcessConfigInvalidJSONError) Error() string {
-	return fmt.Sprintf("process config contains invalid JSON: %s", e.ProcessConfig)
+	return fmt.Sprintf("process config contains invalid JSON: %s: %s", e.ProcessConfig, e.InternalError)
 }
 
 type BundleConfigInvalidEncodingError struct {
@@ -78,9 +77,14 @@ func (e *BundleConfigValidationError) Error() string {
 }
 
 type ProcessConfigValidationError struct {
-	ProcessSpec *specs.Process
+	ErrorMessages []string
 }
 
 func (e *ProcessConfigValidationError) Error() string {
-	return fmt.Sprintf("process config is invalid: %+v", e.ProcessSpec)
+	errorStr := "process config is invalid:"
+	for _, m := range e.ErrorMessages {
+		errorStr += "\n\t" + m
+	}
+
+	return errorStr
 }
