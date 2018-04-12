@@ -178,6 +178,82 @@ var _ = Describe("Config", func() {
 				Expect(logOutputStr).To(ContainSubstring("'Spec.Version' should not be empty."))
 			})
 
+			Context("when the 'Windows.LayerFolders' field is empty", func() {
+				BeforeEach(func() {
+					invalidSpec = specs.Spec{
+						Version: specs.Version,
+						Process: &specs.Process{
+							Args: []string{"cmd"},
+							Cwd:  "C:\\",
+						},
+						Windows: &specs.Windows{},
+					}
+					config, err := json.Marshal(&invalidSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+
+					logOutput = &bytes.Buffer{}
+					logrus.SetOutput(logOutput)
+				})
+
+				It("returns an error describing that it is missing", func() {
+					_, err := config.ValidateBundle(logger, bundlePath)
+					Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigValidationError{}))
+					Expect(err.Error()).To(ContainSubstring("'Windows.LayerFolders' should not be empty"))
+				})
+			})
+
+			Context("when the 'root' field is missing", func() {
+				BeforeEach(func() {
+					invalidSpec = specs.Spec{
+						Version: specs.Version,
+						Process: &specs.Process{
+							Args: []string{"cmd"},
+							Cwd:  "C:\\",
+						},
+						Windows: &specs.Windows{LayerFolders: []string{"hi"}},
+					}
+					config, err := json.Marshal(&invalidSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+
+					logOutput = &bytes.Buffer{}
+					logrus.SetOutput(logOutput)
+				})
+
+				It("returns an error describing that it is missing", func() {
+					_, err := config.ValidateBundle(logger, bundlePath)
+					Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigValidationError{}))
+					Expect(err.Error()).To(ContainSubstring("'root' MUST be set when platform is `windows`"))
+				})
+			})
+
+			Context("when the 'Spec.Root.Path' is empty", func() {
+				BeforeEach(func() {
+					invalidSpec = specs.Spec{
+						Version: specs.Version,
+						Process: &specs.Process{
+							Args: []string{"cmd"},
+							Cwd:  "C:\\",
+						},
+						Windows: &specs.Windows{LayerFolders: []string{"hi"}},
+						Root:    &specs.Root{},
+					}
+					config, err := json.Marshal(&invalidSpec)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+
+					logOutput = &bytes.Buffer{}
+					logrus.SetOutput(logOutput)
+				})
+
+				It("returns an error describing that it is empty", func() {
+					_, err := config.ValidateBundle(logger, bundlePath)
+					Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigValidationError{}))
+					Expect(err.Error()).To(ContainSubstring("'Spec.Root.Path' should not be empty"))
+				})
+			})
+
 			Context("when the config.json spec version has a different major version than the expected version", func() {
 				BeforeEach(func() {
 					invalidSpec.Version = fmt.Sprintf("%d.%d.%d%s", specs.VersionMajor+1, specs.VersionMinor, specs.VersionPatch, specs.VersionDev)

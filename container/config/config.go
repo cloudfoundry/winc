@@ -57,6 +57,13 @@ func checkAll(spec specs.Spec, v validate.Validator) []string {
 	msgs = append(msgs, v.CheckPlatform()...)
 	msgs = append(msgs, v.CheckMandatoryFields()...)
 	msgs = append(msgs, checkSemVer(spec.Version)...)
+	if spec.Root == nil {
+		msgs = append(msgs, "'root' MUST be set when platform is `windows`")
+	} else {
+		if spec.Root.Path == "" {
+			msgs = append(msgs, "'Spec.Root.Path' should not be empty.")
+		}
+	}
 	return msgs
 }
 
