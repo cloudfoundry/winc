@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/fakes"
@@ -14,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -180,6 +182,28 @@ var _ = Describe("Exec", func() {
 			})
 		})
 
+		Context("when creating a process in the container fails due to low memory", func() {
+			var couldNotCreateProcessError *container.CouldNotCreateProcessError
+
+			BeforeEach(func() {
+				couldNotCreateProcessError = &container.CouldNotCreateProcessError{
+					Id:      containerId,
+					Command: "powershell.exe",
+				}
+				fakeCreateProcessError := &hcsshim.ContainerError{
+					Err: syscall.Errno(0x5af),
+				}
+				fakeContainer.CreateProcessReturns(nil, fakeCreateProcessError)
+			})
+
+			It("errors and returns the cleaned error", func() {
+				p, err := containerManager.Exec(&processSpec, true)
+				Expect(pkgerrors.Cause(err)).To(Equal(couldNotCreateProcessError))
+				Expect(err.Error()).To(ContainSubstring("not enough memory"))
+				Expect(p).To(BeNil())
+			})
+		})
+
 		Context("when creating a process in the container fails", func() {
 			var couldNotCreateProcessError *container.CouldNotCreateProcessError
 
@@ -188,12 +212,13 @@ var _ = Describe("Exec", func() {
 					Id:      containerId,
 					Command: "powershell.exe",
 				}
-				fakeContainer.CreateProcessReturns(nil, couldNotCreateProcessError)
+				fakeContainer.CreateProcessReturns(nil, errors.New("some-container-error"))
 			})
 
-			It("errors", func() {
+			It("errors and does not return the hcs error", func() {
 				p, err := containerManager.Exec(&processSpec, true)
-				Expect(err).To(Equal(couldNotCreateProcessError))
+				Expect(pkgerrors.Cause(err)).To(Equal(couldNotCreateProcessError))
+				Expect(err.Error()).To(ContainSubstring("some-container-error"))
 				Expect(p).To(BeNil())
 			})
 		})

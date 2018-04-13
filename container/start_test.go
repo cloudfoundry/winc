@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -189,7 +190,7 @@ var _ = Describe("Start", func() {
 
 				It("returns an error", func() {
 					_, err := containerManager.Start(true)
-					Expect(err).To(BeAssignableToTypeOf(&container.CouldNotCreateProcessError{}))
+					Expect(pkgerrors.Cause(err)).To(BeAssignableToTypeOf(&container.CouldNotCreateProcessError{}))
 				})
 
 				It("sets the state to 'exited'", func() {

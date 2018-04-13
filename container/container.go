@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -506,7 +507,10 @@ func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.
 		if len(processSpec.Args) != 0 {
 			command = processSpec.Args[0]
 		}
-		return nil, &CouldNotCreateProcessError{Id: m.id, Command: command}
+		finalErr := &CouldNotCreateProcessError{Id: m.id, Command: command}
+
+		cleanedError := hcs.CleanError(err)
+		return nil, errors.Wrap(finalErr, cleanedError.Error())
 	}
 
 	return p, nil
