@@ -549,7 +549,7 @@ var _ = Describe("Up", func() {
 			cmd.Stdin = strings.NewReader(netin)
 			_, stdErr, err := helpers.Execute(cmd)
 			Expect(err).To(HaveOccurred())
-			Expect(stdErr.String()).To(ContainSubstring("the container does not have enough memory to initialize its network"))
+			Expect(stdErr.String()).To(ContainSubstring("networkUp: not enough memory"))
 		})
 	})
 
