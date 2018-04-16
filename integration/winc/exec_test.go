@@ -92,11 +92,6 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 				processConfig = f.Name()
-				expectedSpec := processSpecGenerator()
-				expectedSpec.Args = []string{"/tmp/sleep", "99999"}
-				config, err := json.Marshal(&expectedSpec)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
 			})
 
 			AfterEach(func() {
@@ -104,6 +99,12 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("runs the process specified in the process.json", func() {
+				expectedSpec := processSpecGenerator()
+				expectedSpec.Args = []string{"/tmp/sleep", "99999"}
+				config, err := json.Marshal(&expectedSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+
 				args := []string{"exec", "--process", processConfig, "--detach", containerId}
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
@@ -113,6 +114,21 @@ var _ = Describe("Exec", func() {
 
 				containerPid := helpers.GetContainerState(containerId).Pid
 				Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
+			})
+
+			It("cleans errors returned from hcsshim", func() {
+				expectedSpec := processSpecGenerator()
+				expectedSpec.Args = []string{"some-invalid-command"}
+				config, err := json.Marshal(&expectedSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+
+				args := []string{"exec", "--process", processConfig, containerId}
+				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
+				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+				fmt.Println(stdOut.String())
+				Expect(stdOut.String()).To(BeEmpty())
+				Expect(strings.TrimSpace(stdErr.String())).To(Equal(fmt.Sprintf("The system cannot find the file specified.: could not start command 'some-invalid-command.exe' in container: %s", containerId)))
 			})
 		})
 
