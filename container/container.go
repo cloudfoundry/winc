@@ -425,7 +425,9 @@ func stateValid(state State) bool {
 		(state.UserProgramPID != 0 && state.UserProgramStartTime != syscall.Filetime{})
 }
 
-func (m *Manager) Start(detach bool) (hcsshim.Process, error) {
+const _PROCESS_DUP_HANDLE = 0x0040
+
+func (m *Manager) Start(detach bool, duplicate bool) (hcsshim.Process, error) {
 	ociState, err := m.State()
 	if err != nil {
 		return nil, err
@@ -475,6 +477,46 @@ func (m *Manager) Start(detach bool) (hcsshim.Process, error) {
 	err = writeContainerState()
 	if err != nil {
 		return nil, err
+	}
+
+	if duplicate {
+		ch, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|syscall.SYNCHRONIZE, false, uint32(proc.Pid()))
+		if err != nil {
+			return nil, fmt.Errorf("OpenProcess (container): %s", err.Error())
+		}
+		defer syscall.CloseHandle(ch)
+
+		pph, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|_PROCESS_DUP_HANDLE, false, uint32(os.Getppid()))
+		if err != nil {
+			return nil, fmt.Errorf("OpenProcess (parent): %s", err.Error())
+		}
+		defer syscall.CloseHandle(pph)
+
+		ph, err := syscall.GetCurrentProcess()
+		if err != nil {
+			return nil, fmt.Errorf("GetCurrentProcess: %s", err.Error())
+		}
+		defer syscall.CloseHandle(ph)
+
+		var d syscall.Handle
+
+		if err := syscall.DuplicateHandle(
+			ph,
+			ch,
+			pph,
+			&d,
+			0,
+			false,
+			syscall.DUPLICATE_SAME_ACCESS,
+		); err != nil {
+			return nil, fmt.Errorf("DuplicateHandle: %s", err.Error())
+		}
+		type so struct {
+			Handle uint64 `json:"Handle"`
+		}
+
+		s := so{Handle: uint64(d)}
+		json.NewEncoder(os.Stdout).Encode(s)
 	}
 
 	return proc, nil

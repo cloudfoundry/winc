@@ -69,7 +69,7 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		}
 
 		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		process, err := cm.Start(detach)
+		process, err := cm.Start(detach, false)
 		if err != nil {
 			return err
 		}

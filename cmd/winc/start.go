@@ -16,6 +16,12 @@ var startCommand = cli.Command{
 	ArgsUsage: `<container-id>
 
 Where "<container-id>" is the name for the instance of the container`,
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "duplicate-handle",
+			Usage: "duplicate a handle to the init process into the parent process",
+		},
+	},
 	Action: func(context *cli.Context) error {
 		if err := checkArgs(context, 1, minArgs); err != nil {
 			return err
@@ -29,7 +35,8 @@ Where "<container-id>" is the name for the instance of the container`,
 
 		client := hcs.Client{}
 		cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		process, err := cm.Start(true)
+		duplicateHandle := context.Bool("duplicate-handle")
+		process, err := cm.Start(true, duplicateHandle)
 		if err != nil {
 			return err
 		}

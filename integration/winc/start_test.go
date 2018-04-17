@@ -1,12 +1,15 @@
 package main_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -53,6 +56,38 @@ var _ = Describe("Start", func() {
 			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type c:\\out.txt"}, false)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 			Expect(strings.TrimSpace(stdOut.String())).To(Equal("hello"))
+		})
+	})
+
+	FContext("we pass the insane handle flag", func() {
+		BeforeEach(func() {
+			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "exit /B 8"}
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+		})
+
+		It("can get the init process exit code after it exits", func() {
+			type so struct {
+				Handle uint64 `json:"Handle"`
+			}
+
+			stdout, _, err := helpers.Execute(exec.Command(wincBin, "start", "--duplicate-handle", containerId))
+			Expect(err).NotTo(HaveOccurred())
+
+			var s so
+			Expect(json.Unmarshal(stdout.Bytes(), &s)).To(Succeed())
+
+			time.Sleep(5 * time.Second)
+
+			h := syscall.Handle(s.Handle)
+
+			_, err = syscall.WaitForSingleObject(h, math.MaxUint32)
+			Expect(err).NotTo(HaveOccurred())
+			defer syscall.CloseHandle(h)
+
+			var exitCode uint32
+			err = syscall.GetExitCodeProcess(h, &exitCode)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exitCode).To(Equal(uint32(8)))
 		})
 	})
 
