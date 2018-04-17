@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/config"
 	"code.cloudfoundry.org/winc/container/mount"
@@ -101,13 +103,26 @@ following will output a list of processes running in the container:
 		logger.Debug("executing process in container")
 
 		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		process, err := cm.Exec(processSpec, !detach)
+		p, err := cm.Exec(processSpec, !detach)
 		if err != nil {
 			return err
 		}
-		defer process.Close()
+		defer p.Close()
 
-		return manageProcess(process, detach, pidFile, cm, false)
+		processManager := process.NewClient(p)
+		if err := processManager.WritePIDFile(pidFile); err != nil {
+			return err
+		}
+
+		if !detach {
+			exitCode, err := processManager.AttachIO()
+			if err != nil {
+				return err
+			}
+			os.Exit(exitCode)
+		}
+
+		return nil
 	},
 	SkipArgReorder: true,
 }

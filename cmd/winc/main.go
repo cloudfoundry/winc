@@ -5,18 +5,14 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync"
-	"time"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
 	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
 
-	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -181,79 +177,4 @@ func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, roo
 	}
 
 	return spec, nil
-}
-
-func manageProcess(process hcsshim.Process, detach bool, pidFile string, cm *container.Manager, deleteContainer bool) error {
-	if pidFile != "" {
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(process.Pid()), 10)), 0666); err != nil {
-			return err
-		}
-	}
-
-	if !detach {
-		stdin, stdout, stderr, err := process.Stdio()
-		if err != nil {
-			return err
-		}
-
-		var wg sync.WaitGroup
-
-		go func() {
-			_, _ = io.Copy(stdin, os.Stdin)
-			_ = stdin.Close()
-		}()
-		go func() {
-			wg.Add(1)
-			_, _ = io.Copy(os.Stdout, stdout)
-			_ = stdout.Close()
-			wg.Done()
-		}()
-		go func() {
-			wg.Add(1)
-			_, _ = io.Copy(os.Stderr, stderr)
-			_ = stderr.Close()
-			wg.Done()
-		}()
-
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		go func() {
-			<-c
-			_ = process.Kill()
-		}()
-
-		err = process.Wait()
-		waitWithTimeout(&wg, 1*time.Second)
-		if err != nil {
-			return err
-		}
-
-		if deleteContainer {
-			force := false
-			if err := cm.Delete(force); err != nil {
-				return err
-			}
-		}
-
-		exitCode, err := process.ExitCode()
-		if err != nil {
-			return err
-		}
-		os.Exit(exitCode)
-	}
-
-	return nil
-}
-
-func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
-	wgEmpty := make(chan interface{}, 1)
-	go func() {
-		wg.Wait()
-		wgEmpty <- nil
-	}()
-
-	select {
-	case <-time.After(timeout):
-	case <-wgEmpty:
-	}
 }

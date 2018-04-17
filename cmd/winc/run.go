@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/mount"
 	"code.cloudfoundry.org/winc/container/process"
@@ -69,13 +71,27 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		}
 
 		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		process, err := cm.Start(detach)
+		p, err := cm.Start(detach)
 		if err != nil {
 			return err
 		}
-		defer process.Close()
+		defer p.Close()
 
-		return manageProcess(process, detach, "", cm, true)
+		processManager := process.NewClient(p)
+		if !detach {
+			exitCode, attachErr := processManager.AttachIO()
+
+			if err := cm.Delete(false); err != nil {
+				return err
+			}
+
+			if attachErr != nil {
+				return attachErr
+			}
+			os.Exit(exitCode)
+		}
+
+		return nil
 	},
 	SkipArgReorder: true,
 }
