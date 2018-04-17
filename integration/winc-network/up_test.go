@@ -523,36 +523,6 @@ var _ = Describe("Up", func() {
 		})
 	})
 
-	Context("the container memory limit is too low to create the netsh process", func() {
-		BeforeEach(func() {
-			networkConfig = helpers.GenerateNetworkConfig()
-			helpers.CreateNetwork(networkConfig, networkConfigFile)
-
-			limitInBytes := uint64(32 * 1024 * 1024)
-			bundleSpec.Windows.Resources = &specs.WindowsResources{
-				Memory: &specs.WindowsMemoryResources{
-					Limit: &limitInBytes,
-				},
-			}
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
-		})
-
-		AfterEach(func() {
-			deleteContainerAndNetwork(containerId, networkConfig)
-		})
-
-		It("write a useful error to stdout", func() {
-			netin := `{"Pid": 123, "Properties": {} ,"netin": [{"container_port": 8080, "host_port": 0}]}`
-
-			args := []string{"--action", "up", "--configFile", networkConfigFile, "--handle", containerId}
-			cmd := exec.Command(wincNetworkBin, args...)
-			cmd.Stdin = strings.NewReader(netin)
-			_, stdErr, err := helpers.Execute(cmd)
-			Expect(err).To(HaveOccurred())
-			Expect(stdErr.String()).To(ContainSubstring("networkUp: not enough memory"))
-		})
-	})
-
 	Context("two containers are running", func() {
 		var (
 			bundlePath2   string
