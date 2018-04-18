@@ -221,15 +221,18 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 
 	// these rules are necessary to get throught the host firewall
 	// Priority: 100 is some sort of magic number that makes this work...
-	acls = append(acls, hcsshim.ACLPolicy{
-		Type:      hcsshim.ACL,
-		RuleType:  hcsshim.Host,
-		Action:    hcsshim.Allow,
-		Direction: hcsshim.In,
-		Priority:  100,
-		Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
-	},
-		hcsshim.ACLPolicy{
+
+	// WIP - just allow all for c2c exploring
+	acls = []hcsshim.ACLPolicy{
+		{
+			Type:      hcsshim.ACL,
+			RuleType:  hcsshim.Host,
+			Action:    hcsshim.Allow,
+			Direction: hcsshim.In,
+			Priority:  100,
+			Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
+		},
+		{
 			Type:      hcsshim.ACL,
 			RuleType:  hcsshim.Host,
 			Action:    hcsshim.Allow,
@@ -237,7 +240,7 @@ func (e *EndpointManager) ApplyMappings(endpoint hcsshim.HNSEndpoint, mappings [
 			Priority:  100,
 			Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
 		},
-	)
+	}
 
 	for _, acl := range acls {
 		policy, err := json.Marshal(acl)

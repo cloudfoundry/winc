@@ -90,8 +90,7 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 	subnet := hcsshim.Subnet{AddressPrefix: n.config.SubnetRange, GatewayAddress: n.config.GatewayAddress}
 	vsidPolicy, err := json.Marshal(hcsshim.VsidPolicy{
 		Type: "VSID",
-		// must be at least 4096
-		VSID: 5120,
+		VSID: 4096,
 	})
 	subnet.Policies = append(subnet.Policies, vsidPolicy)
 
