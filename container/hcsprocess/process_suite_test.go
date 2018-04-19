@@ -1,4 +1,4 @@
-package process_test
+package hcsprocess_test
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestProcess(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Process Suite")
+	RunSpecs(t, "HCSProcess Suite")
 }

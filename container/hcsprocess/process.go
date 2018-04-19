@@ -1,4 +1,4 @@
-package process
+package hcsprocess
 
 import (
 	"io"
@@ -13,69 +13,82 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
-type Client struct {
+type Process struct {
 	process hcsshim.Process
 }
 
-func NewClient(p hcsshim.Process) *Client {
-	return &Client{process: p}
+func New(p hcsshim.Process) *Process {
+	return &Process{process: p}
 }
 
-func (m *Client) WritePIDFile(pidFile string) error {
+func (p *Process) WritePIDFile(pidFile string) error {
 	if pidFile != "" {
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(m.process.Pid()), 10)), 0666); err != nil {
+		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(p.process.Pid()), 10)), 0666); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (m *Client) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.Writer) (int, error) {
-	stdin, stdout, stderr, err := m.process.Stdio()
+func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.Writer) (int, error) {
+	stdin, stdout, stderr, err := p.process.Stdio()
 	if err != nil {
 		return -1, err
 	}
 
 	var wg sync.WaitGroup
 
-	go func() {
+	if attachStdin != nil {
 		wg.Add(1)
-		_, _ = io.Copy(stdin, attachStdin)
+		go func() {
+			_, _ = io.Copy(stdin, attachStdin)
+			_ = stdin.Close()
+			wg.Done()
+		}()
+	} else {
 		_ = stdin.Close()
-		wg.Done()
-	}()
-	go func() {
+	}
+
+	if attachStdout != nil {
 		wg.Add(1)
-		_, _ = io.Copy(attachStdout, stdout)
+		go func() {
+			_, _ = io.Copy(attachStdout, stdout)
+			_ = stdout.Close()
+			wg.Done()
+		}()
+	} else {
 		_ = stdout.Close()
-		wg.Done()
-	}()
-	go func() {
+	}
+
+	if attachStderr != nil {
 		wg.Add(1)
-		_, _ = io.Copy(attachStderr, stderr)
+		go func() {
+			_, _ = io.Copy(attachStderr, stderr)
+			_ = stderr.Close()
+			wg.Done()
+		}()
+	} else {
 		_ = stderr.Close()
-		wg.Done()
-	}()
+	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		<-c
-		_ = m.process.Kill()
-	}()
-
-	err = m.process.Wait()
+	err = p.process.Wait()
 	waitWithTimeout(&wg, 1*time.Second)
 	if err != nil {
 		return -1, err
 	}
 
-	// !! DELETE WAS HERE
-
-	return m.process.ExitCode()
+	return p.process.ExitCode()
 }
 
-func (m *Client) StartTime(pid uint32) (syscall.Filetime, error) {
+func (p *Process) SetInterrupt(s chan os.Signal) {
+	signal.Notify(s, os.Interrupt)
+	go func() {
+		<-s
+		p.process.Kill()
+	}()
+}
+
+func (p *Process) StartTime(pid uint32) (syscall.Filetime, error) {
 	//pid := uint32(m.process.Pid())
 	h, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, pid)
 	if err != nil {
