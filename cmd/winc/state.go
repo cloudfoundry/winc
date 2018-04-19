@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"os"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/hcsprocess"
-	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/container/winsyscall"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -34,9 +33,10 @@ instance of a container.`,
 		logger.Debug("retrieving state of container")
 
 		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
+		wsc := winsyscall.WinSyscall{}
+		sm := state.New(logger, &client, &wsc, containerId, rootDir)
 
-		state, err := cm.State()
+		state, err := sm.State()
 		if err != nil {
 			return err
 		}

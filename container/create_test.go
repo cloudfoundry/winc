@@ -27,20 +27,15 @@ var _ = Describe("Create", func() {
 		layerFolders     []string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
-		processClient    *fakes.ProcessClient
 		containerManager *container.Manager
 		spec             *specs.Spec
 		containerVolume  = "containervolume"
 		hostName         = "some-hostname"
-		rootDir          string
 	)
 
 	BeforeEach(func() {
 		var err error
 		bundlePath, err = ioutil.TempDir("", "bundlePath")
-		Expect(err).ToNot(HaveOccurred())
-
-		rootDir, err = ioutil.TempDir("", "create.root")
 		Expect(err).ToNot(HaveOccurred())
 
 		layerFolders = []string{
@@ -69,17 +64,15 @@ var _ = Describe("Create", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		processClient = &fakes.ProcessClient{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "create")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId)
 	})
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
-		Expect(os.RemoveAll(rootDir)).To(Succeed())
 	})
 
 	Context("when the specified container does not already exist", func() {
@@ -137,23 +130,6 @@ var _ = Describe("Create", func() {
 			}))
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
-
-			Expect(mounter.MountCallCount()).To(Equal(1))
-			actualPid, actualVolumePath := mounter.MountArgsForCall(0)
-			Expect(actualPid).To(Equal(pid))
-			Expect(actualVolumePath).To(Equal(containerVolume))
-		})
-
-		It("writes the bundle path to state.json in <rootDir>/<containerId>/", func() {
-			_, err := containerManager.Create(bundlePath)
-			Expect(err).To(Succeed())
-
-			var state container.State
-			contents, err := ioutil.ReadFile(filepath.Join(rootDir, containerId, "state.json"))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(json.Unmarshal(contents, &state)).To(Succeed())
-
-			Expect(state.Bundle).To(Equal(bundlePath))
 		})
 
 		Context("when the volume path is empty", func() {
@@ -420,20 +396,6 @@ var _ = Describe("Create", func() {
 			It("returns an error", func() {
 				_, err := containerManager.Create(bundlePath)
 				Expect(err).To(MatchError("couldn't create"))
-			})
-		})
-
-		Context("when mounting the sandbox.vhdx fails", func() {
-			BeforeEach(func() {
-				mounter.MountReturns(errors.New("couldn't mount"))
-				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
-			})
-
-			It("deletes the container", func() {
-				_, err := containerManager.Create(bundlePath)
-				Expect(err).To(MatchError("couldn't mount"))
-
-				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})
 		})
 

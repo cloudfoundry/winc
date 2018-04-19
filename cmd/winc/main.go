@@ -6,14 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/hcsprocess"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/hcs"
-
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -154,27 +147,4 @@ func fatal(err error) {
 	logrus.Error(err)
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
-}
-
-func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, rootDir string) (*specs.Spec, error) {
-	client := hcs.Client{}
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
-
-	spec, err := cm.Create(bundlePath)
-	if err != nil {
-		return nil, err
-	}
-
-	if pidFile != "" {
-		state, err := cm.State()
-		if err != nil {
-			return nil, err
-		}
-
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
-			return nil, err
-		}
-	}
-
-	return spec, nil
 }

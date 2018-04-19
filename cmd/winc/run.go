@@ -1,13 +1,13 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
-	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/hcsprocess"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/container/winsyscall"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -68,30 +68,51 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		logger.Debug("creating container")
 
 		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
-		_, err := cm.Create(bundlePath)
+		cm := container.NewManager(logger, &client, containerId)
+
+		wsc := winsyscall.WinSyscall{}
+		sm := state.New(logger, &client, &wsc, containerId, rootDir)
+		m := mount.Mounter{}
+
+		spec, err := cm.Spec(bundlePath)
 		if err != nil {
 			return err
 		}
 
-		if pidFile != "" {
-			state, err := cm.State()
-			if err != nil {
-				return err
-			}
-
-			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
-				return err
-			}
-		}
-
-		p, err := cm.Start(detach)
-		if err != nil {
+		if err := cm.Create(spec); err != nil {
 			return err
 		}
-		defer p.Close()
 
-		wrappedProcess := hcsprocess.New(p)
+		if err := sm.Initialize(bundlePath); err != nil {
+			cm.Delete(true)
+			return err
+		}
+
+		process, err := cm.Exec(spec.Process, !detach)
+		if err != nil {
+			if cErr, ok := err.(*container.CouldNotCreateProcessError); ok {
+				if sErr := sm.Set(nil, true); sErr != nil {
+					logger.Error(sErr)
+				}
+				return cErr
+			}
+			return err
+		}
+		defer process.Close()
+
+		if err := sm.Set(process, false); err != nil {
+			return err
+		}
+
+		if err := m.Mount(process.Pid(), spec.Root.Path); err != nil {
+			return err
+		}
+
+		wrappedProcess := hcsprocess.New(process)
+		if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
+			return err
+		}
+
 		if !detach {
 			s := make(chan os.Signal, 1)
 			wrappedProcess.SetInterrupt(s)

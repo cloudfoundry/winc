@@ -1,12 +1,10 @@
 package container_test
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/fakes"
@@ -24,10 +22,8 @@ var _ = Describe("Start", func() {
 	var (
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
-		processClient    *fakes.ProcessClient
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
-		rootDir          string
 		bundlePath       string
 		containerId      string
 	)
@@ -35,34 +31,21 @@ var _ = Describe("Start", func() {
 	BeforeEach(func() {
 		var err error
 
-		rootDir, err = ioutil.TempDir("", "start.root")
-		Expect(err).ToNot(HaveOccurred())
-
-		stateDir := filepath.Join(rootDir, containerId)
-		Expect(os.MkdirAll(stateDir, 0755)).To(Succeed())
-
 		bundlePath, err = ioutil.TempDir("", "start.bundle")
 		Expect(err).ToNot(HaveOccurred())
 
 		containerId = filepath.Base(bundlePath)
 
-		state := container.State{Bundle: bundlePath}
-		contents, err := json.Marshal(state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ioutil.WriteFile(filepath.Join(stateDir, "state.json"), contents, 0644)).To(Succeed())
-
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		processClient = &fakes.ProcessClient{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "state")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId)
 	})
 
 	AfterEach(func() {
-		Expect(os.RemoveAll(rootDir)).To(Succeed())
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
 
@@ -74,7 +57,7 @@ var _ = Describe("Start", func() {
 		})
 
 		It("errors", func() {
-			_, err := containerManager.Start(true)
+			_, err := containerManager.Start(bundlePath, true)
 			Expect(err).To(Equal(missingContainerError))
 		})
 	})
@@ -113,7 +96,6 @@ var _ = Describe("Start", func() {
 			fakeProcess = &hcsfakes.Process{}
 			fakeProcess.PidReturns(100)
 			fakeContainer.CreateProcessReturnsOnCall(0, fakeProcess, nil)
-			processClient.StartTimeReturns(syscall.Filetime{LowDateTime: 100, HighDateTime: 200}, nil)
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
 			hcsClient.GetContainerPropertiesReturnsOnCall(0, hcsshim.ContainerProperties{}, &hcs.NotFoundError{})
 			hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{}, nil)
@@ -122,7 +104,7 @@ var _ = Describe("Start", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Context("when detach is true", func() {
+		Context("when attach is false", func() {
 			BeforeEach(func() {
 				expectedProcessConfig = &hcsshim.ProcessConfig{
 					CommandLine:      `powershell.exe "Write-Host 'hi'"`,
@@ -135,52 +117,17 @@ var _ = Describe("Start", func() {
 				}
 			})
 
-			It("runs the user process", func() {
-				proc, err := containerManager.Start(true)
+			It("runs the user process and mounts the volume", func() {
+				proc, err := containerManager.Start(bundlePath, false)
 				Expect(proc).To(Equal(fakeProcess))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
-			})
-			Context("the container has been stopped", func() {
-				BeforeEach(func() {
-					hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: true}, nil)
-				})
 
-				It("errors and does not start the user process", func() {
-					_, err := containerManager.Start(true)
-					Expect(err).To(MatchError("cannot start a container in the stopped state"))
-					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(0))
-				})
-			})
-
-			Context("the user process is running", func() {
-				BeforeEach(func() {
-					_, err := containerManager.Start(true)
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				It("errors and does not start the user process", func() {
-					_, err := containerManager.Start(true)
-					Expect(err).To(MatchError("cannot start a container in the running state"))
-					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
-				})
-			})
-
-			Context("the user process has exited", func() {
-				BeforeEach(func() {
-					_, err := containerManager.Start(true)
-					Expect(err).ToNot(HaveOccurred())
-					fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
-						{ProcessId: 666, ImageName: "wininit.exe"},
-					}, nil)
-				})
-
-				It("errors and does not start the user process", func() {
-					_, err := containerManager.Start(true)
-					Expect(err).To(MatchError("cannot start a container in the exited state"))
-					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
-				})
+				Expect(mounter.MountCallCount()).To(Equal(1))
+				actualPid, actualVolumePath := mounter.MountArgsForCall(0)
+				Expect(actualPid).To(Equal(100))
+				Expect(actualVolumePath).To(Equal("some-rootfs-path"))
 			})
 
 			Context("exec of the user process fails", func() {
@@ -189,38 +136,13 @@ var _ = Describe("Start", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(bundlePath, true)
 					Expect(pkgerrors.Cause(err)).To(BeAssignableToTypeOf(&container.CouldNotCreateProcessError{}))
-				})
-
-				It("sets the state to 'exited'", func() {
-					containerManager.Start(true)
-					s, err := containerManager.State()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(s.Status).To(Equal("exited"))
-				})
-			})
-
-			Context("getting the user start time fails", func() {
-				BeforeEach(func() {
-					processClient.StartTimeReturnsOnCall(0, syscall.Filetime{}, errors.New("blue screen"))
-				})
-
-				It("returns an error", func() {
-					_, err := containerManager.Start(true)
-					Expect(err).To(MatchError("blue screen"))
-				})
-
-				It("sets the state to 'exited'", func() {
-					containerManager.Start(true)
-					s, err := containerManager.State()
-					Expect(err).NotTo(HaveOccurred())
-					Expect(s.Status).To(Equal("exited"))
 				})
 			})
 		})
 
-		Context("when detach is false", func() {
+		Context("when attach is true", func() {
 			BeforeEach(func() {
 				expectedProcessConfig = &hcsshim.ProcessConfig{
 					CommandLine:      `powershell.exe "Write-Host 'hi'"`,
@@ -233,12 +155,29 @@ var _ = Describe("Start", func() {
 				}
 			})
 
-			It("runs the user process with i/o pipes", func() {
-				proc, err := containerManager.Start(false)
+			It("runs the user process with i/o pipes and mounts the volume", func() {
+				proc, err := containerManager.Start(bundlePath, true)
 				Expect(proc).To(Equal(fakeProcess))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 				Expect(fakeContainer.CreateProcessArgsForCall(0)).To(Equal(expectedProcessConfig))
+
+				Expect(mounter.MountCallCount()).To(Equal(1))
+				actualPid, actualVolumePath := mounter.MountArgsForCall(0)
+				Expect(actualPid).To(Equal(100))
+				Expect(actualVolumePath).To(Equal("some-rootfs-path"))
+			})
+		})
+
+		Context("when mounting the sandbox.vhdx fails", func() {
+			BeforeEach(func() {
+				mounter.MountReturns(errors.New("couldn't mount"))
+				hcsClient.GetContainerPropertiesReturnsOnCall(1, hcsshim.ContainerProperties{Stopped: false}, nil)
+			})
+
+			It("returns an error", func() {
+				_, err := containerManager.Start(bundlePath, true)
+				Expect(err).To(MatchError("couldn't mount"))
 			})
 		})
 	})

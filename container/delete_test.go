@@ -1,7 +1,6 @@
 package container_test
 
 import (
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -23,10 +22,8 @@ var _ = Describe("Delete", func() {
 		bundlePath       string
 		hcsClient        *fakes.HCSClient
 		mounter          *fakes.Mounter
-		processClient    *fakes.ProcessClient
 		fakeContainer    *hcsfakes.Container
 		containerManager *container.Manager
-		rootDir          string
 	)
 
 	BeforeEach(func() {
@@ -36,32 +33,19 @@ var _ = Describe("Delete", func() {
 
 		containerId = filepath.Base(bundlePath)
 
-		rootDir, err = ioutil.TempDir("", "delete.root")
-		Expect(err).ToNot(HaveOccurred())
-
-		stateDir := filepath.Join(rootDir, containerId)
-		Expect(os.MkdirAll(stateDir, 0755)).To(Succeed())
-
-		state := container.State{Bundle: bundlePath}
-		contents, err := json.Marshal(state)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ioutil.WriteFile(filepath.Join(stateDir, "state.json"), contents, 0644)).To(Succeed())
-
 		hcsClient = &fakes.HCSClient{}
 		mounter = &fakes.Mounter{}
-		processClient = &fakes.ProcessClient{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "delete")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, rootDir)
+		containerManager = container.NewManager(logger, hcsClient, mounter, containerId)
 	})
 
 	AfterEach(func() {
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
-		Expect(os.RemoveAll(rootDir)).To(Succeed())
 	})
 
 	Context("when the specified container is running", func() {
@@ -88,10 +72,9 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(1)).To(Equal(containerId))
 
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-			Expect(filepath.Join(rootDir, containerId)).NotTo(BeADirectory())
 		})
 
-		Context("when the specified container has a sidecar", func() {
+		XContext("when the specified container has a sidecar", func() {
 			var fakeSidecar *hcsfakes.Container
 			var sidecarId string
 			var sidecarPid int
@@ -146,7 +129,7 @@ var _ = Describe("Delete", func() {
 					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				})
 			})
-			Context("when we fail to unmount the sidecard container", func() {
+			Context("when we fail to unmount the sidecar container", func() {
 				var unmountError error = errors.New("failed to unmount container")
 				It("continue to delete the main container", func() {
 					hcsClient.OpenContainerReturnsOnCall(0, fakeSidecar, nil)

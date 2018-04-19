@@ -6,7 +6,6 @@ import (
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/config"
 	"code.cloudfoundry.org/winc/container/hcsprocess"
-	"code.cloudfoundry.org/winc/container/mount"
 	"code.cloudfoundry.org/winc/hcs"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -68,7 +67,6 @@ following will output a list of processes running in the container:
 		}
 
 		containerId := context.Args().First()
-		rootDir := context.GlobalString("root")
 		processConfig := context.String("process")
 		args := context.Args()[1:]
 		cwd := context.String("cwd")
@@ -102,7 +100,9 @@ following will output a list of processes running in the container:
 		})
 		logger.Debug("executing process in container")
 
-		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
+		client := hcs.Client{}
+		cm := container.NewManager(logger, &client, containerId)
+
 		p, err := cm.Exec(processSpec, !detach)
 		if err != nil {
 			return err

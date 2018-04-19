@@ -1,13 +1,10 @@
 package main
 
 import (
-	"io/ioutil"
-	"strconv"
-
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/config"
-	"code.cloudfoundry.org/winc/container/hcsprocess"
-	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/container/winsyscall"
 	"code.cloudfoundry.org/winc/hcs"
 
 	"github.com/sirupsen/logrus"
@@ -35,11 +32,6 @@ your host.`,
 			Value: "",
 			Usage: `path to the root of the bundle directory, defaults to the current directory`,
 		},
-		cli.StringFlag{
-			Name:  "pid-file",
-			Value: "",
-			Usage: "specify the file to write the process id to",
-		},
 		cli.BoolFlag{
 			Name:  "no-new-keyring",
 			Usage: "ignored",
@@ -53,32 +45,31 @@ your host.`,
 		containerId := context.Args().First()
 		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
-		pidFile := context.String("pid-file")
 
 		logger := logrus.WithFields(logrus.Fields{
 			"bundle":      bundlePath,
 			"containerId": containerId,
-			"pidFile":     pidFile,
 		})
 		logger.Debug("creating container")
 
 		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
+		cm := container.NewManager(logger, &client, containerId)
 
-		_, err := cm.Create(bundlePath)
+		wsc := winsyscall.WinSyscall{}
+		sm := state.New(logger, &client, &wsc, containerId, rootDir)
+
+		spec, err := cm.Spec(bundlePath)
 		if err != nil {
 			return err
 		}
 
-		if pidFile != "" {
-			state, err := cm.State()
-			if err != nil {
-				return err
-			}
+		if err := cm.Create(spec); err != nil {
+			return err
+		}
 
-			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
-				return err
-			}
+		if err := sm.Initialize(bundlePath); err != nil {
+			cm.Delete(true)
+			return err
 		}
 
 		return nil

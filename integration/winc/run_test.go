@@ -52,7 +52,49 @@ var _ = Describe("Run", func() {
 		Expect(len(pl)).To(Equal(1))
 
 		containerPid := helpers.GetContainerState(containerId).Pid
-		Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
+		Expect(pl[0].ProcessId).To(Equal(uint32(containerPid)))
+	})
+
+	It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
+		helpers.GenerateBundle(bundleSpec, bundlePath)
+		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+		Expect(err).ToNot(HaveOccurred())
+
+		pid := helpers.GetContainerState(containerId).Pid
+		Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
+
+		stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"}, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stdOut.String()).To(ContainSubstring("contents"))
+	})
+
+	Context("when the '--pid-file' flag is provided", func() {
+		var pidFile string
+
+		BeforeEach(func() {
+			f, err := ioutil.TempFile("", "pid")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.Close()).To(Succeed())
+			pidFile = f.Name()
+		})
+
+		AfterEach(func() {
+			Expect(os.RemoveAll(pidFile)).To(Succeed())
+		})
+
+		It("creates and starts the container and writes the container pid to the specified file", func() {
+			helpers.GenerateBundle(bundleSpec, bundlePath)
+			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--pid-file", pidFile, "--detach", containerId))
+			Expect(err).ToNot(HaveOccurred())
+
+			containerPid := helpers.GetContainerState(containerId).Pid
+
+			pidBytes, err := ioutil.ReadFile(pidFile)
+			Expect(err).ToNot(HaveOccurred())
+			pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(int(pid)).To(Equal(containerPid))
+		})
 	})
 
 	Context("when the --detach flag is passed", func() {
@@ -66,7 +108,7 @@ var _ = Describe("Run", func() {
 			Expect(len(pl)).To(Equal(1))
 
 			containerPid := helpers.GetContainerState(containerId).Pid
-			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
+			Expect(pl[0].ProcessId).To(Equal(uint32(containerPid)))
 
 			Eventually(func() []hcsshim.ProcessListItem {
 				return containerProcesses(containerId, "cmd.exe")

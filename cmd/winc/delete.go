@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+
 	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/hcsprocess"
 	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/container/winsyscall"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -44,7 +48,39 @@ status of "windows01" as "stopped" the following will delete resources held for
 		logger.Debug("deleting container")
 
 		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
-		return cm.Delete(force)
+		cm := container.NewManager(logger, &client, containerId)
+
+		wsc := winsyscall.WinSyscall{}
+		sm := state.New(logger, &client, &wsc, containerId, rootDir)
+		m := mount.Mounter{}
+
+		var errors []string
+
+		ociState, err := sm.State()
+		if err != nil {
+			logger.Error(err)
+			errors = append(errors, err.Error())
+		} else if ociState.Pid != 0 {
+			if err := m.Unmount(ociState.Pid); err != nil {
+				logger.Error(err)
+				errors = append(errors, err.Error())
+			}
+		}
+
+		if err := sm.Delete(); err != nil {
+			logger.Error(err)
+			errors = append(errors, err.Error())
+		}
+
+		if err := cm.Delete(force); err != nil {
+			logger.Error(err)
+			errors = append(errors, err.Error())
+		}
+
+		if len(errors) != 0 {
+			return fmt.Errorf(strings.Join(errors, "\n"))
+		}
+
+		return nil
 	},
 }
