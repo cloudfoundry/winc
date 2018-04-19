@@ -1,7 +1,14 @@
 package main
 
 import (
+	"io/ioutil"
+	"strconv"
+
+	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/config"
+	"code.cloudfoundry.org/winc/container/hcsprocess"
+	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/hcs"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -55,7 +62,25 @@ your host.`,
 		})
 		logger.Debug("creating container")
 
-		_, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
-		return err
+		client := hcs.Client{}
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
+
+		_, err := cm.Create(bundlePath)
+		if err != nil {
+			return err
+		}
+
+		if pidFile != "" {
+			state, err := cm.State()
+			if err != nil {
+				return err
+			}
+
+			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	},
 }

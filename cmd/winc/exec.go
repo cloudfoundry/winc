@@ -5,8 +5,8 @@ import (
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/config"
+	"code.cloudfoundry.org/winc/container/hcsprocess"
 	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -102,20 +102,22 @@ following will output a list of processes running in the container:
 		})
 		logger.Debug("executing process in container")
 
-		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
+		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
 		p, err := cm.Exec(processSpec, !detach)
 		if err != nil {
 			return err
 		}
 		defer p.Close()
 
-		processManager := process.NewClient(p)
-		if err := processManager.WritePIDFile(pidFile); err != nil {
+		wrappedProcess := hcsprocess.New(p)
+		if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
 			return err
 		}
 
 		if !detach {
-			exitCode, err := processManager.AttachIO()
+			s := make(chan os.Signal, 1)
+			wrappedProcess.SetInterrupt(s)
+			exitCode, err := wrappedProcess.AttachIO(os.Stdin, os.Stdout, os.Stderr)
 			if err != nil {
 				return err
 			}

@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var _ = FDescribe("Exec", func() {
+var _ = Describe("Exec", func() {
 	Context("when the container exists", func() {
 		var (
 			containerId string
@@ -126,7 +126,6 @@ var _ = FDescribe("Exec", func() {
 				args := []string{"exec", "--process", processConfig, containerId}
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
-				fmt.Println(stdOut.String())
 				Expect(stdOut.String()).To(BeEmpty())
 				Expect(strings.TrimSpace(stdErr.String())).To(Equal(fmt.Sprintf("The system cannot find the file specified.: could not start command 'some-invalid-command.exe' in container: %s", containerId)))
 			})

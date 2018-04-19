@@ -1,11 +1,13 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
+	"strconv"
 
 	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/container/hcsprocess"
 	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -65,21 +67,36 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		})
 		logger.Debug("creating container")
 
-		_, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
+		client := hcs.Client{}
+		cm := container.NewManager(logger, &client, &mount.Mounter{}, &hcsprocess.Process{}, containerId, rootDir)
+		_, err := cm.Create(bundlePath)
 		if err != nil {
 			return err
 		}
 
-		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
+		if pidFile != "" {
+			state, err := cm.State()
+			if err != nil {
+				return err
+			}
+
+			if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
+				return err
+			}
+		}
+
 		p, err := cm.Start(detach)
 		if err != nil {
 			return err
 		}
 		defer p.Close()
 
-		processManager := process.NewClient(p)
+		wrappedProcess := hcsprocess.New(p)
 		if !detach {
-			exitCode, attachErr := processManager.AttachIO()
+			s := make(chan os.Signal, 1)
+			wrappedProcess.SetInterrupt(s)
+
+			exitCode, attachErr := wrappedProcess.AttachIO(os.Stdin, os.Stdout, os.Stderr)
 
 			if err := cm.Delete(false); err != nil {
 				return err
