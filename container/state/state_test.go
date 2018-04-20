@@ -10,10 +10,12 @@ import (
 
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/container/state/fakes"
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("State", func() {
@@ -38,7 +40,11 @@ var _ = Describe("State", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		sc = &fakes.WinSyscall{}
-		sm = state.New(rootDir, containerId, hcsClient, sc)
+		logger := (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "state")
+
+		sm = state.New(logger, hcsClient, sc, containerId, rootDir)
 	})
 
 	AfterEach(func() {
@@ -74,16 +80,125 @@ var _ = Describe("State", func() {
 		})
 	})
 
-	Describe("BundlePath", func() {
+	Describe("SetFailure", func() {
 		BeforeEach(func() {
 			Expect(sm.Initialize(bundlePath)).To(Succeed())
 			Expect(stateFile).To(BeAnExistingFile())
 		})
 
-		It("returns the bundle path", func() {
-			p, err := sm.BundlePath()
+		It("sets that the process failed in the state.json", func() {
+			Expect(sm.SetFailure()).To(Succeed())
+
+			var state state.State
+			contents, err := ioutil.ReadFile(stateFile)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(p).To(Equal(bundlePath))
+			Expect(json.Unmarshal(contents, &state)).To(Succeed())
+
+			Expect(state.Bundle).To(Equal(bundlePath))
+			Expect(state.PID).To(Equal(0))
+			Expect(state.StartTime).To(Equal(syscall.Filetime{}))
+			Expect(state.ExecFailed).To(Equal(true))
+		})
+	})
+
+	Describe("SetSuccess", func() {
+		var (
+			proc *hcsfakes.Process
+			ph   syscall.Handle
+		)
+
+		BeforeEach(func() {
+			Expect(sm.Initialize(bundlePath)).To(Succeed())
+			Expect(stateFile).To(BeAnExistingFile())
+
+			proc = &hcsfakes.Process{}
+			proc.PidReturns(888)
+			ph = 0xbeef
+			sc.OpenProcessReturns(ph, nil)
+			sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 444, LowDateTime: 555}, nil)
+		})
+
+		It("sets the pid + start time in the state.json", func() {
+			Expect(sm.SetSuccess(proc)).To(Succeed())
+
+			var state state.State
+			contents, err := ioutil.ReadFile(stateFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(json.Unmarshal(contents, &state)).To(Succeed())
+
+			Expect(state.Bundle).To(Equal(bundlePath))
+			Expect(state.PID).To(Equal(888))
+			Expect(state.StartTime).To(Equal(syscall.Filetime{HighDateTime: 444, LowDateTime: 555}))
+			Expect(state.ExecFailed).To(Equal(false))
+
+			flags, inherit, pid := sc.OpenProcessArgsForCall(0)
+			Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
+			Expect(inherit).To(Equal(false))
+			Expect(pid).To(Equal(uint32(888)))
+
+			handle := sc.GetProcessStartTimeArgsForCall(0)
+			Expect(handle).To(Equal(ph))
+
+			Expect(sc.CloseHandleCallCount()).To(Equal(1))
+			Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
+		})
+
+		Context("OpenProcess fails", func() {
+			BeforeEach(func() {
+				sc.OpenProcessReturns(0, syscall.Errno(0x5))
+			})
+
+			It("sets exec failed in the state.json", func() {
+				err := sm.SetSuccess(proc)
+				Expect(err).To(HaveOccurred())
+
+				var state state.State
+				contents, err := ioutil.ReadFile(stateFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(json.Unmarshal(contents, &state)).To(Succeed())
+
+				Expect(state.Bundle).To(Equal(bundlePath))
+				Expect(state.PID).To(Equal(888))
+				Expect(state.StartTime).To(Equal(syscall.Filetime{}))
+				Expect(state.ExecFailed).To(Equal(true))
+			})
+
+			It("wraps the error", func() {
+				err := sm.SetSuccess(proc)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("OpenProcess: Access is denied."))
+			})
+		})
+
+		Context("GetProcessStartTime fails", func() {
+			BeforeEach(func() {
+				sc.OpenProcessReturns(ph, nil)
+				sc.GetProcessStartTimeReturns(syscall.Filetime{}, syscall.Errno(0x6))
+			})
+
+			It("sets exec failed in the state.json", func() {
+				err := sm.SetSuccess(proc)
+				Expect(err).To(HaveOccurred())
+
+				var state state.State
+				contents, err := ioutil.ReadFile(stateFile)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(json.Unmarshal(contents, &state)).To(Succeed())
+
+				Expect(state.Bundle).To(Equal(bundlePath))
+				Expect(state.PID).To(Equal(888))
+				Expect(state.StartTime).To(Equal(syscall.Filetime{}))
+				Expect(state.ExecFailed).To(Equal(true))
+			})
+
+			It("wraps the error", func() {
+				err := sm.SetSuccess(proc)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("GetProcessStartTime: The handle is invalid."))
+
+				Expect(sc.CloseHandleCallCount()).To(Equal(1))
+				Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
+			})
 		})
 	})
 
@@ -144,26 +259,29 @@ var _ = Describe("State", func() {
 		})
 
 		Context("container init process is running", func() {
+			var ph syscall.Handle
+
 			BeforeEach(func() {
-				ph := syscall.Handle(0xf00d)
+				ph = 0xf00d
 				sc.OpenProcessReturns(ph, nil)
-				sc.GetProcessTimesStub = func(h syscall.Handle, creation *syscall.Filetime, _, _, _ *syscall.Filetime) error {
-					Expect(h).To(Equal(ph))
-					creation.HighDateTime = 123
-					creation.LowDateTime = 456
-					return nil
-				}
+				sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 123, LowDateTime: 456}, nil)
 			})
 
 			It("reports the container is running", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
+				Expect(ociState.Status).To(Equal("running"))
 
 				flags, inherit, pid := sc.OpenProcessArgsForCall(0)
 				Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
 				Expect(inherit).To(Equal(false))
 				Expect(pid).To(Equal(uint32(1234)))
-				Expect(ociState.Status).To(Equal("running"))
+
+				handle := sc.GetProcessStartTimeArgsForCall(0)
+				Expect(handle).To(Equal(ph))
+
+				Expect(sc.CloseHandleCallCount()).To(Equal(1))
+				Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
 			})
 		})
 
@@ -175,36 +293,39 @@ var _ = Describe("State", func() {
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
+				Expect(ociState.Status).To(Equal("stopped"))
 
 				flags, inherit, pid := sc.OpenProcessArgsForCall(0)
 				Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
 				Expect(inherit).To(Equal(false))
 				Expect(pid).To(Equal(uint32(1234)))
-				Expect(ociState.Status).To(Equal("stopped"))
 			})
 		})
 
 		Context("a process with container init pid is running, but with a different start time", func() {
+			var ph syscall.Handle
+
 			BeforeEach(func() {
-				ph := syscall.Handle(0xf00d)
+				ph = 0xf00d
 				sc.OpenProcessReturns(ph, nil)
-				sc.GetProcessTimesStub = func(h syscall.Handle, creation *syscall.Filetime, _, _, _ *syscall.Filetime) error {
-					Expect(h).To(Equal(ph))
-					creation.HighDateTime = 123
-					creation.LowDateTime = 789
-					return nil
-				}
+				sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 123, LowDateTime: 789}, nil)
 			})
 
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
+				Expect(ociState.Status).To(Equal("stopped"))
 
 				flags, inherit, pid := sc.OpenProcessArgsForCall(0)
 				Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
 				Expect(inherit).To(Equal(false))
 				Expect(pid).To(Equal(uint32(1234)))
-				Expect(ociState.Status).To(Equal("stopped"))
+
+				handle := sc.GetProcessStartTimeArgsForCall(0)
+				Expect(handle).To(Equal(ph))
+
+				Expect(sc.CloseHandleCallCount()).To(Equal(1))
+				Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
 			})
 		})
 
@@ -228,10 +349,10 @@ var _ = Describe("State", func() {
 				hcsClient.GetContainerPropertiesReturns(hcsshim.ContainerProperties{}, errors.New("hcsshim failed"))
 			})
 
-			It("wraps the error", func() {
+			It("returns the error", func() {
 				_, err := sm.State()
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("GetContainerProperties: hcsshim failed"))
+				Expect(err.Error()).To(Equal("hcsshim failed"))
 			})
 		})
 
@@ -248,14 +369,21 @@ var _ = Describe("State", func() {
 		})
 
 		Context("getprocesstimes fails", func() {
+			var ph syscall.Handle
+
 			BeforeEach(func() {
-				sc.GetProcessTimesReturns(syscall.Errno(0x6))
+				ph = 0xf00d
+				sc.OpenProcessReturns(ph, nil)
+				sc.GetProcessStartTimeReturns(syscall.Filetime{}, syscall.Errno(0x6))
 			})
 
 			It("wraps the error", func() {
 				_, err := sm.State()
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("GetProcessTimes: The handle is invalid."))
+				Expect(err.Error()).To(Equal("GetProcessStartTime: The handle is invalid."))
+
+				Expect(sc.CloseHandleCallCount()).To(Equal(1))
+				Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
 			})
 		})
 

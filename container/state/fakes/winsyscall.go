@@ -24,19 +24,28 @@ type WinSyscall struct {
 		result1 syscall.Handle
 		result2 error
 	}
-	GetProcessTimesStub        func(syscall.Handle, *syscall.Filetime, *syscall.Filetime, *syscall.Filetime, *syscall.Filetime) error
-	getProcessTimesMutex       sync.RWMutex
-	getProcessTimesArgsForCall []struct {
+	GetProcessStartTimeStub        func(syscall.Handle) (syscall.Filetime, error)
+	getProcessStartTimeMutex       sync.RWMutex
+	getProcessStartTimeArgsForCall []struct {
 		arg1 syscall.Handle
-		arg2 *syscall.Filetime
-		arg3 *syscall.Filetime
-		arg4 *syscall.Filetime
-		arg5 *syscall.Filetime
 	}
-	getProcessTimesReturns struct {
+	getProcessStartTimeReturns struct {
+		result1 syscall.Filetime
+		result2 error
+	}
+	getProcessStartTimeReturnsOnCall map[int]struct {
+		result1 syscall.Filetime
+		result2 error
+	}
+	CloseHandleStub        func(syscall.Handle) error
+	closeHandleMutex       sync.RWMutex
+	closeHandleArgsForCall []struct {
+		arg1 syscall.Handle
+	}
+	closeHandleReturns struct {
 		result1 error
 	}
-	getProcessTimesReturnsOnCall map[int]struct {
+	closeHandleReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -96,54 +105,101 @@ func (fake *WinSyscall) OpenProcessReturnsOnCall(i int, result1 syscall.Handle, 
 	}{result1, result2}
 }
 
-func (fake *WinSyscall) GetProcessTimes(arg1 syscall.Handle, arg2 *syscall.Filetime, arg3 *syscall.Filetime, arg4 *syscall.Filetime, arg5 *syscall.Filetime) error {
-	fake.getProcessTimesMutex.Lock()
-	ret, specificReturn := fake.getProcessTimesReturnsOnCall[len(fake.getProcessTimesArgsForCall)]
-	fake.getProcessTimesArgsForCall = append(fake.getProcessTimesArgsForCall, struct {
+func (fake *WinSyscall) GetProcessStartTime(arg1 syscall.Handle) (syscall.Filetime, error) {
+	fake.getProcessStartTimeMutex.Lock()
+	ret, specificReturn := fake.getProcessStartTimeReturnsOnCall[len(fake.getProcessStartTimeArgsForCall)]
+	fake.getProcessStartTimeArgsForCall = append(fake.getProcessStartTimeArgsForCall, struct {
 		arg1 syscall.Handle
-		arg2 *syscall.Filetime
-		arg3 *syscall.Filetime
-		arg4 *syscall.Filetime
-		arg5 *syscall.Filetime
-	}{arg1, arg2, arg3, arg4, arg5})
-	fake.recordInvocation("GetProcessTimes", []interface{}{arg1, arg2, arg3, arg4, arg5})
-	fake.getProcessTimesMutex.Unlock()
-	if fake.GetProcessTimesStub != nil {
-		return fake.GetProcessTimesStub(arg1, arg2, arg3, arg4, arg5)
+	}{arg1})
+	fake.recordInvocation("GetProcessStartTime", []interface{}{arg1})
+	fake.getProcessStartTimeMutex.Unlock()
+	if fake.GetProcessStartTimeStub != nil {
+		return fake.GetProcessStartTimeStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getProcessStartTimeReturns.result1, fake.getProcessStartTimeReturns.result2
+}
+
+func (fake *WinSyscall) GetProcessStartTimeCallCount() int {
+	fake.getProcessStartTimeMutex.RLock()
+	defer fake.getProcessStartTimeMutex.RUnlock()
+	return len(fake.getProcessStartTimeArgsForCall)
+}
+
+func (fake *WinSyscall) GetProcessStartTimeArgsForCall(i int) syscall.Handle {
+	fake.getProcessStartTimeMutex.RLock()
+	defer fake.getProcessStartTimeMutex.RUnlock()
+	return fake.getProcessStartTimeArgsForCall[i].arg1
+}
+
+func (fake *WinSyscall) GetProcessStartTimeReturns(result1 syscall.Filetime, result2 error) {
+	fake.GetProcessStartTimeStub = nil
+	fake.getProcessStartTimeReturns = struct {
+		result1 syscall.Filetime
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *WinSyscall) GetProcessStartTimeReturnsOnCall(i int, result1 syscall.Filetime, result2 error) {
+	fake.GetProcessStartTimeStub = nil
+	if fake.getProcessStartTimeReturnsOnCall == nil {
+		fake.getProcessStartTimeReturnsOnCall = make(map[int]struct {
+			result1 syscall.Filetime
+			result2 error
+		})
+	}
+	fake.getProcessStartTimeReturnsOnCall[i] = struct {
+		result1 syscall.Filetime
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *WinSyscall) CloseHandle(arg1 syscall.Handle) error {
+	fake.closeHandleMutex.Lock()
+	ret, specificReturn := fake.closeHandleReturnsOnCall[len(fake.closeHandleArgsForCall)]
+	fake.closeHandleArgsForCall = append(fake.closeHandleArgsForCall, struct {
+		arg1 syscall.Handle
+	}{arg1})
+	fake.recordInvocation("CloseHandle", []interface{}{arg1})
+	fake.closeHandleMutex.Unlock()
+	if fake.CloseHandleStub != nil {
+		return fake.CloseHandleStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.getProcessTimesReturns.result1
+	return fake.closeHandleReturns.result1
 }
 
-func (fake *WinSyscall) GetProcessTimesCallCount() int {
-	fake.getProcessTimesMutex.RLock()
-	defer fake.getProcessTimesMutex.RUnlock()
-	return len(fake.getProcessTimesArgsForCall)
+func (fake *WinSyscall) CloseHandleCallCount() int {
+	fake.closeHandleMutex.RLock()
+	defer fake.closeHandleMutex.RUnlock()
+	return len(fake.closeHandleArgsForCall)
 }
 
-func (fake *WinSyscall) GetProcessTimesArgsForCall(i int) (syscall.Handle, *syscall.Filetime, *syscall.Filetime, *syscall.Filetime, *syscall.Filetime) {
-	fake.getProcessTimesMutex.RLock()
-	defer fake.getProcessTimesMutex.RUnlock()
-	return fake.getProcessTimesArgsForCall[i].arg1, fake.getProcessTimesArgsForCall[i].arg2, fake.getProcessTimesArgsForCall[i].arg3, fake.getProcessTimesArgsForCall[i].arg4, fake.getProcessTimesArgsForCall[i].arg5
+func (fake *WinSyscall) CloseHandleArgsForCall(i int) syscall.Handle {
+	fake.closeHandleMutex.RLock()
+	defer fake.closeHandleMutex.RUnlock()
+	return fake.closeHandleArgsForCall[i].arg1
 }
 
-func (fake *WinSyscall) GetProcessTimesReturns(result1 error) {
-	fake.GetProcessTimesStub = nil
-	fake.getProcessTimesReturns = struct {
+func (fake *WinSyscall) CloseHandleReturns(result1 error) {
+	fake.CloseHandleStub = nil
+	fake.closeHandleReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *WinSyscall) GetProcessTimesReturnsOnCall(i int, result1 error) {
-	fake.GetProcessTimesStub = nil
-	if fake.getProcessTimesReturnsOnCall == nil {
-		fake.getProcessTimesReturnsOnCall = make(map[int]struct {
+func (fake *WinSyscall) CloseHandleReturnsOnCall(i int, result1 error) {
+	fake.CloseHandleStub = nil
+	if fake.closeHandleReturnsOnCall == nil {
+		fake.closeHandleReturnsOnCall = make(map[int]struct {
 			result1 error
 		})
 	}
-	fake.getProcessTimesReturnsOnCall[i] = struct {
+	fake.closeHandleReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -153,8 +209,10 @@ func (fake *WinSyscall) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.openProcessMutex.RLock()
 	defer fake.openProcessMutex.RUnlock()
-	fake.getProcessTimesMutex.RLock()
-	defer fake.getProcessTimesMutex.RUnlock()
+	fake.getProcessStartTimeMutex.RLock()
+	defer fake.getProcessStartTimeMutex.RUnlock()
+	fake.closeHandleMutex.RLock()
+	defer fake.closeHandleMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

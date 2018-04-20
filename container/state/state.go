@@ -2,7 +2,6 @@ package state
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -66,21 +65,22 @@ func (m *Manager) Delete() error {
 	return os.RemoveAll(m.stateDir())
 }
 
-func (m *Manager) Set(proc hcsshim.Process, execFailed bool) error {
+func (m *Manager) SetFailure() error {
 	state, err := m.loadState()
 	if err != nil {
 		return err
 	}
 
-	if execFailed {
-		state.PID = 0
-		state.StartTime = syscall.Filetime{}
-		state.ExecFailed = true
-		return m.writeState(state)
-	}
+	state.PID = 0
+	state.StartTime = syscall.Filetime{}
+	state.ExecFailed = true
+	return m.writeState(state)
+}
 
-	if proc == nil {
-		return errors.New("state.Set: proc can't be nil")
+func (m *Manager) SetSuccess(proc hcsshim.Process) error {
+	state, err := m.loadState()
+	if err != nil {
+		return err
 	}
 
 	// trying to open the process to get a handle + its start time should be valid
