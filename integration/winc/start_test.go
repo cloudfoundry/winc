@@ -139,7 +139,7 @@ var _ = Describe("Start", func() {
 			_, stdErr, err := helpers.Execute(exec.Command(wincBin, "start", containerId))
 			Expect(err).To(HaveOccurred())
 
-			Expect(strings.TrimSpace(stdErr.String())).To(Equal(fmt.Sprintf("GetContainerProperties: container not found: %s", containerId)))
+			Expect(strings.TrimSpace(stdErr.String())).To(Equal(fmt.Sprintf("container not found: %s", containerId)))
 		})
 	})
 

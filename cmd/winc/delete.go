@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	"code.cloudfoundry.org/winc/container"
@@ -54,31 +54,39 @@ status of "windows01" as "stopped" the following will delete resources held for
 		sm := state.New(logger, &client, &wsc, containerId, rootDir)
 		m := mount.Mounter{}
 
-		var errors []string
+		var errs []string
 
 		ociState, err := sm.State()
 		if err != nil {
 			logger.Error(err)
-			errors = append(errors, err.Error())
+
+			if _, ok := err.(*hcs.NotFoundError); ok {
+				if force {
+					return nil
+				}
+				return err
+			}
+
+			errs = append(errs, err.Error())
 		} else if ociState.Pid != 0 {
 			if err := m.Unmount(ociState.Pid); err != nil {
 				logger.Error(err)
-				errors = append(errors, err.Error())
+				errs = append(errs, err.Error())
 			}
 		}
 
 		if err := sm.Delete(); err != nil {
 			logger.Error(err)
-			errors = append(errors, err.Error())
+			errs = append(errs, err.Error())
 		}
 
 		if err := cm.Delete(force); err != nil {
 			logger.Error(err)
-			errors = append(errors, err.Error())
+			errs = append(errs, err.Error())
 		}
 
-		if len(errors) != 0 {
-			return fmt.Errorf(strings.Join(errors, "\n"))
+		if len(errs) != 0 {
+			return errors.New(strings.Join(errs, "\n"))
 		}
 
 		return nil

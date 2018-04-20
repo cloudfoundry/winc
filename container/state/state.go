@@ -113,18 +113,10 @@ func (m *Manager) Set(proc hcsshim.Process, execFailed bool) error {
 	return m.writeState(state)
 }
 
-func (m *Manager) BundlePath() (string, error) {
-	state, err := m.loadState()
-	if err != nil {
-		return "", err
-	}
-	return state.Bundle, nil
-}
-
 func (m *Manager) State() (*specs.State, error) {
 	cp, err := m.hcsClient.GetContainerProperties(m.containerId)
 	if err != nil {
-		return nil, fmt.Errorf("GetContainerProperties: %s", err.Error())
+		return nil, err
 	}
 
 	state, err := m.loadState()

@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/winc/container/winsyscall"
 	"code.cloudfoundry.org/winc/hcs"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -65,7 +66,7 @@ Where "<container-id>" is the name for the instance of the container`,
 
 		process, err := cm.Exec(spec.Process, false)
 		if err != nil {
-			if cErr, ok := err.(*container.CouldNotCreateProcessError); ok {
+			if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
 				if sErr := sm.Set(nil, true); sErr != nil {
 					logger.Error(sErr)
 				}

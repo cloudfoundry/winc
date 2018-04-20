@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"code.cloudfoundry.org/winc/container"
 	"code.cloudfoundry.org/winc/container/hcsprocess"
@@ -9,6 +10,7 @@ import (
 	"code.cloudfoundry.org/winc/container/state"
 	"code.cloudfoundry.org/winc/container/winsyscall"
 	"code.cloudfoundry.org/winc/hcs"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -90,7 +92,7 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 
 		process, err := cm.Exec(spec.Process, !detach)
 		if err != nil {
-			if cErr, ok := err.(*container.CouldNotCreateProcessError); ok {
+			if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
 				if sErr := sm.Set(nil, true); sErr != nil {
 					logger.Error(sErr)
 				}
@@ -119,13 +121,37 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 
 			exitCode, attachErr := wrappedProcess.AttachIO(os.Stdin, os.Stdout, os.Stderr)
 
+			var errs []string
+
+			ociState, err := sm.State()
+			if err != nil {
+				logger.Error(err)
+				errs = append(errs, err.Error())
+			} else if ociState.Pid != 0 {
+				if err := m.Unmount(ociState.Pid); err != nil {
+					logger.Error(err)
+					errs = append(errs, err.Error())
+				}
+			}
+
+			if err := sm.Delete(); err != nil {
+				logger.Error(err)
+				errs = append(errs, err.Error())
+			}
+
 			if err := cm.Delete(false); err != nil {
-				return err
+				logger.Error(err)
+				errs = append(errs, err.Error())
 			}
 
 			if attachErr != nil {
 				return attachErr
 			}
+
+			if len(errs) != 0 {
+				return errors.New(strings.Join(errs, "\n"))
+			}
+
 			os.Exit(exitCode)
 		}
 

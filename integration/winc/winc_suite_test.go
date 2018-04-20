@@ -3,6 +3,7 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
@@ -11,7 +12,6 @@ import (
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	"github.com/Microsoft/hcsshim"
-	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -93,6 +93,12 @@ var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
+var _ = AfterEach(func() {
+	fis, err := ioutil.ReadDir("c:\\proc")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(len(fis)).To(Equal(0))
+})
+
 func processSpecGenerator() specs.Process {
 	return specs.Process{
 		Cwd:  "C:\\Windows",
@@ -120,30 +126,6 @@ func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
 	}
 
 	return pl
-}
-
-func isParentOf(parentPid, childPid int) bool {
-	var (
-		process ps.Process
-		err     error
-	)
-
-	var foundParent bool
-	for {
-		process, err = ps.FindProcess(childPid)
-		Expect(err).To(Succeed())
-
-		if process == nil {
-			break
-		}
-		if process.PPid() == parentPid {
-			foundParent = true
-			break
-		}
-		childPid = process.PPid()
-	}
-
-	return foundParent
 }
 
 func sendCtrlBreak(s *gexec.Session) {

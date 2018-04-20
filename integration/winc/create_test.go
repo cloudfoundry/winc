@@ -339,8 +339,7 @@ var _ = Describe("Create", func() {
 			It("is not constrained by smaller memory limit", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
-				pid := helpers.GetContainerState(containerId).Pid
-				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
+				helpers.CopyFile(filepath.Join(bundleSpec.Root.Path, "consume.exe"), consumeBin)
 
 				Expect(grabMemory(10, 0)).To(Equal(""))
 			})
@@ -348,8 +347,7 @@ var _ = Describe("Create", func() {
 			It("is constrained by hitting the memory limit", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 
-				pid := helpers.GetContainerState(containerId).Pid
-				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "consume.exe"), consumeBin)
+				helpers.CopyFile(filepath.Join(bundleSpec.Root.Path, "consume.exe"), consumeBin)
 
 				Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: out of memory"))
 			})

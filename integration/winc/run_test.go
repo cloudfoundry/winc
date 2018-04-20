@@ -1,7 +1,9 @@
 package main_test
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -48,7 +50,7 @@ var _ = Describe("Run", func() {
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 
-		pl := containerProcesses(containerId, "powershell.exe")
+		pl := containerProcesses(containerId, "waitfor.exe")
 		Expect(len(pl)).To(Equal(1))
 
 		containerPid := helpers.GetContainerState(containerId).Pid
@@ -66,6 +68,44 @@ var _ = Describe("Run", func() {
 		stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"}, false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(stdOut.String()).To(ContainSubstring("contents"))
+	})
+
+	Context("when the bundle config.json specifies a container memory limit", func() {
+		var memLimitMB = uint64(128)
+
+		BeforeEach(func() {
+			memLimitBytes := memLimitMB * 1024 * 1024
+			bundleSpec.Windows.Resources = &specs.WindowsResources{
+				Memory: &specs.WindowsMemoryResources{
+					Limit: &memLimitBytes,
+				},
+			}
+		})
+
+		grabMemory := func(mem int, exitCode int) string {
+			cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(mem*1024*1024))
+			stdErr := new(bytes.Buffer)
+			session, err := gexec.Start(cmd, GinkgoWriter, io.MultiWriter(stdErr, GinkgoWriter))
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(session, defaultTimeout*2).Should(gexec.Exit(exitCode))
+			return stdErr.String()
+		}
+
+		It("is not constrained by smaller memory limit", func() {
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
+
+			helpers.CopyFile(filepath.Join(bundleSpec.Root.Path, "consume.exe"), consumeBin)
+
+			Expect(grabMemory(10, 0)).To(Equal(""))
+		})
+
+		It("is constrained by hitting the memory limit", func() {
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
+
+			helpers.CopyFile(filepath.Join(bundleSpec.Root.Path, "consume.exe"), consumeBin)
+
+			Expect(grabMemory(int(memLimitMB), 2)).To(ContainSubstring("fatal error: out of memory"))
+		})
 	})
 
 	Context("when the '--pid-file' flag is provided", func() {
