@@ -67,7 +67,7 @@ Where "<container-id>" is the name for the instance of the container`,
 		process, err := cm.Exec(spec.Process, false)
 		if err != nil {
 			if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
-				if sErr := sm.Set(nil, true); sErr != nil {
+				if sErr := sm.SetFailure(); sErr != nil {
 					logger.Error(sErr)
 				}
 				return cErr
@@ -76,7 +76,7 @@ Where "<container-id>" is the name for the instance of the container`,
 		}
 		defer process.Close()
 
-		if err := sm.Set(process, false); err != nil {
+		if err := sm.SetSuccess(process); err != nil {
 			return err
 		}
 

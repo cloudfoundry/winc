@@ -93,7 +93,7 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		process, err := cm.Exec(spec.Process, !detach)
 		if err != nil {
 			if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
-				if sErr := sm.Set(nil, true); sErr != nil {
+				if sErr := sm.SetFailure(); sErr != nil {
 					logger.Error(sErr)
 				}
 				return cErr
@@ -102,7 +102,7 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		}
 		defer process.Close()
 
-		if err := sm.Set(process, false); err != nil {
+		if err := sm.SetSuccess(process); err != nil {
 			return err
 		}
 

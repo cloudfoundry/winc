@@ -3,7 +3,6 @@ package container_test
 import (
 	"errors"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/container"
@@ -17,59 +16,37 @@ import (
 )
 
 var _ = Describe("Delete", func() {
+	const containerId = "container-to-delete"
 	var (
-		containerId      string
-		bundlePath       string
 		hcsClient        *fakes.HCSClient
-		mounter          *fakes.Mounter
 		fakeContainer    *hcsfakes.Container
 		containerManager *container.Manager
 	)
 
 	BeforeEach(func() {
-		var err error
-		bundlePath, err = ioutil.TempDir("", "bundlePath")
-		Expect(err).ToNot(HaveOccurred())
-
-		containerId = filepath.Base(bundlePath)
-
 		hcsClient = &fakes.HCSClient{}
-		mounter = &fakes.Mounter{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "delete")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, containerId)
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		containerManager = container.NewManager(logger, hcsClient, containerId)
 	})
 
 	Context("when the specified container is running", func() {
-		var pid int
 		BeforeEach(func() {
-			pid = 42
-			fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
-				{ProcessId: uint32(pid), ImageName: "wininit.exe"},
-			}, nil)
 			hcsClient.OpenContainerReturns(fakeContainer, nil)
 		})
 
 		It("deletes it", func() {
 			Expect(containerManager.Delete(false)).To(Succeed())
 
-			Expect(mounter.UnmountCallCount()).To(Equal(1))
-			Expect(mounter.UnmountArgsForCall(0)).To(Equal(pid))
-
-			Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
+			Expect(hcsClient.OpenContainerCallCount()).To(Equal(1))
 			Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
 
-			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(2))
+			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
-			Expect(hcsClient.GetContainerPropertiesArgsForCall(1)).To(Equal(containerId))
 
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 		})
@@ -105,9 +82,6 @@ var _ = Describe("Delete", func() {
 				query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
 				Expect(hcsClient.GetContainersArgsForCall(0)).To(Equal(query))
 
-				Expect(mounter.UnmountCallCount()).To(Equal(2))
-				Expect(mounter.UnmountArgsForCall(0)).To(Equal(sidecarPid))
-
 				Expect(hcsClient.OpenContainerCallCount()).To(Equal(4))
 				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(sidecarId))
 
@@ -136,25 +110,9 @@ var _ = Describe("Delete", func() {
 					hcsClient.OpenContainerReturnsOnCall(1, fakeSidecar, nil)
 					hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
 					hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
-					mounter.UnmountReturnsOnCall(0, unmountError)
 					Expect(containerManager.Delete(false)).To(Equal(unmountError))
 					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 				})
-			})
-		})
-
-		Context("when unmounting the sandbox fails", func() {
-			BeforeEach(func() {
-				mounter.UnmountReturns(errors.New("unmounting failed"))
-			})
-
-			It("continues deleting the container and returns an error", func() {
-				Expect(containerManager.Delete(false)).NotTo(Succeed())
-
-				Expect(hcsClient.OpenContainerCallCount()).To(Equal(2))
-				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(containerId))
-
-				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
 			})
 		})
 
@@ -166,7 +124,7 @@ var _ = Describe("Delete", func() {
 			It("closes the container but skips shutting down and terminating it", func() {
 				Expect(containerManager.Delete(false)).To(Succeed())
 
-				Expect(fakeContainer.CloseCallCount()).To(Equal(2))
+				Expect(fakeContainer.CloseCallCount()).To(Equal(1))
 				Expect(fakeContainer.ShutdownCallCount()).To(Equal(0))
 				Expect(fakeContainer.TerminateCallCount()).To(Equal(0))
 			})

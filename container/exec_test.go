@@ -3,8 +3,6 @@ package container_test
 import (
 	"errors"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"syscall"
 
 	"code.cloudfoundry.org/winc/container"
@@ -20,38 +18,23 @@ import (
 )
 
 var _ = Describe("Exec", func() {
+	const containerId = "some-container"
 	var (
-		containerId      string
-		bundlePath       string
 		hcsClient        *fakes.HCSClient
-		mounter          *fakes.Mounter
-		processClient    *fakes.ProcessClient
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
 		processSpec      specs.Process
 	)
 
 	BeforeEach(func() {
-		var err error
-		bundlePath, err = ioutil.TempDir("", "bundlePath")
-		Expect(err).ToNot(HaveOccurred())
-
-		containerId = filepath.Base(bundlePath)
-
 		hcsClient = &fakes.HCSClient{}
-		mounter = &fakes.Mounter{}
-		processClient = &fakes.ProcessClient{}
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "exec")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, "")
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		containerManager = container.NewManager(logger, hcsClient, containerId)
 	})
 
 	Context("when the specified container exists", func() {
