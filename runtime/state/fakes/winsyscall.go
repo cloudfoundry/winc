@@ -5,7 +5,7 @@ import (
 	"sync"
 	"syscall"
 
-	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/runtime/state"
 )
 
 type WinSyscall struct {

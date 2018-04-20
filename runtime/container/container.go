@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"code.cloudfoundry.org/winc/container/config"
 	"code.cloudfoundry.org/winc/hcs"
+	"code.cloudfoundry.org/winc/runtime/config"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -207,7 +207,7 @@ func (m *Manager) parseMountOptions(options []string) (bool, error) {
 	return readOnly, nil
 }
 
-func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcsshim.Process, error) {
+func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcs.Process, error) {
 	container, err := m.hcsClient.OpenContainer(m.id)
 	if err != nil {
 		return nil, err

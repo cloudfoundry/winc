@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/winc/container/state"
+	"code.cloudfoundry.org/winc/runtime/state"
 	"github.com/Microsoft/hcsshim"
 )
 
