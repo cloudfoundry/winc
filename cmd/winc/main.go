@@ -67,6 +67,7 @@ func main() {
 
 	app.Commands = []cli.Command{
 		createCommand,
+		killCommand,
 		deleteCommand,
 		runCommand,
 		stateCommand,

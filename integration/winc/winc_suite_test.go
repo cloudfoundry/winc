@@ -3,9 +3,11 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -26,14 +28,16 @@ const (
 )
 
 var (
-	wincBin         string
-	grootBin        string
-	grootImageStore string
-	rootfsURI       string
-	readBin         string
-	consumeBin      string
-	sleepBin        string
-	helpers         *testhelpers.Helpers
+	wincBin            string
+	grootBin           string
+	grootImageStore    string
+	rootfsURI          string
+	readBin            string
+	consumeBin         string
+	sleepBin           string
+	shutdownHandlerBin string
+	helpers            *testhelpers.Helpers
+	tempDir            string
 )
 
 type wincStats struct {
@@ -86,10 +90,18 @@ var _ = BeforeSuite(func() {
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
 
+	tempDir, err = ioutil.TempDir("", "")
+	Expect(err).NotTo(HaveOccurred())
+	shutdownHandlerBin = filepath.Join(tempDir, "shutdown-handler.exe")
+
+	o, err := exec.Command("gcc.exe", "-o", shutdownHandlerBin, filepath.FromSlash("./fixtures/shutdown-handler/main.c")).CombinedOutput()
+	Expect(err).NotTo(HaveOccurred(), string(o))
+
 	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, "")
 })
 
 var _ = AfterSuite(func() {
+	Expect(os.RemoveAll(tempDir)).To(Succeed())
 	gexec.CleanupBuildArtifacts()
 })
 

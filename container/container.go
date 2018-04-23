@@ -88,6 +88,16 @@ func NewManager(logger *logrus.Entry, hcsClient HCSClient, mounter Mounter, proc
 	}
 }
 
+func (m *Manager) Kill(signal string) error {
+	container, err := m.hcsClient.OpenContainer(m.id)
+	if err != nil {
+		logrus.Error(err.Error())
+		return err
+	}
+
+	return m.terminateContainer(container)
+}
+
 func (m *Manager) Create(bundlePath string) (*specs.Spec, error) {
 	_, err := m.hcsClient.GetContainerProperties(m.id)
 	if err == nil {

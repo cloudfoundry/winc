@@ -23,6 +23,7 @@ import (
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -75,6 +76,13 @@ func (h *Helpers) StartContainer(containerId string) {
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
 		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
+	}
+}
+
+func (h *Helpers) KillContainer(id, signal string) {
+	if h.ContainerExists(id) {
+		output, err := exec.Command(h.wincBin, "kill", id, signal).CombinedOutput()
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }
@@ -202,6 +210,18 @@ func (h *Helpers) ExecInContainer(id string, args []string, detach bool) (*bytes
 	return h.Execute(exec.Command(h.wincBin, append(defaultArgs, args...)...))
 }
 
+func (h *Helpers) ExecInContainerGbytes(id string, args []string, detach bool) (*gbytes.Buffer, *gbytes.Buffer, error) {
+	var defaultArgs []string
+
+	if detach {
+		defaultArgs = []string{"exec", "-u", "vcap", "-d", id}
+	} else {
+		defaultArgs = []string{"exec", "-u", "vcap", id}
+	}
+
+	return h.ExecuteGbytes(exec.Command(h.wincBin, append(defaultArgs, args...)...))
+}
+
 func (h *Helpers) GenerateRuntimeSpec(baseSpec specs.Spec) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
@@ -242,6 +262,16 @@ func (h *Helpers) CopyFile(dst, src string) {
 func (h *Helpers) Execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
+	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
+	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
+	err := c.Run()
+
+	return stdOut, stdErr, err
+}
+
+func (h *Helpers) ExecuteGbytes(c *exec.Cmd) (*gbytes.Buffer, *gbytes.Buffer, error) {
+	stdOut := gbytes.NewBuffer()
+	stdErr := gbytes.NewBuffer()
 	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
 	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
 	err := c.Run()
