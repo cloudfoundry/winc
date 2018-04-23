@@ -1,13 +1,7 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/config"
-	"code.cloudfoundry.org/winc/container/state"
-	"code.cloudfoundry.org/winc/container/winsyscall"
-	"code.cloudfoundry.org/winc/hcs"
-
-	"github.com/sirupsen/logrus"
+	"code.cloudfoundry.org/winc/runtime/config"
 	"github.com/urfave/cli"
 )
 
@@ -43,35 +37,8 @@ your host.`,
 		}
 
 		containerId := context.Args().First()
-		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 
-		logger := logrus.WithFields(logrus.Fields{
-			"bundle":      bundlePath,
-			"containerId": containerId,
-		})
-		logger.Debug("creating container")
-
-		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, containerId)
-
-		wsc := winsyscall.WinSyscall{}
-		sm := state.New(logger, &client, &wsc, containerId, rootDir)
-
-		spec, err := cm.Spec(bundlePath)
-		if err != nil {
-			return err
-		}
-
-		if err := cm.Create(spec); err != nil {
-			return err
-		}
-
-		if err := sm.Initialize(bundlePath); err != nil {
-			cm.Delete(true)
-			return err
-		}
-
-		return nil
+		return run.Create(containerId, bundlePath)
 	},
 }

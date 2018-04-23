@@ -1,15 +1,6 @@
 package main
 
 import (
-	"errors"
-	"strings"
-
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/state"
-	"code.cloudfoundry.org/winc/container/winsyscall"
-	"code.cloudfoundry.org/winc/hcs"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -38,57 +29,9 @@ status of "windows01" as "stopped" the following will delete resources held for
 			return err
 		}
 
-		rootDir := context.GlobalString("root")
 		containerId := context.Args().First()
 		force := context.Bool("force")
 
-		logger := logrus.WithFields(logrus.Fields{
-			"containerId": containerId,
-		})
-		logger.Debug("deleting container")
-
-		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, containerId)
-
-		wsc := winsyscall.WinSyscall{}
-		sm := state.New(logger, &client, &wsc, containerId, rootDir)
-		m := mount.Mounter{}
-
-		var errs []string
-
-		ociState, err := sm.State()
-		if err != nil {
-			logger.Error(err)
-
-			if _, ok := err.(*hcs.NotFoundError); ok {
-				if force {
-					return nil
-				}
-				return err
-			}
-
-			errs = append(errs, err.Error())
-		} else if ociState.Pid != 0 {
-			if err := m.Unmount(ociState.Pid); err != nil {
-				logger.Error(err)
-				errs = append(errs, err.Error())
-			}
-		}
-
-		if err := sm.Delete(); err != nil {
-			logger.Error(err)
-			errs = append(errs, err.Error())
-		}
-
-		if err := cm.Delete(force); err != nil {
-			logger.Error(err)
-			errs = append(errs, err.Error())
-		}
-
-		if len(errs) != 0 {
-			return errors.New(strings.Join(errs, "\n"))
-		}
-
-		return nil
+		return run.Delete(containerId, force)
 	},
 }

@@ -42,6 +42,12 @@ type WinSyscall interface {
 	CloseHandle(syscall.Handle) error
 }
 
+type Factory struct{}
+
+func (f *Factory) NewManager(logger *logrus.Entry, hcsClient HCSClient, winSyscall WinSyscall, id, rootDir string) *Manager {
+	return New(logger, hcsClient, winSyscall, id, rootDir)
+}
+
 func New(logger *logrus.Entry, hcsClient HCSClient, winSyscall WinSyscall, id, rootDir string) *Manager {
 	return &Manager{
 		logger:      logger,

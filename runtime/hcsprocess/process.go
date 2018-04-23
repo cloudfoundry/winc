@@ -12,6 +12,12 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
+type Wrapper struct{}
+
+func (w *Wrapper) Wrap(p hcsshim.Process) *Process {
+	return New(p)
+}
+
 type Process struct {
 	process hcsshim.Process
 }

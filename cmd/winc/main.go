@@ -7,6 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"code.cloudfoundry.org/winc/hcs"
+	"code.cloudfoundry.org/winc/runtime"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/hcsprocess"
+	"code.cloudfoundry.org/winc/runtime/mount"
+	"code.cloudfoundry.org/winc/runtime/state"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -21,6 +27,8 @@ implementation of the Open Container Initiative specification.`
 	minArgs
 	maxArgs
 )
+
+var run *runtime.Runtime
 
 func main() {
 	app := cli.NewApp()
@@ -68,6 +76,7 @@ func main() {
 		debug := context.GlobalBool("debug")
 		logFile := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
+		rootDir := context.GlobalString("root")
 
 		if debug {
 			logrus.SetLevel(logrus.DebugLevel)
@@ -99,6 +108,13 @@ func main() {
 			return &InvalidLogFormatError{Format: logFormat}
 		}
 
+		containerFactory := &container.Factory{}
+		stateFactory := &state.Factory{}
+		mounter := &mount.Mounter{}
+		hcsClient := &hcs.Client{}
+		processWrapper := &hcsprocess.Wrapper{}
+
+		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir)
 		return nil
 	}
 

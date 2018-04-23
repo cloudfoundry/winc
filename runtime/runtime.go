@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -97,11 +96,17 @@ func New(s StateFactory, c ContainerFactory, m Mounter, h HCSQuery, p ProcessWra
 }
 
 func (r *Runtime) Create(containerId, bundlePath string) error {
+	logger := logrus.WithFields(logrus.Fields{
+		"bundle":      bundlePath,
+		"containerId": containerId,
+	})
+	logger.Debug("creating container")
+
 	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(nil, &client, containerId)
+	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
 	wsc := winsyscall.WinSyscall{}
-	sm := r.stateFactory.NewManager(nil, &client, &wsc, containerId, r.rootDir)
+	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
 	spec, err := cm.Spec(bundlePath)
 	if err != nil {
@@ -120,17 +125,23 @@ func (r *Runtime) Create(containerId, bundlePath string) error {
 }
 
 func (r *Runtime) Delete(containerId string, force bool) error {
+	logger := logrus.WithFields(logrus.Fields{
+		"containerId": containerId,
+		"force":       force,
+	})
+	logger.Debug("deleting container")
+
 	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(nil, &client, containerId)
+	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
 	wsc := winsyscall.WinSyscall{}
-	sm := r.stateFactory.NewManager(nil, &client, &wsc, containerId, r.rootDir)
+	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
 	var errs []string
 
 	ociState, err := sm.State()
 	if err != nil {
-		//logger.Error(err)
+		logger.Error(err)
 
 		if _, ok := err.(*hcs.NotFoundError); ok {
 			if force {
@@ -142,18 +153,18 @@ func (r *Runtime) Delete(containerId string, force bool) error {
 		errs = append(errs, err.Error())
 	} else if ociState.Pid != 0 {
 		if err := r.mounter.Unmount(ociState.Pid); err != nil {
-			//	logger.Error(err)
+			logger.Error(err)
 			errs = append(errs, err.Error())
 		}
 	}
 
 	if err := sm.Delete(); err != nil {
-		//logger.Error(err)
+		logger.Error(err)
 		errs = append(errs, err.Error())
 	}
 
 	if err := cm.Delete(force); err != nil {
-		//logger.Error(err)
+		logger.Error(err)
 		errs = append(errs, err.Error())
 	}
 
@@ -165,8 +176,13 @@ func (r *Runtime) Delete(containerId string, force bool) error {
 }
 
 func (r *Runtime) Events(containerId string, output io.Writer, showStats bool) error {
+	logger := logrus.WithFields(logrus.Fields{
+		"containerId": containerId,
+	})
+	logger.Debug("retrieving container events and info")
+
 	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(nil, &client, containerId)
+	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
 	stats, err := cm.Stats()
 	if err != nil {
@@ -192,19 +208,26 @@ func (r *Runtime) Events(containerId string, output io.Writer, showStats bool) e
 }
 
 func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOverrides *specs.Process, io IO, detach bool) (int, error) {
-	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(nil, &client, containerId)
+	logger := logrus.WithField("containerId", containerId)
 
-	// TODO: real logging
-	logrus.SetOutput(ioutil.Discard)
-	logger := logrus.WithFields(logrus.Fields{
-		"pidFile": pidFile,
-		"detach":  detach,
-	})
 	processSpec, err := config.ValidateProcess(logger, processConfigFile, processOverrides)
 	if err != nil {
 		return 1, err
 	}
+
+	logger = logger.WithFields(logrus.Fields{
+		"processConfig": processConfigFile,
+		"pidFile":       pidFile,
+		"args":          processSpec.Args,
+		"cwd":           processSpec.Cwd,
+		"user":          processSpec.User.Username,
+		"env":           processSpec.Env,
+		"detach":        detach,
+	})
+	logger.Debug("executing process in container")
+
+	client := hcs.Client{}
+	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
 	p, err := cm.Exec(processSpec, !detach)
 	if err != nil {
@@ -227,11 +250,19 @@ func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOv
 }
 
 func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach bool) (int, error) {
+	logger := logrus.WithFields(logrus.Fields{
+		"bundle":      bundlePath,
+		"containerId": containerId,
+		"pidFile":     pidFile,
+		"detach":      detach,
+	})
+	logger.Debug("creating container")
+
 	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(nil, &client, containerId)
+	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
 	wsc := winsyscall.WinSyscall{}
-	sm := r.stateFactory.NewManager(nil, &client, &wsc, containerId, r.rootDir)
+	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
 	spec, err := cm.Spec(bundlePath)
 	if err != nil {
@@ -251,8 +282,7 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 	if err != nil {
 		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
 			if sErr := sm.SetFailure(); sErr != nil {
-				//logger.Error(sErr)
-				//TODO: fixme
+				logger.Error(sErr)
 			}
 			return 1, cErr
 		}
@@ -283,23 +313,23 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 
 		ociState, err := sm.State()
 		if err != nil {
-			//logger.Error(err)
+			logger.Error(err)
 			errs = append(errs, err.Error())
 		} else if ociState.Pid != 0 {
 			//logger.Info(something useful)
 			if err := r.mounter.Unmount(ociState.Pid); err != nil {
-				//logger.Error(err)
+				logger.Error(err)
 				errs = append(errs, err.Error())
 			}
 		}
 
 		if err := sm.Delete(); err != nil {
-			//logger.Error(err)
+			logger.Error(err)
 			errs = append(errs, err.Error())
 		}
 
 		if err := cm.Delete(false); err != nil {
-			//logger.Error(err)
+			logger.Error(err)
 			errs = append(errs, err.Error())
 		}
 
@@ -318,11 +348,17 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 }
 
 func (r *Runtime) Start(containerId, pidFile string) error {
+	logger := logrus.WithFields(logrus.Fields{
+		"containerId": containerId,
+		"pidFile":     pidFile,
+	})
+	logger.Debug("starting process in container")
+
 	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(nil, &client, containerId)
+	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
 	wsc := winsyscall.WinSyscall{}
-	sm := r.stateFactory.NewManager(nil, &client, &wsc, containerId, r.rootDir)
+	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
 	ociState, err := sm.State()
 	if err != nil {
@@ -342,7 +378,7 @@ func (r *Runtime) Start(containerId, pidFile string) error {
 	if err != nil {
 		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
 			if sErr := sm.SetFailure(); sErr != nil {
-				//logger.Error(sErr) TODO: implement me
+				logger.Error(sErr)
 			}
 			return cErr
 		}
@@ -363,9 +399,14 @@ func (r *Runtime) Start(containerId, pidFile string) error {
 }
 
 func (r *Runtime) State(containerId string, output io.Writer) error {
+	logger := logrus.WithFields(logrus.Fields{
+		"containerId": containerId,
+	})
+	logger.Debug("retrieving state of container")
+
 	client := hcs.Client{}
 	wsc := winsyscall.WinSyscall{}
-	sm := r.stateFactory.NewManager(nil, &client, &wsc, containerId, r.rootDir)
+	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
 	if output == nil {
 		return errors.New("provided output is nil")

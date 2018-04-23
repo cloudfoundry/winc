@@ -3,13 +3,8 @@ package main
 import (
 	"os"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/config"
-	"code.cloudfoundry.org/winc/container/hcsprocess"
-	"code.cloudfoundry.org/winc/hcs"
-
+	"code.cloudfoundry.org/winc/runtime"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -75,52 +70,22 @@ following will output a list of processes running in the container:
 		pidFile := context.String("pid-file")
 		detach := context.Bool("detach")
 
-		logger := logrus.WithField("containerId", containerId)
-
-		processSpec, err := config.ValidateProcess(logger, processConfig, &specs.Process{
+		processOverrides := &specs.Process{
 			Args: args,
 			Cwd:  cwd,
 			User: specs.User{
 				Username: user,
 			},
 			Env: env,
-		})
-		if err != nil {
-			return err
 		}
 
-		logger = logger.WithFields(logrus.Fields{
-			"processConfig": processConfig,
-			"pidFile":       pidFile,
-			"args":          processSpec.Args,
-			"cwd":           processSpec.Cwd,
-			"user":          processSpec.User.Username,
-			"env":           env,
-			"detach":        detach,
-		})
-		logger.Debug("executing process in container")
-
-		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, containerId)
-
-		p, err := cm.Exec(processSpec, !detach)
+		io := runtime.IO{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
+		exitCode, err := run.Exec(containerId, processConfig, pidFile, processOverrides, io, detach)
 		if err != nil {
-			return err
-		}
-		defer p.Close()
-
-		wrappedProcess := hcsprocess.New(p)
-		if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
 			return err
 		}
 
 		if !detach {
-			s := make(chan os.Signal, 1)
-			wrappedProcess.SetInterrupt(s)
-			exitCode, err := wrappedProcess.AttachIO(os.Stdin, os.Stdout, os.Stderr)
-			if err != nil {
-				return err
-			}
 			os.Exit(exitCode)
 		}
 

@@ -2,15 +2,8 @@ package main
 
 import (
 	"os"
-	"strings"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/hcsprocess"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/state"
-	"code.cloudfoundry.org/winc/container/winsyscall"
-	"code.cloudfoundry.org/winc/hcs"
-	"github.com/pkg/errors"
+	"code.cloudfoundry.org/winc/runtime"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -56,7 +49,6 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		}
 
 		containerId := context.Args().First()
-		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 		detach := context.Bool("detach")
 		pidFile := context.String("pid-file")
@@ -69,89 +61,13 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		})
 		logger.Debug("creating container")
 
-		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, containerId)
-
-		wsc := winsyscall.WinSyscall{}
-		sm := state.New(logger, &client, &wsc, containerId, rootDir)
-		m := mount.Mounter{}
-
-		spec, err := cm.Spec(bundlePath)
+		io := runtime.IO{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
+		exitCode, err := run.Run(containerId, bundlePath, pidFile, io, detach)
 		if err != nil {
-			return err
-		}
-
-		if err := cm.Create(spec); err != nil {
-			return err
-		}
-
-		if err := sm.Initialize(bundlePath); err != nil {
-			cm.Delete(true)
-			return err
-		}
-
-		process, err := cm.Exec(spec.Process, !detach)
-		if err != nil {
-			if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
-				if sErr := sm.SetFailure(); sErr != nil {
-					logger.Error(sErr)
-				}
-				return cErr
-			}
-			return err
-		}
-		defer process.Close()
-
-		if err := sm.SetSuccess(process); err != nil {
-			return err
-		}
-
-		if err := m.Mount(process.Pid(), spec.Root.Path); err != nil {
-			return err
-		}
-
-		wrappedProcess := hcsprocess.New(process)
-		if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
 			return err
 		}
 
 		if !detach {
-			s := make(chan os.Signal, 1)
-			wrappedProcess.SetInterrupt(s)
-
-			exitCode, attachErr := wrappedProcess.AttachIO(os.Stdin, os.Stdout, os.Stderr)
-
-			var errs []string
-
-			ociState, err := sm.State()
-			if err != nil {
-				logger.Error(err)
-				errs = append(errs, err.Error())
-			} else if ociState.Pid != 0 {
-				if err := m.Unmount(ociState.Pid); err != nil {
-					logger.Error(err)
-					errs = append(errs, err.Error())
-				}
-			}
-
-			if err := sm.Delete(); err != nil {
-				logger.Error(err)
-				errs = append(errs, err.Error())
-			}
-
-			if err := cm.Delete(false); err != nil {
-				logger.Error(err)
-				errs = append(errs, err.Error())
-			}
-
-			if attachErr != nil {
-				return attachErr
-			}
-
-			if len(errs) != 0 {
-				return errors.New(strings.Join(errs, "\n"))
-			}
-
 			os.Exit(exitCode)
 		}
 
