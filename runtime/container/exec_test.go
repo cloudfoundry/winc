@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"syscall"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/fakes"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/container/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 
 	"github.com/Microsoft/hcsshim"
@@ -34,7 +34,7 @@ var _ = Describe("Exec", func() {
 			Out: ioutil.Discard,
 		}).WithField("test", "exec")
 
-		containerManager = container.NewManager(logger, hcsClient, containerId)
+		containerManager = container.New(logger, hcsClient, containerId)
 	})
 
 	Context("when the specified container exists", func() {

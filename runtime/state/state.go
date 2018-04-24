@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -40,12 +41,6 @@ type WinSyscall interface {
 	OpenProcess(uint32, bool, uint32) (syscall.Handle, error)
 	GetProcessStartTime(syscall.Handle) (syscall.Filetime, error)
 	CloseHandle(syscall.Handle) error
-}
-
-type Factory struct{}
-
-func (f *Factory) NewManager(logger *logrus.Entry, hcsClient HCSClient, winSyscall WinSyscall, id, rootDir string) *Manager {
-	return New(logger, hcsClient, winSyscall, id, rootDir)
 }
 
 func New(logger *logrus.Entry, hcsClient HCSClient, winSyscall WinSyscall, id, rootDir string) *Manager {
@@ -83,7 +78,7 @@ func (m *Manager) SetFailure() error {
 	return m.writeState(state)
 }
 
-func (m *Manager) SetSuccess(proc hcsshim.Process) error {
+func (m *Manager) SetSuccess(proc hcs.Process) error {
 	state, err := m.loadState()
 	if err != nil {
 		return err

@@ -52,12 +52,6 @@ type HCSClient interface {
 	GetHNSEndpointByName(string) (*hcsshim.HNSEndpoint, error)
 }
 
-type Factory struct{}
-
-func (f *Factory) NewManager(logger *logrus.Entry, hcsClient HCSClient, id string) *Manager {
-	return New(logger, hcsClient, id)
-}
-
 func New(logger *logrus.Entry, hcsClient HCSClient, id string) *Manager {
 	return &Manager{
 		logger:    logger,

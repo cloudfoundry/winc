@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/fakes"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/container/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
@@ -31,7 +31,7 @@ var _ = Describe("Delete", func() {
 			Out: ioutil.Discard,
 		}).WithField("test", "delete")
 
-		containerManager = container.NewManager(logger, hcsClient, containerId)
+		containerManager = container.New(logger, hcsClient, containerId)
 	})
 
 	Context("when the specified container is running", func() {

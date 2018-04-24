@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"code.cloudfoundry.org/winc/container/state"
-	"code.cloudfoundry.org/winc/container/state/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
+	"code.cloudfoundry.org/winc/runtime/state"
+	"code.cloudfoundry.org/winc/runtime/state/fakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

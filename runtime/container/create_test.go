@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/fakes"
 	"code.cloudfoundry.org/winc/hcs"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/container/fakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -59,7 +59,7 @@ var _ = Describe("Create", func() {
 			Out: ioutil.Discard,
 		}).WithField("test", "create")
 
-		containerManager = container.NewManager(logger, hcsClient, containerId)
+		containerManager = container.New(logger, hcsClient, containerId)
 	})
 
 	Context("when the specified container does not already exist", func() {

@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/config"
-	"code.cloudfoundry.org/winc/container/fakes"
+	"code.cloudfoundry.org/winc/runtime/config"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/container/fakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -63,7 +63,7 @@ var _ = Describe("Spec", func() {
 			Out: ioutil.Discard,
 		}).WithField("test", "create")
 
-		containerManager = container.NewManager(logger, hcsClient, containerId)
+		containerManager = container.New(logger, hcsClient, containerId)
 	})
 
 	It("loads and validates the spec from the bundle path", func() {
@@ -100,7 +100,7 @@ var _ = Describe("Spec", func() {
 
 	Context("the container id doesn't match the bundle path", func() {
 		BeforeEach(func() {
-			containerManager = container.NewManager(logger, hcsClient, "a-different-id")
+			containerManager = container.New(logger, hcsClient, "a-different-id")
 		})
 
 		It("returns an error", func() {

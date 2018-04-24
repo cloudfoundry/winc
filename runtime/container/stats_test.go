@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/fakes"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/container/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 
 	"github.com/Microsoft/hcsshim"
@@ -30,7 +30,7 @@ var _ = Describe("Stats", func() {
 			Out: ioutil.Discard,
 		}).WithField("test", "stats")
 
-		containerManager = container.NewManager(logger, hcsClient, containerId)
+		containerManager = container.New(logger, hcsClient, containerId)
 
 		fakeContainer = &hcsfakes.Container{}
 		hcsClient.OpenContainerReturns(fakeContainer, nil)

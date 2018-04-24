@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"code.cloudfoundry.org/winc/container/hcsprocess"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
+	"code.cloudfoundry.org/winc/runtime/hcsprocess"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"

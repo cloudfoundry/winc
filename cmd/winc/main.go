@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/winc/runtime/hcsprocess"
 	"code.cloudfoundry.org/winc/runtime/mount"
 	"code.cloudfoundry.org/winc/runtime/state"
+	"code.cloudfoundry.org/winc/runtime/winsyscall"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -29,6 +30,24 @@ implementation of the Open Container Initiative specification.`
 )
 
 var run *runtime.Runtime
+
+type stateFactory struct{}
+
+func (f *stateFactory) NewManager(logger *logrus.Entry, hcsClient *hcs.Client, winSyscall *winsyscall.WinSyscall, id, rootDir string) runtime.StateManager {
+	return state.New(logger, hcsClient, winSyscall, id, rootDir)
+}
+
+type containerFactory struct{}
+
+func (f *containerFactory) NewManager(logger *logrus.Entry, hcsClient *hcs.Client, id string) runtime.ContainerManager {
+	return container.New(logger, hcsClient, id)
+}
+
+type processWrapper struct{}
+
+func (w *processWrapper) Wrap(p hcs.Process) runtime.WrappedProcess {
+	return hcsprocess.New(p)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -108,11 +127,11 @@ func main() {
 			return &InvalidLogFormatError{Format: logFormat}
 		}
 
-		containerFactory := &container.Factory{}
-		stateFactory := &state.Factory{}
+		containerFactory := &containerFactory{}
+		stateFactory := &stateFactory{}
 		mounter := &mount.Mounter{}
 		hcsClient := &hcs.Client{}
-		processWrapper := &hcsprocess.Wrapper{}
+		processWrapper := &processWrapper{}
 
 		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir)
 		return nil
