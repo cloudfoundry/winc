@@ -74,7 +74,7 @@ var _ = Describe("Start", func() {
 		})
 
 		It("errors", func() {
-			_, err := containerManager.Start(true)
+			_, err := containerManager.Start(true, "")
 			Expect(err).To(Equal(missingContainerError))
 		})
 	})
@@ -136,7 +136,7 @@ var _ = Describe("Start", func() {
 			})
 
 			It("runs the user process", func() {
-				proc, err := containerManager.Start(true)
+				proc, err := containerManager.Start(true, "")
 				Expect(proc).To(Equal(fakeProcess))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
@@ -148,7 +148,7 @@ var _ = Describe("Start", func() {
 				})
 
 				It("errors and does not start the user process", func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(err).To(MatchError("cannot start a container in the stopped state"))
 					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(0))
 				})
@@ -156,12 +156,12 @@ var _ = Describe("Start", func() {
 
 			Context("the user process is running", func() {
 				BeforeEach(func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(err).ToNot(HaveOccurred())
 				})
 
 				It("errors and does not start the user process", func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(err).To(MatchError("cannot start a container in the running state"))
 					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 				})
@@ -169,7 +169,7 @@ var _ = Describe("Start", func() {
 
 			Context("the user process has exited", func() {
 				BeforeEach(func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(err).ToNot(HaveOccurred())
 					fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{
 						{ProcessId: 666, ImageName: "wininit.exe"},
@@ -177,7 +177,7 @@ var _ = Describe("Start", func() {
 				})
 
 				It("errors and does not start the user process", func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(err).To(MatchError("cannot start a container in the exited state"))
 					Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))
 				})
@@ -189,12 +189,12 @@ var _ = Describe("Start", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(pkgerrors.Cause(err)).To(BeAssignableToTypeOf(&container.CouldNotCreateProcessError{}))
 				})
 
 				It("sets the state to 'exited'", func() {
-					containerManager.Start(true)
+					containerManager.Start(true, "")
 					s, err := containerManager.State()
 					Expect(err).NotTo(HaveOccurred())
 					Expect(s.Status).To(Equal("exited"))
@@ -207,12 +207,12 @@ var _ = Describe("Start", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := containerManager.Start(true)
+					_, err := containerManager.Start(true, "")
 					Expect(err).To(MatchError("blue screen"))
 				})
 
 				It("sets the state to 'exited'", func() {
-					containerManager.Start(true)
+					containerManager.Start(true, "")
 					s, err := containerManager.State()
 					Expect(err).NotTo(HaveOccurred())
 					Expect(s.Status).To(Equal("exited"))
@@ -234,7 +234,7 @@ var _ = Describe("Start", func() {
 			})
 
 			It("runs the user process with i/o pipes", func() {
-				proc, err := containerManager.Start(false)
+				proc, err := containerManager.Start(false, "")
 				Expect(proc).To(Equal(fakeProcess))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fakeContainer.CreateProcessCallCount()).To(Equal(1))

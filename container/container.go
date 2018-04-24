@@ -427,7 +427,7 @@ func stateValid(state State) bool {
 
 const _PROCESS_DUP_HANDLE = 0x0040
 
-func (m *Manager) Start(detach bool, duplicate bool) (hcsshim.Process, error) {
+func (m *Manager) Start(detach bool, duplicateFile string) (hcsshim.Process, error) {
 	ociState, err := m.State()
 	if err != nil {
 		return nil, err
@@ -479,7 +479,7 @@ func (m *Manager) Start(detach bool, duplicate bool) (hcsshim.Process, error) {
 		return nil, err
 	}
 
-	if duplicate {
+	if duplicateFile != "" {
 		ch, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|syscall.SYNCHRONIZE, false, uint32(proc.Pid()))
 		if err != nil {
 			return nil, fmt.Errorf("OpenProcess (container): %s", err.Error())
@@ -511,12 +511,10 @@ func (m *Manager) Start(detach bool, duplicate bool) (hcsshim.Process, error) {
 		); err != nil {
 			return nil, fmt.Errorf("DuplicateHandle: %s", err.Error())
 		}
-		type so struct {
-			Handle uint64 `json:"Handle"`
-		}
 
-		s := so{Handle: uint64(d)}
-		json.NewEncoder(os.Stdout).Encode(s)
+		if err := ioutil.WriteFile(duplicateFile, []byte(fmt.Sprintf("%d", d)), 0600); err != nil {
+			return nil, err
+		}
 	}
 
 	return proc, nil

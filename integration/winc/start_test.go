@@ -1,13 +1,12 @@
 package main_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -15,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/windows"
 )
 
 var _ = Describe("Start", func() {
@@ -59,35 +59,55 @@ var _ = Describe("Start", func() {
 		})
 	})
 
-	FContext("we pass the insane handle flag", func() {
+	FContext("when the duplicate-handle-file option is passed", func() {
+		var tmpFile *os.File
+
 		BeforeEach(func() {
-			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "exit /B 8"}
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			var err error
+
+			tmpFile, err = ioutil.TempFile("", "test-dup-handle")
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("can get the init process exit code after it exits", func() {
-			type so struct {
-				Handle uint64 `json:"Handle"`
-			}
+		AfterEach(func() {
+			tmpFile.Close()
+			Expect(os.RemoveAll(tmpFile.Name())).To(Succeed())
+		})
 
-			stdout, _, err := helpers.Execute(exec.Command(wincBin, "start", "--duplicate-handle", containerId))
-			Expect(err).NotTo(HaveOccurred())
+		Context("when child process has exited", func() {
+			BeforeEach(func() {
+				bundleSpec.Process.Args = []string{"cmd.exe", "/C", "exit /B 8"}
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			})
 
-			var s so
-			Expect(json.Unmarshal(stdout.Bytes(), &s)).To(Succeed())
+			It("attaches handle to the parent process, referenced by the duplicate handle file", func() {
+				_, _, err := helpers.Execute(exec.Command(wincBin, "start", "--duplicate-handle-file", tmpFile.Name(), containerId))
+				Expect(err).NotTo(HaveOccurred())
 
-			time.Sleep(5 * time.Second)
+				handleAddressContents, err := ioutil.ReadFile(tmpFile.Name())
+				Expect(err).NotTo(HaveOccurred())
 
-			h := syscall.Handle(s.Handle)
+				exitCode := waitForHandleToExit(string(handleAddressContents))
+				Expect(exitCode).To(Equal(uint32(8)))
+			})
+		})
 
-			_, err = syscall.WaitForSingleObject(h, math.MaxUint32)
-			Expect(err).NotTo(HaveOccurred())
-			defer syscall.CloseHandle(h)
+		Context("when child process is still running", func() {
+			BeforeEach(func() {
+				bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor /t 1 foronesecond"}
+				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			})
 
-			var exitCode uint32
-			err = syscall.GetExitCodeProcess(h, &exitCode)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(exitCode).To(Equal(uint32(8)))
+			It("attaches handle to the parent process, referenced by the duplicate handle file", func() {
+				_, _, err := helpers.Execute(exec.Command(wincBin, "start", "--duplicate-handle-file", tmpFile.Name(), containerId))
+				Expect(err).NotTo(HaveOccurred())
+
+				handleAddressContents, err := ioutil.ReadFile(tmpFile.Name())
+				Expect(err).NotTo(HaveOccurred())
+
+				exitCode := waitForHandleToExit(string(handleAddressContents))
+				Expect(exitCode).To(Equal(uint32(1)))
+			})
 		})
 	})
 
@@ -151,6 +171,23 @@ var _ = Describe("Start", func() {
 		})
 	})
 })
+
+func waitForHandleToExit(handleAddressContents string) uint32 {
+	handleAddress, err := strconv.Atoi(handleAddressContents)
+	Expect(err).NotTo(HaveOccurred())
+
+	handle := syscall.Handle(handleAddress)
+
+	_, err = syscall.WaitForSingleObject(handle, windows.INFINITE)
+	Expect(err).NotTo(HaveOccurred())
+	defer syscall.CloseHandle(handle)
+
+	var exitCode uint32
+	err = syscall.GetExitCodeProcess(handle, &exitCode)
+	Expect(err).NotTo(HaveOccurred())
+
+	return exitCode
+}
 
 func theProcessExits(containerId, image string) {
 	exited := false
