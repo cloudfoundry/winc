@@ -108,20 +108,8 @@ func (r *Runtime) Create(containerId, bundlePath string) error {
 	wsc := winsyscall.WinSyscall{}
 	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
-	spec, err := cm.Spec(bundlePath)
-	if err != nil {
-		return err
-	}
-
-	if err := cm.Create(spec); err != nil {
-		return err
-	}
-
-	if err := sm.Initialize(bundlePath); err != nil {
-		cm.Delete(false)
-		return err
-	}
-	return nil
+	_, err := r.createContainer(cm, sm, bundlePath)
+	return err
 }
 
 func (r *Runtime) Delete(containerId string, force bool) error {
@@ -137,42 +125,7 @@ func (r *Runtime) Delete(containerId string, force bool) error {
 	wsc := winsyscall.WinSyscall{}
 	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
-	var errs []string
-
-	ociState, err := sm.State()
-	if err != nil {
-		logger.Error(err)
-
-		if _, ok := err.(*hcs.NotFoundError); ok {
-			if force {
-				return nil
-			}
-			return err
-		}
-
-		errs = append(errs, err.Error())
-	} else if ociState.Pid != 0 {
-		if err := r.mounter.Unmount(ociState.Pid); err != nil {
-			logger.Error(err)
-			errs = append(errs, err.Error())
-		}
-	}
-
-	if err := sm.Delete(); err != nil {
-		logger.Error(err)
-		errs = append(errs, err.Error())
-	}
-
-	if err := cm.Delete(force); err != nil {
-		logger.Error(err)
-		errs = append(errs, err.Error())
-	}
-
-	if len(errs) != 0 {
-		return errors.New(strings.Join(errs, "\n"))
-	}
-
-	return nil
+	return r.deleteContainer(cm, sm, force, logger)
 }
 
 func (r *Runtime) Events(containerId string, output io.Writer, showStats bool) error {
@@ -264,42 +217,13 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 	wsc := winsyscall.WinSyscall{}
 	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
-	spec, err := cm.Spec(bundlePath)
+	spec, err := r.createContainer(cm, sm, bundlePath)
 	if err != nil {
 		return 1, err
 	}
 
-	if err := cm.Create(spec); err != nil {
-		return 1, err
-	}
-
-	if err := sm.Initialize(bundlePath); err != nil {
-		cm.Delete(false)
-		return 1, err
-	}
-
-	process, err := cm.Exec(spec.Process, !detach)
+	wrappedProcess, err := r.startProcess(cm, sm, spec, pidFile, detach, logger)
 	if err != nil {
-		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
-			if sErr := sm.SetFailure(); sErr != nil {
-				logger.Error(sErr)
-			}
-			return 1, cErr
-		}
-		return 1, err
-	}
-	defer process.Close()
-
-	if err := sm.SetSuccess(process); err != nil {
-		return 1, err
-	}
-
-	if err := r.mounter.Mount(process.Pid(), spec.Root.Path); err != nil {
-		return 1, err
-	}
-
-	wrappedProcess := r.processWrapper.Wrap(process)
-	if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
 		return 1, err
 	}
 
@@ -308,37 +232,13 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 		wrappedProcess.SetInterrupt(s)
 
 		exitCode, attachErr := wrappedProcess.AttachIO(io.Stdin, io.Stdout, io.Stderr)
-
-		var errs []string
-
-		ociState, err := sm.State()
-		if err != nil {
-			logger.Error(err)
-			errs = append(errs, err.Error())
-		} else if ociState.Pid != 0 {
-			//logger.Info(something useful)
-			if err := r.mounter.Unmount(ociState.Pid); err != nil {
-				logger.Error(err)
-				errs = append(errs, err.Error())
-			}
-		}
-
-		if err := sm.Delete(); err != nil {
-			logger.Error(err)
-			errs = append(errs, err.Error())
-		}
-
-		if err := cm.Delete(false); err != nil {
-			logger.Error(err)
-			errs = append(errs, err.Error())
-		}
-
+		deleteErr := r.deleteContainer(cm, sm, false, logger)
 		if attachErr != nil {
 			return exitCode, attachErr
 		}
 
-		if len(errs) != 0 {
-			return 1, errors.New(strings.Join(errs, "\n"))
+		if deleteErr != nil {
+			return 1, deleteErr
 		}
 
 		return exitCode, nil
@@ -374,28 +274,8 @@ func (r *Runtime) Start(containerId, pidFile string) error {
 		return err
 	}
 
-	process, err := cm.Exec(spec.Process, false)
-	if err != nil {
-		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
-			if sErr := sm.SetFailure(); sErr != nil {
-				logger.Error(sErr)
-			}
-			return cErr
-		}
-		return err
-	}
-	defer process.Close()
-
-	if err := sm.SetSuccess(process); err != nil {
-		return err
-	}
-
-	if err := r.mounter.Mount(process.Pid(), spec.Root.Path); err != nil {
-		return err
-	}
-
-	wrappedProcess := r.processWrapper.Wrap(process)
-	return wrappedProcess.WritePIDFile(pidFile)
+	_, err = r.startProcess(cm, sm, spec, pidFile, true, logger)
+	return err
 }
 
 func (r *Runtime) State(containerId string, output io.Writer) error {
@@ -424,4 +304,86 @@ func (r *Runtime) State(containerId string, output io.Writer) error {
 
 	_, err = output.Write(stateJson)
 	return err
+}
+
+func (r *Runtime) createContainer(cm ContainerManager, sm StateManager, bundlePath string) (*specs.Spec, error) {
+	spec, err := cm.Spec(bundlePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cm.Create(spec); err != nil {
+		return nil, err
+	}
+
+	if err := sm.Initialize(bundlePath); err != nil {
+		cm.Delete(false)
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+func (r *Runtime) deleteContainer(cm ContainerManager, sm StateManager, force bool, logger *logrus.Entry) error {
+	var errs []string
+
+	ociState, err := sm.State()
+	if err != nil {
+		logger.Error(err)
+
+		if _, ok := err.(*hcs.NotFoundError); ok {
+			if force {
+				return nil
+			}
+			return err
+		}
+
+		errs = append(errs, err.Error())
+	} else if ociState.Pid != 0 {
+		if err := r.mounter.Unmount(ociState.Pid); err != nil {
+			logger.Error(err)
+			errs = append(errs, err.Error())
+		}
+	}
+
+	if err := sm.Delete(); err != nil {
+		logger.Error(err)
+		errs = append(errs, err.Error())
+	}
+
+	if err := cm.Delete(force); err != nil {
+		logger.Error(err)
+		errs = append(errs, err.Error())
+	}
+
+	if len(errs) != 0 {
+		return errors.New(strings.Join(errs, "\n"))
+	}
+
+	return nil
+}
+
+func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs.Spec, pidFile string, detach bool, logger *logrus.Entry) (WrappedProcess, error) {
+	process, err := cm.Exec(spec.Process, !detach)
+	if err != nil {
+		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
+			if sErr := sm.SetFailure(); sErr != nil {
+				logger.Error(sErr)
+			}
+			return nil, cErr
+		}
+		return nil, err
+	}
+	defer process.Close()
+
+	if err := sm.SetSuccess(process); err != nil {
+		return nil, err
+	}
+
+	if err := r.mounter.Mount(process.Pid(), spec.Root.Path); err != nil {
+		return nil, err
+	}
+
+	wrappedProcess := r.processWrapper.Wrap(process)
+	return wrappedProcess, wrappedProcess.WritePIDFile(pidFile)
 }
