@@ -222,7 +222,14 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 		return 1, err
 	}
 
-	wrappedProcess, err := r.startProcess(cm, sm, spec, pidFile, detach, logger)
+	process, err := r.startProcess(cm, sm, spec, pidFile, detach, logger)
+	if err != nil {
+		return 1, err
+	}
+	defer process.Close()
+
+	wrappedProcess := r.processWrapper.Wrap(process)
+	err = wrappedProcess.WritePIDFile(pidFile)
 	if err != nil {
 		return 1, err
 	}
@@ -274,8 +281,19 @@ func (r *Runtime) Start(containerId, pidFile string) error {
 		return err
 	}
 
-	_, err = r.startProcess(cm, sm, spec, pidFile, true, logger)
-	return err
+	process, err := r.startProcess(cm, sm, spec, pidFile, true, logger)
+	if err != nil {
+		return err
+	}
+	defer process.Close()
+
+	wrappedProcess := r.processWrapper.Wrap(process)
+	err = wrappedProcess.WritePIDFile(pidFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Runtime) State(containerId string, output io.Writer) error {
@@ -363,7 +381,7 @@ func (r *Runtime) deleteContainer(cm ContainerManager, sm StateManager, force bo
 	return nil
 }
 
-func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs.Spec, pidFile string, detach bool, logger *logrus.Entry) (WrappedProcess, error) {
+func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs.Spec, pidFile string, detach bool, logger *logrus.Entry) (hcs.Process, error) {
 	process, err := cm.Exec(spec.Process, !detach)
 	if err != nil {
 		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
@@ -374,7 +392,6 @@ func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs
 		}
 		return nil, err
 	}
-	defer process.Close()
 
 	if err := sm.SetSuccess(process); err != nil {
 		return nil, err
@@ -384,6 +401,5 @@ func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs
 		return nil, err
 	}
 
-	wrappedProcess := r.processWrapper.Wrap(process)
-	return wrappedProcess, wrappedProcess.WritePIDFile(pidFile)
+	return process, nil
 }
