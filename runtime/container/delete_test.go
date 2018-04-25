@@ -3,11 +3,10 @@ package container_test
 import (
 	"errors"
 	"io/ioutil"
-	"path/filepath"
 
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"code.cloudfoundry.org/winc/runtime/container"
 	"code.cloudfoundry.org/winc/runtime/container/fakes"
-	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 
@@ -49,71 +48,6 @@ var _ = Describe("Delete", func() {
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
 
 			Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-		})
-
-		XContext("when the specified container has a sidecar", func() {
-			var fakeSidecar *hcsfakes.Container
-			var sidecarId string
-			var sidecarPid int
-			BeforeEach(func() {
-				fakeSidecar = &hcsfakes.Container{}
-
-				sidecarPid = 55
-				sidecarBundlePath, err := ioutil.TempDir("", "sidecarBundlePath")
-				Expect(err).ToNot(HaveOccurred())
-				sidecarId = filepath.Base(sidecarBundlePath)
-
-				hcsClient.GetContainersReturns([]hcsshim.ContainerProperties{
-					hcsshim.ContainerProperties{ID: sidecarId, Owner: containerId},
-				}, nil)
-				fakeSidecar.ProcessListReturns([]hcsshim.ProcessListItem{
-					{ProcessId: uint32(sidecarPid), ImageName: "wininit.exe"},
-				}, nil)
-			})
-			It("deletes the sidecar container", func() {
-				hcsClient.OpenContainerReturnsOnCall(0, fakeSidecar, nil)
-				hcsClient.OpenContainerReturnsOnCall(1, fakeSidecar, nil)
-				hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
-				hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
-
-				Expect(containerManager.Delete(false)).To(Succeed())
-
-				Expect(hcsClient.GetContainersCallCount()).To(Equal(1))
-				query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
-				Expect(hcsClient.GetContainersArgsForCall(0)).To(Equal(query))
-
-				Expect(hcsClient.OpenContainerCallCount()).To(Equal(4))
-				Expect(hcsClient.OpenContainerArgsForCall(0)).To(Equal(sidecarId))
-
-				Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(3))
-				Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
-				Expect(hcsClient.GetContainerPropertiesArgsForCall(1)).To(Equal(sidecarId))
-				Expect(hcsClient.GetContainerPropertiesArgsForCall(2)).To(Equal(containerId))
-
-				Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-				Expect(fakeSidecar.ShutdownCallCount()).To(Equal(1))
-			})
-			Context("when we fail to open the sidecard container", func() {
-				var openError error = errors.New("failed to open container")
-				It("continue to delete the main container", func() {
-					hcsClient.OpenContainerReturnsOnCall(0, nil, openError)
-					hcsClient.OpenContainerReturnsOnCall(1, fakeContainer, nil)
-					hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
-					Expect(containerManager.Delete(false)).To(Equal(openError))
-					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-				})
-			})
-			Context("when we fail to unmount the sidecar container", func() {
-				var unmountError error = errors.New("failed to unmount container")
-				It("continue to delete the main container", func() {
-					hcsClient.OpenContainerReturnsOnCall(0, fakeSidecar, nil)
-					hcsClient.OpenContainerReturnsOnCall(1, fakeSidecar, nil)
-					hcsClient.OpenContainerReturnsOnCall(2, fakeContainer, nil)
-					hcsClient.OpenContainerReturnsOnCall(3, fakeContainer, nil)
-					Expect(containerManager.Delete(false)).To(Equal(unmountError))
-					Expect(fakeContainer.ShutdownCallCount()).To(Equal(1))
-				})
-			})
 		})
 
 		Context("when the container was never started", func() {

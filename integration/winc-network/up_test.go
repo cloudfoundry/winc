@@ -741,7 +741,7 @@ var _ = Describe("Up", func() {
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} }`, networkConfigFile)
 					helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
 				})
-				It("deletes the main container and the pea container", func() {
+				FIt("deletes the main container and the pea container", func() {
 					Expect(helpers.ContainerExists(containerId2)).To(BeTrue())
 					helpers.DeleteContainer(containerId)
 					Expect(helpers.ContainerExists(containerId)).To(BeFalse())

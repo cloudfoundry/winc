@@ -120,12 +120,36 @@ func (r *Runtime) Delete(containerId string, force bool) error {
 	logger.Debug("deleting container")
 
 	client := hcs.Client{}
-	cm := r.containerFactory.NewManager(logger, &client, containerId)
-
 	wsc := winsyscall.WinSyscall{}
-	sm := r.stateFactory.NewManager(logger, &client, &wsc, containerId, r.rootDir)
 
-	return r.deleteContainer(cm, sm, force, logger)
+	query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
+	sidecarContainerProperties, err := r.hcsQuery.GetContainers(query)
+	if err != nil {
+		return err
+	}
+
+	containerIdsToDelete := []string{}
+	for _, sidecarContainerProperty := range sidecarContainerProperties {
+		containerIdsToDelete = append(containerIdsToDelete, sidecarContainerProperty.ID)
+	}
+	containerIdsToDelete = append(containerIdsToDelete, containerId)
+
+	var errors []string
+	for _, containerIdToDelete := range containerIdsToDelete {
+		cm := r.containerFactory.NewManager(logger, &client, containerIdToDelete)
+
+		sm := r.stateFactory.NewManager(logger, &client, &wsc, containerIdToDelete, r.rootDir)
+
+		if err := r.deleteContainer(cm, sm, force, logger); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	if len(errors) == 0 {
+		return nil
+	} else {
+		return fmt.Errorf(strings.Join(errors, "\n"))
+	}
 }
 
 func (r *Runtime) Events(containerId string, output io.Writer, showStats bool) error {
@@ -229,8 +253,7 @@ func (r *Runtime) Run(containerId, bundlePath, pidFile string, io IO, detach boo
 	defer process.Close()
 
 	wrappedProcess := r.processWrapper.Wrap(process)
-	err = wrappedProcess.WritePIDFile(pidFile)
-	if err != nil {
+	if err = wrappedProcess.WritePIDFile(pidFile); err != nil {
 		return 1, err
 	}
 

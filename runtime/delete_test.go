@@ -1,6 +1,7 @@
 package runtime_test
 
 import (
+	"github.com/Microsoft/hcsshim"
 	"github.com/pkg/errors"
 
 	"code.cloudfoundry.org/winc/hcs"
@@ -198,4 +199,78 @@ var _ = Describe("Delete", func() {
 			Expect(cm.DeleteArgsForCall(0)).To(BeTrue())
 		})
 	})
+
+	Context("when the specified container has a sidecar", func() {
+		var sidecarId string
+		var sidecarPid int
+		var sidecarSm *fakes.StateManager
+		var sidecarCm *fakes.ContainerManager
+
+		BeforeEach(func() {
+			sidecarId = "some-sidecar-id"
+
+			sidecarSm = &fakes.StateManager{}
+			sidecarCm = &fakes.ContainerManager{}
+
+			hcsQuery.GetContainersReturns([]hcsshim.ContainerProperties{
+				hcsshim.ContainerProperties{ID: sidecarId, Owner: containerId},
+			}, nil)
+
+			stateFactory.NewManagerReturnsOnCall(0, sidecarSm)
+			stateFactory.NewManagerReturnsOnCall(1, sm)
+			containerFactory.NewManagerReturnsOnCall(0, sidecarCm)
+			containerFactory.NewManagerReturnsOnCall(1, cm)
+
+			sidecarPid = 88
+			sidecarState := &specs.State{Status: "running", Pid: sidecarPid}
+			sidecarSm.StateReturns(sidecarState, nil)
+		})
+		It("deletes the sidecar container", func() {
+			Expect(r.Delete(containerId, true)).To(Succeed())
+
+			Expect(hcsQuery.GetContainersCallCount()).To(Equal(1))
+			query := hcsshim.ComputeSystemQuery{Owners: []string{containerId}}
+			Expect(hcsQuery.GetContainersArgsForCall(0)).To(Equal(query))
+
+			_, _, _, sId, _ := stateFactory.NewManagerArgsForCall(0)
+			Expect(sId).To(Equal(sidecarId))
+			_, _, _, cId, _ := stateFactory.NewManagerArgsForCall(1)
+			Expect(cId).To(Equal(containerId))
+			_, _, sId = containerFactory.NewManagerArgsForCall(0)
+			Expect(sId).To(Equal(sidecarId))
+			_, _, cId = containerFactory.NewManagerArgsForCall(1)
+			Expect(cId).To(Equal(containerId))
+
+			Expect(mounter.UnmountArgsForCall(0)).To(Equal(sidecarPid))
+			Expect(sidecarSm.DeleteCallCount()).To(Equal(1))
+			Expect(sidecarCm.DeleteArgsForCall(0)).To(BeTrue())
+
+			Expect(mounter.UnmountArgsForCall(1)).To(Equal(99))
+			Expect(sm.DeleteCallCount()).To(Equal(1))
+			Expect(cm.DeleteArgsForCall(0)).To(BeTrue())
+		})
+		Context("when we fail to delete the sidecar container", func() {
+			BeforeEach(func() {
+				sidecarCm.DeleteReturnsOnCall(0, errors.New("some-sidecar-delete-error"))
+			})
+			It("continues to delete the main container", func() {
+				Expect(r.Delete(containerId, true)).NotTo(Succeed())
+				Expect(mounter.UnmountArgsForCall(1)).To(Equal(99))
+				Expect(sm.DeleteCallCount()).To(Equal(1))
+				Expect(cm.DeleteArgsForCall(0)).To(BeTrue())
+			})
+		})
+		Context("when we fail to unmount the sidecar container", func() {
+			BeforeEach(func() {
+				mounter.UnmountReturnsOnCall(0, errors.New("some-sidecar-mount-error"))
+			})
+			It("continues to delete the main container", func() {
+				Expect(r.Delete(containerId, true)).NotTo(Succeed())
+				Expect(mounter.UnmountArgsForCall(1)).To(Equal(99))
+				Expect(sm.DeleteCallCount()).To(Equal(1))
+				Expect(cm.DeleteArgsForCall(0)).To(BeTrue())
+			})
+		})
+	})
+
 })
