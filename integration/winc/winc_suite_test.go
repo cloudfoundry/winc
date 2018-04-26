@@ -110,6 +110,7 @@ func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
 	if filter != "" {
 		var filteredPL []hcsshim.ProcessListItem
 		for _, v := range pl {
+			fmt.Println(v.ImageName)
 			if v.ImageName == filter {
 				filteredPL = append(filteredPL, v)
 			}

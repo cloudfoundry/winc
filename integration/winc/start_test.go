@@ -115,7 +115,7 @@ var _ = Describe("Start", func() {
 		})
 	})
 
-	Context("the init process has already been started and has exited", func() {
+	FContext("the init process has already been started and has exited", func() {
 		BeforeEach(func() {
 			bundleSpec.Process = &specs.Process{
 				Cwd:  "C:\\",
@@ -167,6 +167,7 @@ func theProcessExits(containerId, image string) {
 	for i := 0; i < 5; i++ {
 		time.Sleep(time.Duration(i) * time.Second)
 		pl := containerProcesses(containerId, image)
+		fmt.Println(pl)
 		if len(pl) == 0 {
 			exited = true
 			break

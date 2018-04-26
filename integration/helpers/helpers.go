@@ -45,7 +45,7 @@ func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string) *Help
 }
 
 func (h *Helpers) GetContainerState(containerId string) specs.State {
-	stdOut, _, err := h.Execute(exec.Command(h.wincBin, "state", containerId))
+	stdOut, _, err := h.Execute(exec.Command(h.wincBin, "--log", "C:\\state.txt", "--debug", "state", containerId))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	var state specs.State
@@ -74,7 +74,7 @@ func (h *Helpers) RunContainer(bundleSpec specs.Spec, bundlePath, containerId st
 }
 
 func (h *Helpers) StartContainer(containerId string) {
-	_, _, err := h.Execute(exec.Command(h.wincBin, "start", containerId))
+	_, _, err := h.Execute(exec.Command(h.wincBin, "--log", "C:\\log.txt", "--debug", "start", containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 

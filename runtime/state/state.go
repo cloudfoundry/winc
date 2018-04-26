@@ -124,6 +124,7 @@ func (m *Manager) State() (*specs.State, error) {
 	if err != nil {
 		return nil, err
 	}
+	m.logger.Debug("runtime.state.state:State127 %+v\n", state)
 
 	var status string
 	if cp.Stopped {
@@ -135,6 +136,10 @@ func (m *Manager) State() (*specs.State, error) {
 		}
 	}
 
+	m.logger.Debug("runtime.state.state:State ", status)
+	cp, _ = m.hcsClient.GetContainerProperties(m.containerId)
+	m.logger.Debug("hcsclient container stopped: ", cp.Stopped)
+
 	return &specs.State{
 		Version: specs.Version,
 		ID:      m.containerId,
@@ -145,6 +150,8 @@ func (m *Manager) State() (*specs.State, error) {
 }
 
 func (m *Manager) userProgramStatus(state State) (string, error) {
+	m.logger.Debug("userProgramStatus started")
+	defer m.logger.Debug("userProgramStatus done")
 	if state.ExecFailed {
 		return "stopped", nil
 	}
@@ -152,15 +159,18 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 	if !stateValid(state) {
 		return "", fmt.Errorf("invalid state: PID %d, start time %+v", state.PID, state.StartTime)
 	}
+	m.logger.Debug("valid state")
 
 	if (state.PID == 0) && (state.StartTime == syscall.Filetime{}) {
 		return "created", nil
 	}
+	m.logger.Debug("pid wasn't 0")
 
 	h, err := m.sc.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(state.PID))
 	if err != nil {
 		if errno, ok := err.(syscall.Errno); ok {
 			// 0x57 is ERROR_INVALID_PARAMETER, which is returned if the process doesn't exist
+			m.logger.Debug("PROCESS_QUERY_INFORMATION has an error", err)
 			if errno == 0x57 {
 				return "stopped", nil
 			}
@@ -169,12 +179,24 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 	}
 	defer m.sc.CloseHandle(h)
 
+	var ec uint32
+	e := syscall.GetExitCodeProcess(syscall.Handle(h), &ec)
+	if e != nil {
+		return "", os.NewSyscallError("GetExitCodeProcess", e)
+	}
+	m.logger.Debug("Exit code: ", ec)
+	e = syscall.GetLastError()
+	m.logger.Debug("Last error: ", e)
+
 	creationTime, err := m.sc.GetProcessStartTime(h)
 	if err != nil {
+		m.logger.Debug("GetProcessStartTime has an error", err)
 		return "", fmt.Errorf("GetProcessStartTime: %s", err.Error())
 	}
 
 	if creationTime == state.StartTime {
+		m.logger.Debug("runtime.state.state:userProgramStatus:179 %+v == %+v\n", creationTime, state.StartTime)
+		m.logger.Debug("returning running")
 		return "running", err
 	}
 

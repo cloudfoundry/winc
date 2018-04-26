@@ -98,7 +98,7 @@ var _ = Describe("State", func() {
 		})
 	})
 
-	Context("the init process has already been started and has exited", func() {
+	FContext("the init process has already been started and has exited", func() {
 		BeforeEach(func() {
 			bundleSpec.Process = &specs.Process{
 				Cwd:  "C:\\",

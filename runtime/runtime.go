@@ -406,8 +406,11 @@ func (r *Runtime) deleteContainer(cm ContainerManager, sm StateManager, force bo
 
 func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs.Spec, pidFile string, detach bool, logger *logrus.Entry) (hcs.Process, error) {
 	process, err := cm.Exec(spec.Process, !detach)
+	fmt.Println("hello")
 	if err != nil {
+		fmt.Println(err.Error())
 		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
+			fmt.Println("CouldNotCreateProcessError")
 			if sErr := sm.SetFailure(); sErr != nil {
 				logger.Error(sErr)
 			}
