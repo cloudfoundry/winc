@@ -58,7 +58,7 @@ var _ = Describe("Logging", func() {
 		It("logs any netsh commands to a file", func() {
 			helpers.CreateNetwork(networkConfig, networkConfigFile, "--log", logFile)
 			bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 
 			netin := `{"Pid": 123, "Properties": {},"netin": [{"host_port": 0, "container_port": 8080}]}`
 			args := []string{"--log", logFile, "--action", "up", "--configFile", networkConfigFile, "--handle", containerId}

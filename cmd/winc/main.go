@@ -5,19 +5,15 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"strconv"
-	"sync"
-	"time"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/process"
 	"code.cloudfoundry.org/winc/hcs"
-
-	"github.com/Microsoft/hcsshim"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"code.cloudfoundry.org/winc/runtime"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/hcsprocess"
+	"code.cloudfoundry.org/winc/runtime/mount"
+	"code.cloudfoundry.org/winc/runtime/state"
+	"code.cloudfoundry.org/winc/runtime/winsyscall"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -32,6 +28,26 @@ implementation of the Open Container Initiative specification.`
 	minArgs
 	maxArgs
 )
+
+var run *runtime.Runtime
+
+type stateFactory struct{}
+
+func (f *stateFactory) NewManager(logger *logrus.Entry, hcsClient *hcs.Client, winSyscall *winsyscall.WinSyscall, id, rootDir string) runtime.StateManager {
+	return state.New(logger, hcsClient, winSyscall, id, rootDir)
+}
+
+type containerFactory struct{}
+
+func (f *containerFactory) NewManager(logger *logrus.Entry, hcsClient *hcs.Client, id string) runtime.ContainerManager {
+	return container.New(logger, hcsClient, id)
+}
+
+type processWrapper struct{}
+
+func (w *processWrapper) Wrap(p hcs.Process) runtime.WrappedProcess {
+	return hcsprocess.New(p)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -79,6 +95,7 @@ func main() {
 		debug := context.GlobalBool("debug")
 		logFile := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
+		rootDir := context.GlobalString("root")
 
 		if debug {
 			logrus.SetLevel(logrus.DebugLevel)
@@ -110,6 +127,13 @@ func main() {
 			return &InvalidLogFormatError{Format: logFormat}
 		}
 
+		containerFactory := &containerFactory{}
+		stateFactory := &stateFactory{}
+		mounter := &mount.Mounter{}
+		hcsClient := &hcs.Client{}
+		processWrapper := &processWrapper{}
+
+		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir)
 		return nil
 	}
 
@@ -158,102 +182,4 @@ func fatal(err error) {
 	logrus.Error(err)
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
-}
-
-func createContainer(logger *logrus.Entry, bundlePath, containerId, pidFile, rootDir string) (*specs.Spec, error) {
-	client := hcs.Client{}
-	cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-
-	spec, err := cm.Create(bundlePath)
-	if err != nil {
-		return nil, err
-	}
-
-	if pidFile != "" {
-		state, err := cm.State()
-		if err != nil {
-			return nil, err
-		}
-
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(state.Pid), 10)), 0666); err != nil {
-			return nil, err
-		}
-	}
-
-	return spec, nil
-}
-
-func manageProcess(process hcsshim.Process, detach bool, pidFile string, cm *container.Manager, deleteContainer bool) error {
-	if pidFile != "" {
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(process.Pid()), 10)), 0666); err != nil {
-			return err
-		}
-	}
-
-	if !detach {
-		stdin, stdout, stderr, err := process.Stdio()
-		if err != nil {
-			return err
-		}
-
-		var wg sync.WaitGroup
-
-		go func() {
-			_, _ = io.Copy(stdin, os.Stdin)
-			_ = stdin.Close()
-		}()
-		go func() {
-			wg.Add(1)
-			_, _ = io.Copy(os.Stdout, stdout)
-			_ = stdout.Close()
-			wg.Done()
-		}()
-		go func() {
-			wg.Add(1)
-			_, _ = io.Copy(os.Stderr, stderr)
-			_ = stderr.Close()
-			wg.Done()
-		}()
-
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		go func() {
-			<-c
-			_ = process.Kill()
-		}()
-
-		err = process.Wait()
-		waitWithTimeout(&wg, 1*time.Second)
-		if err != nil {
-			return err
-		}
-
-		if deleteContainer {
-			force := false
-			if err := cm.Delete(force); err != nil {
-				return err
-			}
-		}
-
-		exitCode, err := process.ExitCode()
-		if err != nil {
-			return err
-		}
-		os.Exit(exitCode)
-	}
-
-	return nil
-}
-
-func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
-	wgEmpty := make(chan interface{}, 1)
-	go func() {
-		wg.Wait()
-		wgEmpty <- nil
-	}()
-
-	select {
-	case <-time.After(timeout):
-	case <-wgEmpty:
-	}
 }

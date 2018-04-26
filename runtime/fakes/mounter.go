@@ -4,7 +4,7 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/winc/container"
+	"code.cloudfoundry.org/winc/runtime"
 )
 
 type Mounter struct {
@@ -158,4 +158,4 @@ func (fake *Mounter) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ container.Mounter = new(Mounter)
+var _ runtime.Mounter = new(Mounter)

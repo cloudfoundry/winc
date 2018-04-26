@@ -39,7 +39,7 @@ var _ = Describe("Exec", func() {
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
 			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 		})
 
 		AfterEach(func() {
@@ -54,9 +54,6 @@ var _ = Describe("Exec", func() {
 
 			pl := containerProcesses(containerId, "sleep.exe")
 			Expect(len(pl)).To(Equal(1))
-
-			containerPid := helpers.GetContainerState(containerId).Pid
-			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 		})
 
 		It("runs an executible given a unix path in the container", func() {
@@ -65,9 +62,6 @@ var _ = Describe("Exec", func() {
 
 			pl := containerProcesses(containerId, "sleep.exe")
 			Expect(len(pl)).To(Equal(1))
-
-			containerPid := helpers.GetContainerState(containerId).Pid
-			Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 		})
 
 		Context("when there is cmd.exe and cmd", func() {
@@ -111,9 +105,6 @@ var _ = Describe("Exec", func() {
 
 				pl := containerProcesses(containerId, "sleep.exe")
 				Expect(len(pl)).To(Equal(1))
-
-				containerPid := helpers.GetContainerState(containerId).Pid
-				Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 			})
 
 			It("cleans errors returned from hcsshim", func() {
@@ -126,7 +117,6 @@ var _ = Describe("Exec", func() {
 				args := []string{"exec", "--process", processConfig, containerId}
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
-				fmt.Println(stdOut.String())
 				Expect(stdOut.String()).To(BeEmpty())
 				Expect(strings.TrimSpace(stdErr.String())).To(Equal(fmt.Sprintf("The system cannot find the file specified.: could not start command 'some-invalid-command.exe' in container: %s", containerId)))
 			})
@@ -196,9 +186,6 @@ var _ = Describe("Exec", func() {
 
 				pl := containerProcesses(containerId, "sleep.exe")
 				Expect(len(pl)).To(Equal(1))
-
-				containerPid := helpers.GetContainerState(containerId).Pid
-				Expect(isParentOf(containerPid, int(pl[0].ProcessId))).To(BeTrue())
 
 				Eventually(func() []hcsshim.ProcessListItem {
 					return containerProcesses(containerId, "sleep.exe")

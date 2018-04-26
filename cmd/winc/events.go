@@ -1,14 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/process"
-	"code.cloudfoundry.org/winc/hcs"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -27,35 +21,9 @@ Where "<container-id>" is your name for the instance of the container.`,
 			return err
 		}
 
-		rootDir := context.GlobalString("root")
 		containerId := context.Args().First()
 		showStats := context.Bool("stats")
 
-		logger := logrus.WithFields(logrus.Fields{
-			"containerId": containerId,
-		})
-		logger.Debug("retrieving container events and info")
-
-		client := hcs.Client{}
-		cm := container.NewManager(logger, &client, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-
-		stats, err := cm.Stats()
-		if err != nil {
-			return err
-		}
-
-		if showStats {
-			statsJson, err := json.MarshalIndent(stats, "", "  ")
-			if err != nil {
-				return err
-			}
-
-			_, err = os.Stdout.Write(statsJson)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
+		return run.Events(containerId, os.Stdout, showStats)
 	},
 }

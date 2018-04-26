@@ -11,7 +11,6 @@ import (
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	"github.com/Microsoft/hcsshim"
-	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -120,30 +119,6 @@ func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
 	}
 
 	return pl
-}
-
-func isParentOf(parentPid, childPid int) bool {
-	var (
-		process ps.Process
-		err     error
-	)
-
-	var foundParent bool
-	for {
-		process, err = ps.FindProcess(childPid)
-		Expect(err).To(Succeed())
-
-		if process == nil {
-			break
-		}
-		if process.PPid() == parentPid {
-			foundParent = true
-			break
-		}
-		childPid = process.PPid()
-	}
-
-	return foundParent
 }
 
 func sendCtrlBreak(s *gexec.Session) {

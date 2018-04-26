@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"code.cloudfoundry.org/winc/container/mount"
+	"code.cloudfoundry.org/winc/runtime/mount"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

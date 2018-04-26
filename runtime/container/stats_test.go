@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/fakes"
+	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/container/fakes"
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 
 	"github.com/Microsoft/hcsshim"
@@ -20,25 +20,17 @@ var _ = Describe("Stats", func() {
 	var (
 		bundlePath       string
 		hcsClient        *fakes.HCSClient
-		mounter          *fakes.Mounter
-		processClient    *fakes.ProcessClient
 		containerManager *container.Manager
 		fakeContainer    *hcsfakes.Container
 	)
 
 	BeforeEach(func() {
-		var err error
-		bundlePath, err = ioutil.TempDir("", "bundlePath")
-		Expect(err).ToNot(HaveOccurred())
-
 		hcsClient = &fakes.HCSClient{}
-		mounter = &fakes.Mounter{}
-		processClient = &fakes.ProcessClient{}
 		logger := (&logrus.Logger{
 			Out: ioutil.Discard,
 		}).WithField("test", "stats")
 
-		containerManager = container.NewManager(logger, hcsClient, mounter, processClient, containerId, "")
+		containerManager = container.New(logger, hcsClient, containerId)
 
 		fakeContainer = &hcsfakes.Container{}
 		hcsClient.OpenContainerReturns(fakeContainer, nil)

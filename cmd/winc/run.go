@@ -1,10 +1,9 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/process"
-	"code.cloudfoundry.org/winc/hcs"
+	"os"
+
+	"code.cloudfoundry.org/winc/runtime"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -50,7 +49,6 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		}
 
 		containerId := context.Args().First()
-		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
 		detach := context.Bool("detach")
 		pidFile := context.String("pid-file")
@@ -63,19 +61,17 @@ command(s) that get executed on start, edit the args parameter of the spec.`,
 		})
 		logger.Debug("creating container")
 
-		_, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
+		io := runtime.IO{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
+		exitCode, err := run.Run(containerId, bundlePath, pidFile, io, detach)
 		if err != nil {
 			return err
 		}
 
-		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		process, err := cm.Start(detach)
-		if err != nil {
-			return err
+		if !detach {
+			os.Exit(exitCode)
 		}
-		defer process.Close()
 
-		return manageProcess(process, detach, "", cm, true)
+		return nil
 	},
 	SkipArgReorder: true,
 }

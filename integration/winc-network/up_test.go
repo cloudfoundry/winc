@@ -32,7 +32,7 @@ var _ = Describe("Up", func() {
 
 	Context("default network config", func() {
 		BeforeEach(func() {
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 			networkConfig = helpers.GenerateNetworkConfig()
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
 		})
@@ -471,7 +471,7 @@ var _ = Describe("Up", func() {
 
 	Context("custom MTU", func() {
 		BeforeEach(func() {
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 			networkConfig = helpers.GenerateNetworkConfig()
 			networkConfig.MTU = 1405
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
@@ -493,7 +493,7 @@ var _ = Describe("Up", func() {
 
 	Context("custom DNS Servers", func() {
 		BeforeEach(func() {
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 			networkConfig = helpers.GenerateNetworkConfig()
 			networkConfig.DNSServers = []string{"8.8.8.8", "8.8.4.4"}
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
@@ -564,7 +564,7 @@ var _ = Describe("Up", func() {
 		})
 
 		It("does not allow traffic between containers", func() {
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 			hostIp := outputs.Properties.ContainerIP
 			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
@@ -576,7 +576,7 @@ var _ = Describe("Up", func() {
 			_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 			Expect(err).NotTo(HaveOccurred())
 
-			helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+			helpers.RunContainer(bundleSpec2, bundlePath2, containerId2)
 			helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 			pid = helpers.GetContainerState(containerId2).Pid
@@ -588,7 +588,7 @@ var _ = Describe("Up", func() {
 		})
 
 		It("can route traffic to the remaining container after the other is deleted", func() {
-			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 			outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 
 			mappedPorts := []netrules.PortMapping{}
@@ -611,7 +611,7 @@ var _ = Describe("Up", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
 
-			helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+			helpers.RunContainer(bundleSpec2, bundlePath2, containerId2)
 			outputs = helpers.NetworkUp(containerId2, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 
 			Expect(json.Unmarshal([]byte(outputs.Properties.MappedPorts), &mappedPorts)).To(Succeed())
@@ -652,7 +652,7 @@ var _ = Describe("Up", func() {
 			BeforeEach(func() {
 				var err error
 
-				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				helpers.RunContainer(bundleSpec, bundlePath, containerId)
 				outputs := helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 				hostIp, err := localip.LocalIP()
 				Expect(err).NotTo(HaveOccurred())
@@ -685,7 +685,7 @@ var _ = Describe("Up", func() {
 			})
 
 			It("applies the bandwidth limit on the container to outgoing traffic", func() {
-				helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+				helpers.RunContainer(bundleSpec2, bundlePath2, containerId2)
 
 				pid := helpers.GetContainerState(containerId2).Pid
 				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "client.exe"), clientBin)
@@ -715,7 +715,7 @@ var _ = Describe("Up", func() {
 			})
 
 			It("allows traffic between the containers", func() {
-				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				helpers.RunContainer(bundleSpec, bundlePath, containerId)
 				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
 
 				pid := helpers.GetContainerState(containerId).Pid
@@ -724,7 +724,7 @@ var _ = Describe("Up", func() {
 				_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 				Expect(err).NotTo(HaveOccurred())
 
-				helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+				helpers.RunContainer(bundleSpec2, bundlePath2, containerId2)
 				helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 				pid = helpers.GetContainerState(containerId2).Pid
@@ -737,9 +737,9 @@ var _ = Describe("Up", func() {
 
 			Context("when deleting the first container", func() {
 				BeforeEach(func() {
-					helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+					helpers.RunContainer(bundleSpec, bundlePath, containerId)
 					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} }`, networkConfigFile)
-					helpers.CreateContainer(bundleSpec2, bundlePath2, containerId2)
+					helpers.RunContainer(bundleSpec2, bundlePath2, containerId2)
 				})
 				It("deletes the main container and the pea container", func() {
 					Expect(helpers.ContainerExists(containerId2)).To(BeTrue())

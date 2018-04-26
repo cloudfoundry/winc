@@ -1,14 +1,10 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/container"
-	"code.cloudfoundry.org/winc/container/config"
-	"code.cloudfoundry.org/winc/container/mount"
-	"code.cloudfoundry.org/winc/container/process"
-	"code.cloudfoundry.org/winc/hcs"
+	"os"
 
+	"code.cloudfoundry.org/winc/runtime"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -66,7 +62,6 @@ following will output a list of processes running in the container:
 		}
 
 		containerId := context.Args().First()
-		rootDir := context.GlobalString("root")
 		processConfig := context.String("process")
 		args := context.Args()[1:]
 		cwd := context.String("cwd")
@@ -75,39 +70,26 @@ following will output a list of processes running in the container:
 		pidFile := context.String("pid-file")
 		detach := context.Bool("detach")
 
-		logger := logrus.WithField("containerId", containerId)
-
-		processSpec, err := config.ValidateProcess(logger, processConfig, &specs.Process{
+		processOverrides := &specs.Process{
 			Args: args,
 			Cwd:  cwd,
 			User: specs.User{
 				Username: user,
 			},
 			Env: env,
-		})
+		}
+
+		io := runtime.IO{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
+		exitCode, err := run.Exec(containerId, processConfig, pidFile, processOverrides, io, detach)
 		if err != nil {
 			return err
 		}
 
-		logger = logger.WithFields(logrus.Fields{
-			"processConfig": processConfig,
-			"pidFile":       pidFile,
-			"args":          processSpec.Args,
-			"cwd":           processSpec.Cwd,
-			"user":          processSpec.User.Username,
-			"env":           env,
-			"detach":        detach,
-		})
-		logger.Debug("executing process in container")
-
-		cm := container.NewManager(logger, &hcs.Client{}, &mount.Mounter{}, &process.Client{}, containerId, rootDir)
-		process, err := cm.Exec(processSpec, !detach)
-		if err != nil {
-			return err
+		if !detach {
+			os.Exit(exitCode)
 		}
-		defer process.Close()
 
-		return manageProcess(process, detach, pidFile, cm, false)
+		return nil
 	},
 	SkipArgReorder: true,
 }

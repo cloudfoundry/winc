@@ -67,6 +67,12 @@ func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
+func (h *Helpers) RunContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
+	h.GenerateBundle(bundleSpec, bundlePath)
+	_, _, err := h.Execute(exec.Command(h.wincBin, "run", "--detach", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+}
+
 func (h *Helpers) StartContainer(containerId string) {
 	_, _, err := h.Execute(exec.Command(h.wincBin, "start", containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -206,7 +212,7 @@ func (h *Helpers) GenerateRuntimeSpec(baseSpec specs.Spec) specs.Spec {
 	return specs.Spec{
 		Version: specs.Version,
 		Process: &specs.Process{
-			Args: []string{"powershell"},
+			Args: []string{"waitfor", "ever", "/t", "9999"},
 			Cwd:  "C:\\",
 		},
 		Root: &specs.Root{

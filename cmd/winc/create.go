@@ -1,9 +1,7 @@
 package main
 
 import (
-	"code.cloudfoundry.org/winc/container/config"
-
-	"github.com/sirupsen/logrus"
+	"code.cloudfoundry.org/winc/runtime/config"
 	"github.com/urfave/cli"
 )
 
@@ -28,11 +26,6 @@ your host.`,
 			Value: "",
 			Usage: `path to the root of the bundle directory, defaults to the current directory`,
 		},
-		cli.StringFlag{
-			Name:  "pid-file",
-			Value: "",
-			Usage: "specify the file to write the process id to",
-		},
 		cli.BoolFlag{
 			Name:  "no-new-keyring",
 			Usage: "ignored",
@@ -44,18 +37,8 @@ your host.`,
 		}
 
 		containerId := context.Args().First()
-		rootDir := context.GlobalString("root")
 		bundlePath := context.String("bundle")
-		pidFile := context.String("pid-file")
 
-		logger := logrus.WithFields(logrus.Fields{
-			"bundle":      bundlePath,
-			"containerId": containerId,
-			"pidFile":     pidFile,
-		})
-		logger.Debug("creating container")
-
-		_, err := createContainer(logger, bundlePath, containerId, pidFile, rootDir)
-		return err
+		return run.Create(containerId, bundlePath)
 	},
 }

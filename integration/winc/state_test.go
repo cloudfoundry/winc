@@ -52,10 +52,6 @@ var _ = Describe("State", func() {
 			Expect(state.Version).To(Equal(specs.Version))
 			Expect(state.ID).To(Equal(containerId))
 			Expect(state.Bundle).To(Equal(bundlePath))
-
-			p, err := ps.FindProcess(state.Pid)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(p.Executable()).To(Equal("wininit.exe"))
 		})
 	})
 
@@ -74,6 +70,9 @@ var _ = Describe("State", func() {
 			state := helpers.GetContainerState(containerId)
 
 			Expect(state.Status).To(Equal("running"))
+			p, err := ps.FindProcess(state.Pid)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p.Executable()).To(Equal("cmd.exe"))
 		})
 	})
 
@@ -93,6 +92,9 @@ var _ = Describe("State", func() {
 			state := helpers.GetContainerState(containerId)
 
 			Expect(state.Status).To(Equal("running"))
+			p, err := ps.FindProcess(state.Pid)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p.Executable()).To(Equal("cmd.exe"))
 		})
 	})
 
@@ -108,10 +110,10 @@ var _ = Describe("State", func() {
 			theProcessExits(containerId, "cmd.exe")
 		})
 
-		It("returns the status as 'exited'", func() {
+		It("returns the status as 'stopped'", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("exited"))
+			Expect(state.Status).To(Equal("stopped"))
 		})
 	})
 
@@ -127,10 +129,10 @@ var _ = Describe("State", func() {
 			Expect(strings.TrimSpace(stdErr.String())).To(ContainSubstring("could not start command 'cmdf.exe'"))
 		})
 
-		It("returns the status as 'exited'", func() {
+		It("returns the status as 'stopped'", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("exited"))
+			Expect(state.Status).To(Equal("stopped"))
 		})
 	})
 
