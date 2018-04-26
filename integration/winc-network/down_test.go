@@ -13,7 +13,7 @@ var _ = Describe("Down", func() {
 	BeforeEach(func() {
 		bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 
-		helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+		helpers.RunContainer(bundleSpec, bundlePath, containerId)
 		networkConfig = helpers.GenerateNetworkConfig()
 		helpers.CreateNetwork(networkConfig, networkConfigFile)
 

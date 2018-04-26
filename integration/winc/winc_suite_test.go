@@ -3,7 +3,6 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
@@ -91,12 +90,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
-})
-
-var _ = AfterEach(func() {
-	fis, err := ioutil.ReadDir("c:\\proc")
-	Expect(err).NotTo(HaveOccurred())
-	Expect(len(fis)).To(Equal(0))
 })
 
 func processSpecGenerator() specs.Process {

@@ -1,6 +1,8 @@
 package runtime_test
 
 import (
+	"strings"
+
 	"github.com/Microsoft/hcsshim"
 	"github.com/pkg/errors"
 
@@ -116,7 +118,10 @@ var _ = Describe("Delete", func() {
 
 				It("returns the error", func() {
 					err := r.Delete(containerId, false)
-					Expect(err).To(MatchError(&hcs.NotFoundError{}))
+					Expect(err).To(HaveOccurred())
+					errs := strings.Split(err.Error(), "\n")
+
+					Expect(errs).To(ContainElement("container not found: "))
 
 					Expect(mounter.UnmountCallCount()).To(Equal(0))
 					Expect(sm.DeleteCallCount()).To(Equal(0))
