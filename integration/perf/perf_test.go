@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 
 	"code.cloudfoundry.org/winc/network"
 	. "github.com/onsi/ginkgo"
@@ -53,15 +52,12 @@ var _ = Describe("Perf", func() {
 
 	It("image, runtime, and network plugins are performant", func() {
 		By(fmt.Sprintf("creating, running, and deleting %d sandboxes, containers, and network endpoints concurrently", concurrentContainers), func() {
-			var wg sync.WaitGroup
+			g, _ := errgroup.WithContext(context.Background())
+
 			for i := 0; i < concurrentContainers; i++ {
 				containerId := "perf-" + strconv.Itoa(rand.Int())
-				containerIds = append(containerIds, containerId)
-
-				wg.Add(1)
-				go func(containerId string) {
+				g.Go(func() error {
 					defer GinkgoRecover()
-					defer wg.Done()
 
 					bundleSpec := helpers.CreateVolume(rootfsURI, containerId)
 					bundleSpec.Process = &specs.Process{Cwd: "C:\\", Args: []string{"cmd.exe"}}
@@ -74,9 +70,12 @@ var _ = Describe("Perf", func() {
 					helpers.NetworkDown(containerId, networkConfigFile)
 					helpers.DeleteContainer(containerId)
 					helpers.DeleteVolume(containerId)
-				}(containerId)
+
+					return nil
+				})
 			}
-			wg.Wait()
+
+			Expect(g.Wait()).To(Succeed())
 		})
 	})
 
