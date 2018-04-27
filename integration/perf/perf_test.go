@@ -1,6 +1,7 @@
 package perf_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -13,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ = Describe("Perf", func() {
@@ -76,6 +78,34 @@ var _ = Describe("Perf", func() {
 			}
 			wg.Wait()
 		})
+	})
+
+	It(fmt.Sprintf("can create %d containers simultaneously and report the correct state", concurrentContainers), func() {
+		g, _ := errgroup.WithContext(context.Background())
+
+		for i := 0; i < concurrentContainers; i++ {
+			containerId := "perf-" + strconv.Itoa(rand.Int())
+			g.Go(func() error {
+				defer GinkgoRecover()
+
+				bundleSpec := helpers.CreateVolume(rootfsURI, containerId)
+				bundleSpec.Process = &specs.Process{Cwd: "C:\\", Args: []string{"cmd.exe", "/C", "echo hi"}}
+				helpers.CreateContainer(bundleSpec, filepath.Join(bundleDepot, containerId), containerId)
+
+				defer helpers.DeleteVolume(containerId)
+				defer helpers.DeleteContainer(containerId)
+
+				helpers.StartContainer(containerId)
+				helpers.TheProcessExits(containerId, "cmd.exe")
+
+				state := helpers.GetContainerState(containerId)
+				Expect(state.Status).To(Equal("stopped"))
+
+				return nil
+			})
+		}
+
+		Expect(g.Wait()).To(Succeed())
 	})
 })
 

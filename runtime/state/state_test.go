@@ -265,6 +265,7 @@ var _ = Describe("State", func() {
 				ph = 0xf00d
 				sc.OpenProcessReturns(ph, nil)
 				sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 123, LowDateTime: 456}, nil)
+				sc.GetExitCodeProcessReturns(259, nil)
 			})
 
 			It("reports the container is running", func() {
@@ -277,7 +278,10 @@ var _ = Describe("State", func() {
 				Expect(inherit).To(Equal(false))
 				Expect(pid).To(Equal(uint32(1234)))
 
-				handle := sc.GetProcessStartTimeArgsForCall(0)
+				handle := sc.GetExitCodeProcessArgsForCall(0)
+				Expect(handle).To(Equal(ph))
+
+				handle = sc.GetProcessStartTimeArgsForCall(0)
 				Expect(handle).To(Equal(ph))
 
 				Expect(sc.CloseHandleCallCount()).To(Equal(1))
@@ -309,6 +313,7 @@ var _ = Describe("State", func() {
 				ph = 0xf00d
 				sc.OpenProcessReturns(ph, nil)
 				sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 123, LowDateTime: 789}, nil)
+				sc.GetExitCodeProcessReturns(259, nil)
 			})
 
 			It("reports the container is stopped", func() {
@@ -321,11 +326,55 @@ var _ = Describe("State", func() {
 				Expect(inherit).To(Equal(false))
 				Expect(pid).To(Equal(uint32(1234)))
 
-				handle := sc.GetProcessStartTimeArgsForCall(0)
+				handle := sc.GetExitCodeProcessArgsForCall(0)
+				Expect(handle).To(Equal(ph))
+
+				handle = sc.GetProcessStartTimeArgsForCall(0)
 				Expect(handle).To(Equal(ph))
 
 				Expect(sc.CloseHandleCallCount()).To(Equal(1))
 				Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
+			})
+		})
+
+		Context("init process has exited", func() {
+			var ph syscall.Handle
+
+			BeforeEach(func() {
+				ph = 0xf00d
+				sc.OpenProcessReturns(ph, nil)
+				sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 123, LowDateTime: 789}, nil)
+				sc.GetExitCodeProcessReturns(0, nil)
+			})
+
+			It("reports the container is stopped", func() {
+				ociState, err := sm.State()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ociState.Status).To(Equal("stopped"))
+
+				handle := sc.GetExitCodeProcessArgsForCall(0)
+				Expect(handle).To(Equal(ph))
+
+				Expect(sc.GetProcessStartTimeCallCount()).To(Equal(0))
+				Expect(sc.CloseHandleCallCount()).To(Equal(1))
+				Expect(sc.CloseHandleArgsForCall(0)).To(Equal(ph))
+			})
+		})
+
+		Context("getting process exit code fails", func() {
+			var ph syscall.Handle
+
+			BeforeEach(func() {
+				ph = 0xf00d
+				sc.OpenProcessReturns(ph, nil)
+				sc.GetProcessStartTimeReturns(syscall.Filetime{HighDateTime: 123, LowDateTime: 789}, nil)
+				sc.GetExitCodeProcessReturns(0, errors.New("failed to get exit code for process"))
+			})
+
+			It("returns the error", func() {
+				_, err := sm.State()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("GetExitCodeProcess: failed to get exit code for process"))
 			})
 		})
 
@@ -375,6 +424,7 @@ var _ = Describe("State", func() {
 				ph = 0xf00d
 				sc.OpenProcessReturns(ph, nil)
 				sc.GetProcessStartTimeReturns(syscall.Filetime{}, syscall.Errno(0x6))
+				sc.GetExitCodeProcessReturns(259, nil)
 			})
 
 			It("wraps the error", func() {

@@ -27,3 +27,9 @@ func (w *WinSyscall) GetProcessStartTime(handle syscall.Handle) (syscall.Filetim
 func (w *WinSyscall) CloseHandle(handle syscall.Handle) error {
 	return syscall.CloseHandle(handle)
 }
+
+func (w *WinSyscall) GetExitCodeProcess(handle syscall.Handle) (uint32, error) {
+	var exitCode uint32
+	err := syscall.GetExitCodeProcess(handle, &exitCode)
+	return exitCode, err
+}

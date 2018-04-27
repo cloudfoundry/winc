@@ -274,7 +274,6 @@ func (h *Helpers) TheProcessExits(containerId, image string) {
 	for i := 0; i < 5; i++ {
 		time.Sleep(time.Duration(i) * time.Second)
 		pl := h.ContainerProcesses(containerId, image)
-		fmt.Println(pl)
 		if len(pl) == 0 {
 			exited = true
 			break
@@ -293,7 +292,6 @@ func (h *Helpers) ContainerProcesses(containerId, filter string) []hcsshim.Proce
 	if filter != "" {
 		var filteredPL []hcsshim.ProcessListItem
 		for _, v := range pl {
-			fmt.Println(v.ImageName)
 			if v.ImageName == filter {
 				filteredPL = append(filteredPL, v)
 			}

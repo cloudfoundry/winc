@@ -15,6 +15,7 @@ import (
 )
 
 const stateFile = "state.json"
+const STILL_ACTIVE_EXIT_CODE = uint32(259)
 
 type Manager struct {
 	logger      *logrus.Entry
@@ -41,6 +42,7 @@ type WinSyscall interface {
 	OpenProcess(uint32, bool, uint32) (syscall.Handle, error)
 	GetProcessStartTime(syscall.Handle) (syscall.Filetime, error)
 	CloseHandle(syscall.Handle) error
+	GetExitCodeProcess(syscall.Handle) (uint32, error)
 }
 
 func New(logger *logrus.Entry, hcsClient HCSClient, winSyscall WinSyscall, id, rootDir string) *Manager {
@@ -168,6 +170,15 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 		return "", fmt.Errorf("OpenProcess: %s", err.Error())
 	}
 	defer m.sc.CloseHandle(h)
+
+	exitCode, err := m.sc.GetExitCodeProcess(h)
+	if err != nil {
+		return "", fmt.Errorf("GetExitCodeProcess: %s", err.Error())
+	}
+
+	if exitCode != STILL_ACTIVE_EXIT_CODE {
+		return "stopped", nil
+	}
 
 	creationTime, err := m.sc.GetProcessStartTime(h)
 	if err != nil {

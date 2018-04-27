@@ -48,6 +48,19 @@ type WinSyscall struct {
 	closeHandleReturnsOnCall map[int]struct {
 		result1 error
 	}
+	GetExitCodeProcessStub        func(syscall.Handle) (uint32, error)
+	getExitCodeProcessMutex       sync.RWMutex
+	getExitCodeProcessArgsForCall []struct {
+		arg1 syscall.Handle
+	}
+	getExitCodeProcessReturns struct {
+		result1 uint32
+		result2 error
+	}
+	getExitCodeProcessReturnsOnCall map[int]struct {
+		result1 uint32
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -204,6 +217,57 @@ func (fake *WinSyscall) CloseHandleReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *WinSyscall) GetExitCodeProcess(arg1 syscall.Handle) (uint32, error) {
+	fake.getExitCodeProcessMutex.Lock()
+	ret, specificReturn := fake.getExitCodeProcessReturnsOnCall[len(fake.getExitCodeProcessArgsForCall)]
+	fake.getExitCodeProcessArgsForCall = append(fake.getExitCodeProcessArgsForCall, struct {
+		arg1 syscall.Handle
+	}{arg1})
+	fake.recordInvocation("GetExitCodeProcess", []interface{}{arg1})
+	fake.getExitCodeProcessMutex.Unlock()
+	if fake.GetExitCodeProcessStub != nil {
+		return fake.GetExitCodeProcessStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fake.getExitCodeProcessReturns.result1, fake.getExitCodeProcessReturns.result2
+}
+
+func (fake *WinSyscall) GetExitCodeProcessCallCount() int {
+	fake.getExitCodeProcessMutex.RLock()
+	defer fake.getExitCodeProcessMutex.RUnlock()
+	return len(fake.getExitCodeProcessArgsForCall)
+}
+
+func (fake *WinSyscall) GetExitCodeProcessArgsForCall(i int) syscall.Handle {
+	fake.getExitCodeProcessMutex.RLock()
+	defer fake.getExitCodeProcessMutex.RUnlock()
+	return fake.getExitCodeProcessArgsForCall[i].arg1
+}
+
+func (fake *WinSyscall) GetExitCodeProcessReturns(result1 uint32, result2 error) {
+	fake.GetExitCodeProcessStub = nil
+	fake.getExitCodeProcessReturns = struct {
+		result1 uint32
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *WinSyscall) GetExitCodeProcessReturnsOnCall(i int, result1 uint32, result2 error) {
+	fake.GetExitCodeProcessStub = nil
+	if fake.getExitCodeProcessReturnsOnCall == nil {
+		fake.getExitCodeProcessReturnsOnCall = make(map[int]struct {
+			result1 uint32
+			result2 error
+		})
+	}
+	fake.getExitCodeProcessReturnsOnCall[i] = struct {
+		result1 uint32
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *WinSyscall) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -213,6 +277,8 @@ func (fake *WinSyscall) Invocations() map[string][][]interface{} {
 	defer fake.getProcessStartTimeMutex.RUnlock()
 	fake.closeHandleMutex.RLock()
 	defer fake.closeHandleMutex.RUnlock()
+	fake.getExitCodeProcessMutex.RLock()
+	defer fake.getExitCodeProcessMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
