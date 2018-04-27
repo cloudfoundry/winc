@@ -52,7 +52,7 @@ var _ = Describe("Exec", func() {
 			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\tmp\\sleep.exe"}, true)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			pl := containerProcesses(containerId, "sleep.exe")
+			pl := helpers.ContainerProcesses(containerId, "sleep.exe")
 			Expect(len(pl)).To(Equal(1))
 		})
 
@@ -60,7 +60,7 @@ var _ = Describe("Exec", func() {
 			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"/tmp/sleep"}, true)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			pl := containerProcesses(containerId, "sleep.exe")
+			pl := helpers.ContainerProcesses(containerId, "sleep.exe")
 			Expect(len(pl)).To(Equal(1))
 		})
 
@@ -103,7 +103,7 @@ var _ = Describe("Exec", func() {
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
-				pl := containerProcesses(containerId, "sleep.exe")
+				pl := helpers.ContainerProcesses(containerId, "sleep.exe")
 				Expect(len(pl)).To(Equal(1))
 			})
 
@@ -184,11 +184,11 @@ var _ = Describe("Exec", func() {
 				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"/tmp/sleep", "5"}, true)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
-				pl := containerProcesses(containerId, "sleep.exe")
+				pl := helpers.ContainerProcesses(containerId, "sleep.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				Eventually(func() []hcsshim.ProcessListItem {
-					return containerProcesses(containerId, "sleep.exe")
+					return helpers.ContainerProcesses(containerId, "sleep.exe")
 				}, "10s").Should(BeEmpty())
 			})
 		})
@@ -200,7 +200,7 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(session).Should(gexec.Exit(5))
 
-				pl := containerProcesses(containerId, "cmd.exe")
+				pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(0))
 			})
 
@@ -233,12 +233,12 @@ var _ = Describe("Exec", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Consistently(session).ShouldNot(gexec.Exit(0))
 				Eventually(session.Out).Should(gbytes.Say("hey-winc"))
-				pl := containerProcesses(containerId, "cmd.exe")
+				pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				sendCtrlBreak(session)
 				Eventually(session).Should(gexec.Exit(1067))
-				pl = containerProcesses(containerId, "cmd.exe")
+				pl = helpers.ContainerProcesses(containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(0))
 			})
 		})
@@ -262,7 +262,7 @@ var _ = Describe("Exec", func() {
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
-				pl := containerProcesses(containerId, "cmd.exe")
+				pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(1))
 
 				pidBytes, err := ioutil.ReadFile(pidFile)

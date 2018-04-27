@@ -107,7 +107,7 @@ var _ = Describe("State", func() {
 
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			helpers.StartContainer(containerId)
-			theProcessExits(containerId, "cmd.exe")
+			helpers.TheProcessExits(containerId, "cmd.exe")
 		})
 
 		It("returns the status as 'stopped'", func() {

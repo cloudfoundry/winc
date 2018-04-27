@@ -10,7 +10,6 @@ import (
 	"time"
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
-	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -95,27 +94,6 @@ func processSpecGenerator() specs.Process {
 		Args: []string{"cmd.exe"},
 		Env:  []string{"var1=foo", "var2=bar"},
 	}
-}
-
-func containerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
-	container, err := hcsshim.OpenContainer(containerId)
-	Expect(err).To(Succeed())
-
-	pl, err := container.ProcessList()
-	Expect(err).To(Succeed())
-
-	if filter != "" {
-		var filteredPL []hcsshim.ProcessListItem
-		for _, v := range pl {
-			if v.ImageName == filter {
-				filteredPL = append(filteredPL, v)
-			}
-		}
-
-		return filteredPL
-	}
-
-	return pl
 }
 
 func sendCtrlBreak(s *gexec.Session) {

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -61,7 +60,7 @@ var _ = Describe("Start", func() {
 		It("runs the init process", func() {
 			helpers.StartContainer(containerId)
 
-			pl := containerProcesses(containerId, "cmd.exe")
+			pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 			Expect(len(pl)).To(Equal(1))
 
 			containerPid := helpers.GetContainerState(containerId).Pid
@@ -123,7 +122,7 @@ var _ = Describe("Start", func() {
 			}
 			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 			helpers.StartContainer(containerId)
-			theProcessExits(containerId, "cmd.exe")
+			helpers.TheProcessExits(containerId, "cmd.exe")
 		})
 
 		It("errors", func() {
@@ -160,17 +159,3 @@ var _ = Describe("Start", func() {
 		})
 	})
 })
-
-func theProcessExits(containerId, image string) {
-	exited := false
-
-	for i := 0; i < 5; i++ {
-		time.Sleep(time.Duration(i) * time.Second)
-		pl := containerProcesses(containerId, image)
-		if len(pl) == 0 {
-			exited = true
-			break
-		}
-	}
-	ExpectWithOffset(1, exited).To(BeTrue())
-}

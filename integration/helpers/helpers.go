@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/localip"
@@ -265,6 +266,43 @@ func (h *Helpers) ExitCode(err error) (int, error) {
 	} else {
 		return -1, errors.New("Error was not an exec.ExitError")
 	}
+}
+
+func (h *Helpers) TheProcessExits(containerId, image string) {
+	exited := false
+
+	for i := 0; i < 5; i++ {
+		time.Sleep(time.Duration(i) * time.Second)
+		pl := h.ContainerProcesses(containerId, image)
+		fmt.Println(pl)
+		if len(pl) == 0 {
+			exited = true
+			break
+		}
+	}
+	ExpectWithOffset(1, exited).To(BeTrue())
+}
+
+func (h *Helpers) ContainerProcesses(containerId, filter string) []hcsshim.ProcessListItem {
+	container, err := hcsshim.OpenContainer(containerId)
+	Expect(err).To(Succeed())
+
+	pl, err := container.ProcessList()
+	Expect(err).To(Succeed())
+
+	if filter != "" {
+		var filteredPL []hcsshim.ProcessListItem
+		for _, v := range pl {
+			fmt.Println(v.ImageName)
+			if v.ImageName == filter {
+				filteredPL = append(filteredPL, v)
+			}
+		}
+
+		return filteredPL
+	}
+
+	return pl
 }
 
 func (h *Helpers) loadGatewaysInUse(f filelock.LockedFile) []string {

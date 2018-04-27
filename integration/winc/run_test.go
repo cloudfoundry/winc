@@ -50,7 +50,7 @@ var _ = Describe("Run", func() {
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())
 
-		pl := containerProcesses(containerId, "waitfor.exe")
+		pl := helpers.ContainerProcesses(containerId, "waitfor.exe")
 		Expect(len(pl)).To(Equal(1))
 
 		containerPid := helpers.GetContainerState(containerId).Pid
@@ -144,14 +144,14 @@ var _ = Describe("Run", func() {
 			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 			Expect(err).ToNot(HaveOccurred())
 
-			pl := containerProcesses(containerId, "cmd.exe")
+			pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 			Expect(len(pl)).To(Equal(1))
 
 			containerPid := helpers.GetContainerState(containerId).Pid
 			Expect(pl[0].ProcessId).To(Equal(uint32(containerPid)))
 
 			Eventually(func() []hcsshim.ProcessListItem {
-				return containerProcesses(containerId, "cmd.exe")
+				return helpers.ContainerProcesses(containerId, "cmd.exe")
 			}, "10s").Should(BeEmpty())
 		})
 	})
@@ -204,7 +204,7 @@ var _ = Describe("Run", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Consistently(session).ShouldNot(gexec.Exit(0))
 			Eventually(session.Out).Should(gbytes.Say("hey-winc"))
-			pl := containerProcesses(containerId, "cmd.exe")
+			pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 			Expect(len(pl)).To(Equal(1))
 
 			sendCtrlBreak(session)
