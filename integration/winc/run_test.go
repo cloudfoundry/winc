@@ -168,16 +168,10 @@ var _ = Describe("Run", func() {
 		})
 
 		It("passes stdin through to the process", func() {
-			bundleSpec.Process.Args = []string{"C:\\temp\\read.exe"}
-			bundleSpec.Mounts = []specs.Mount{
-				{
-					Source:      filepath.Dir(readBin),
-					Destination: "C:\\temp",
-				},
-			}
+			bundleSpec.Process.Args = []string{"findstr", ".*"}
 			helpers.GenerateBundle(bundleSpec, bundlePath)
 			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
-			cmd.Stdin = strings.NewReader("hey-winc\n")
+			cmd.Stdin = strings.NewReader("hey-winc")
 			stdOut, _, err := helpers.Execute(cmd)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("hey-winc"))

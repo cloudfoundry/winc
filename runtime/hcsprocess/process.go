@@ -42,10 +42,12 @@ func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.
 		go func() {
 			_, _ = io.Copy(stdin, attachStdin)
 			_ = stdin.Close()
+			p.process.CloseStdin()
 			wg.Done()
 		}()
 	} else {
 		_ = stdin.Close()
+		p.process.CloseStdin()
 	}
 
 	if attachStdout != nil {

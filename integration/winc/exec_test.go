@@ -205,11 +205,8 @@ var _ = Describe("Exec", func() {
 			})
 
 			It("passes stdin through to the process", func() {
-				containerPid := helpers.GetContainerState(containerId).Pid
-				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(containerPid), "root", "read.exe"), readBin)
-
-				cmd := exec.Command(wincBin, "exec", containerId, "c:\\read.exe")
-				cmd.Stdin = strings.NewReader("hey-winc\n")
+				cmd := exec.Command(wincBin, "exec", containerId, "findstr", ".*")
+				cmd.Stdin = strings.NewReader("hey-winc")
 				stdOut, stdErr, err := helpers.Execute(cmd)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 				Expect(stdOut.String()).To(ContainSubstring("hey-winc"))

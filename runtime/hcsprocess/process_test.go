@@ -84,6 +84,14 @@ var _ = Describe("Process", func() {
 			Eventually(attachedStderr).Should(gbytes.Say("something-on-stderr"))
 		})
 
+		It("closes the process' stdin pipe after copying", func() {
+			exitCode, err := wrappedProcess.AttachIO(attachedStdin, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exitCode).To(Equal(0))
+			Eventually(processStdin).Should(gbytes.Say("something-on-stdin"))
+			Expect(fakeProcess.CloseStdinCallCount()).To(Equal(1))
+		})
+
 		Context("when getting the stdio streams fails", func() {
 			BeforeEach(func() {
 				fakeProcess.StdioReturns(nil, nil, nil, errors.New("some error"))
@@ -136,6 +144,12 @@ var _ = Describe("Process", func() {
 				Expect(processStdin.Contents()).To(Equal([]byte{}))
 				Eventually(attachedStdout).Should(gbytes.Say("something-on-stdout"))
 				Eventually(attachedStderr).Should(gbytes.Say("something-on-stderr"))
+			})
+
+			It("closes the process' stdin", func() {
+				_, err := wrappedProcess.AttachIO(nil, attachedStdout, attachedStderr)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeProcess.CloseStdinCallCount()).To(Equal(1))
 			})
 		})
 

@@ -29,7 +29,6 @@ var (
 	grootBin        string
 	grootImageStore string
 	rootfsURI       string
-	readBin         string
 	consumeBin      string
 	sleepBin        string
 	helpers         *testhelpers.Helpers
@@ -79,8 +78,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/consume")
-	Expect(err).ToNot(HaveOccurred())
-	readBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/read")
 	Expect(err).ToNot(HaveOccurred())
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
