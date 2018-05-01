@@ -1,12 +1,17 @@
 package main_test
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -48,6 +53,140 @@ var _ = Describe("Flags", func() {
 			stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("winc.exe - Open Container Initiative runtime for Windows"))
+		})
+	})
+
+	FContext("when passed '--log-handle'", func() {
+		var (
+			logHandle string
+			logR      *os.File
+			logW      *os.File
+			dupped    syscall.Handle
+		)
+
+		BeforeEach(func() {
+			var err error
+
+			logR, logW, err = os.Pipe()
+			Expect(err).NotTo(HaveOccurred())
+
+			self, _ := syscall.GetCurrentProcess()
+			err = syscall.DuplicateHandle(self, syscall.Handle(logW.Fd()), self, &dupped, 0, true, syscall.DUPLICATE_SAME_ACCESS)
+			Expect(err).NotTo(HaveOccurred())
+			logW.Close()
+
+			logHandle = strconv.FormatUint(uint64(dupped), 10)
+		})
+
+		AfterEach(func() {
+			if logR != nil {
+				logR.Close()
+			}
+		})
+
+		It("accepts the flag and prints the --log-handle flag usage", func() {
+			args := []string{"--log-handle", logHandle}
+			stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stdOut.String()).To(MatchRegexp("GLOBAL OPTIONS:(.|\n)*--log-handle value"))
+		})
+
+		Context("when the winc command logs non error messages", func() {
+			var (
+				containerId string
+				bundlePath  string
+				bundleSpec  specs.Spec
+			)
+
+			BeforeEach(func() {
+				var err error
+				bundlePath, err = ioutil.TempDir("", "winccontainer")
+				Expect(err).To(Succeed())
+
+				containerId = filepath.Base(bundlePath)
+
+				bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+				helpers.GenerateBundle(bundleSpec, bundlePath)
+			})
+
+			AfterEach(func() {
+				helpers.DeleteContainer(containerId)
+				helpers.DeleteVolume(containerId)
+				Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			})
+
+			It("does not log anything", func() {
+				args := []string{"--log-handle", logHandle, "create", containerId, "-b", bundlePath}
+				fmt.Println(args)
+				fmt.Println("executing")
+
+				go func() {
+					io.Copy(os.Stdout, logR)
+					fmt.Println("done copying")
+				}()
+
+				stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
+				Expect(err).NotTo(HaveOccurred())
+
+				fmt.Println("reading")
+				log, err := ioutil.ReadAll(logR)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(log).To(BeEmpty())
+
+				Expect(stdOut.String()).To(BeEmpty())
+			})
+
+			Context("when the log handle is not valid", func() {
+				It("returns a useful error", func() {
+					args := []string{"--log-handle", "1234", "create", containerId, "-b", bundlePath}
+					_, _, err := helpers.Execute(exec.Command(wincBin, args...))
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal("a useful error"))
+				})
+			})
+
+			FContext("when the --debug flag is set", func() {
+				It("logs to the log handle", func() {
+					args := []string{"--log-handle", logHandle, "--debug", "create", containerId, "-b", bundlePath}
+					fmt.Println(args)
+					fmt.Println("executing")
+
+					wg := sync.WaitGroup{}
+					wg.Add(1)
+					log := new(bytes.Buffer)
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						defer logR.Close()
+						_, err := io.Copy(log, logR)
+						Expect(err).NotTo(HaveOccurred())
+					}()
+
+					stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
+					Expect(syscall.CloseHandle(dupped)).To(Succeed())
+					Expect(err).NotTo(HaveOccurred())
+
+					wg.Wait()
+					Expect(log.String()).To(ContainSubstring(fmt.Sprintf(`"containerId":"%s"`, containerId)))
+
+					Expect(stdOut.String()).To(BeEmpty())
+				})
+			})
+		})
+
+		Context("when the winc command errors", func() {
+			It("logs the error to the specified handle and still prints the final error to stderr", func() {
+				args := []string{"--log-handle", logHandle, "create", "nonexistent"}
+				_, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
+				Expect(err).To(HaveOccurred())
+				Expect(stdErr.String()).To(ContainSubstring("bundle config.json does not exist"))
+
+				log, err := ioutil.ReadAll(logR)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedLogContents := strings.Replace(strings.Trim(stdErr.String(), "\n"), `\`, `\\`, -1)
+				Expect(string(log)).To(ContainSubstring(expectedLogContents))
+			})
 		})
 	})
 

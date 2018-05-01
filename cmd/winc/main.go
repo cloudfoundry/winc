@@ -50,6 +50,8 @@ func (w *processWrapper) Wrap(p hcs.Process) runtime.WrappedProcess {
 }
 
 func main() {
+	var logFileHandle *os.File
+
 	app := cli.NewApp()
 	app.Name = "winc.exe"
 	app.Usage = usage
@@ -63,6 +65,10 @@ func main() {
 			Name:  "log",
 			Value: os.DevNull,
 			Usage: "set the log file path where internal debug information is written",
+		},
+		cli.Uint64Flag{
+			Name:  "log-handle",
+			Usage: "write the logs to this handle that winc has inherited",
 		},
 		cli.StringFlag{
 			Name:  "log-format",
@@ -93,6 +99,7 @@ func main() {
 
 	app.Before = func(context *cli.Context) error {
 		debug := context.GlobalBool("debug")
+		logHandle := context.GlobalUint64("log-handle")
 		logFile := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
@@ -102,19 +109,23 @@ func main() {
 		}
 
 		var logWriter io.Writer
-		if logFile == "" || logFile == os.DevNull {
+		if (logFile == "" || logFile == os.DevNull) && logHandle == 0 {
 			logWriter = ioutil.Discard
+		} else if logHandle != 0 {
+			logFileHandle = os.NewFile(uintptr(logHandle), fmt.Sprintf("%d.winc.log", os.Getpid()))
+			logWriter = logFileHandle
 		} else {
 			if err := os.MkdirAll(filepath.Dir(logFile), 0666); err != nil {
 				return err
 			}
 
-			f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
+			var err error
+			logFileHandle, err = os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
 			if err != nil {
 				return err
 			}
 
-			logWriter = f
+			logWriter = logFileHandle
 		}
 		logrus.SetOutput(logWriter)
 
@@ -134,6 +145,13 @@ func main() {
 		processWrapper := &processWrapper{}
 
 		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir)
+		return nil
+	}
+
+	app.After = func(context *cli.Context) error {
+		if logFileHandle != nil {
+			logFileHandle.Close()
+		}
 		return nil
 	}
 
