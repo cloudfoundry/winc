@@ -79,32 +79,34 @@ var _ = Describe("Perf", func() {
 		})
 	})
 
-	It(fmt.Sprintf("can create %d containers simultaneously and report the correct state", concurrentContainers), func() {
-		g, _ := errgroup.WithContext(context.Background())
+	It("reports the correct state", func() {
+		By(fmt.Sprintf("creating %d containers concurrently", concurrentContainers), func() {
+			g, _ := errgroup.WithContext(context.Background())
 
-		for i := 0; i < concurrentContainers; i++ {
-			containerId := "perf-" + strconv.Itoa(rand.Int())
-			g.Go(func() error {
-				defer GinkgoRecover()
+			for i := 0; i < concurrentContainers; i++ {
+				containerId := "perf-" + strconv.Itoa(rand.Int())
+				g.Go(func() error {
+					defer GinkgoRecover()
 
-				bundleSpec := helpers.CreateVolume(rootfsURI, containerId)
-				bundleSpec.Process = &specs.Process{Cwd: "C:\\", Args: []string{"cmd.exe", "/C", "echo hi"}}
-				helpers.CreateContainer(bundleSpec, filepath.Join(bundleDepot, containerId), containerId)
+					bundleSpec := helpers.CreateVolume(rootfsURI, containerId)
+					bundleSpec.Process = &specs.Process{Cwd: "C:\\", Args: []string{"cmd.exe", "/C", "echo hi"}}
+					helpers.CreateContainer(bundleSpec, filepath.Join(bundleDepot, containerId), containerId)
 
-				defer helpers.DeleteVolume(containerId)
-				defer helpers.DeleteContainer(containerId)
+					defer helpers.DeleteVolume(containerId)
+					defer helpers.DeleteContainer(containerId)
 
-				helpers.StartContainer(containerId)
-				helpers.TheProcessExits(containerId, "cmd.exe")
+					helpers.StartContainer(containerId)
+					helpers.TheProcessExits(containerId, "cmd.exe")
 
-				state := helpers.GetContainerState(containerId)
-				Expect(state.Status).To(Equal("stopped"))
+					state := helpers.GetContainerState(containerId)
+					Expect(state.Status).To(Equal("stopped"))
 
-				return nil
-			})
-		}
+					return nil
+				})
+			}
 
-		Expect(g.Wait()).To(Succeed())
+			Expect(g.Wait()).To(Succeed())
+		})
 	})
 })
 
