@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
+	"unsafe"
 
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/runtime"
@@ -16,6 +19,7 @@ import (
 	"code.cloudfoundry.org/winc/runtime/winsyscall"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -30,6 +34,11 @@ implementation of the Open Container Initiative specification.`
 )
 
 var run *runtime.Runtime
+
+var (
+	kernel32             = windows.NewLazySystemDLL("kernel32.dll")
+	getHandleInformation = kernel32.NewProc("GetHandleInformation")
+)
 
 type stateFactory struct{}
 
@@ -50,6 +59,13 @@ func (w *processWrapper) Wrap(p hcs.Process) runtime.WrappedProcess {
 }
 
 func main() {
+	var logFile *os.File
+	defer func() {
+		if logFile != nil {
+			logFile.Close()
+		}
+	}()
+
 	app := cli.NewApp()
 	app.Name = "winc.exe"
 	app.Usage = usage
@@ -63,6 +79,10 @@ func main() {
 			Name:  "log",
 			Value: os.DevNull,
 			Usage: "set the log file path where internal debug information is written",
+		},
+		cli.Uint64Flag{
+			Name:  "log-handle",
+			Usage: "write the logs to this handle that winc has inherited",
 		},
 		cli.StringFlag{
 			Name:  "log-format",
@@ -93,7 +113,8 @@ func main() {
 
 	app.Before = func(context *cli.Context) error {
 		debug := context.GlobalBool("debug")
-		logFile := context.GlobalString("log")
+		logHandle := context.GlobalUint64("log-handle")
+		log := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
 
@@ -102,20 +123,35 @@ func main() {
 		}
 
 		var logWriter io.Writer
-		if logFile == "" || logFile == os.DevNull {
-			logWriter = ioutil.Discard
-		} else {
-			if err := os.MkdirAll(filepath.Dir(logFile), 0666); err != nil {
+		logWriter = ioutil.Discard
+
+		if !emptyLog(log) && logHandle != 0 {
+			return errors.New("only one of --log and --log-handle can be passed")
+		}
+
+		if logHandle != 0 {
+			if err := validHandle(syscall.Handle(logHandle)); err != nil {
+				return fmt.Errorf("log handle %d invalid: %s", logHandle, err.Error())
+			}
+
+			logFile = os.NewFile(uintptr(logHandle), fmt.Sprintf("%d.winc.log", os.Getpid()))
+			logWriter = logFile
+		}
+
+		if !emptyLog(log) {
+			if err := os.MkdirAll(filepath.Dir(log), 0666); err != nil {
 				return err
 			}
 
-			f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
+			var err error
+			logFile, err = os.OpenFile(log, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
 			if err != nil {
 				return err
 			}
 
-			logWriter = f
+			logWriter = logFile
 		}
+
 		logrus.SetOutput(logWriter)
 
 		switch logFormat {
@@ -182,4 +218,18 @@ func fatal(err error) {
 	logrus.Error(err)
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
+}
+
+func validHandle(handle syscall.Handle) error {
+	var flags uint32
+	r0, _, err := getHandleInformation.Call(uintptr(handle), uintptr(unsafe.Pointer(&flags)))
+	if r0 == 0 {
+		return err
+	}
+
+	return nil
+}
+
+func emptyLog(log string) bool {
+	return (log == "" || log == os.DevNull)
 }
