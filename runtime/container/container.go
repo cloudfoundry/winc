@@ -38,6 +38,10 @@ type Statistics struct {
 				TotalRss uint64 `json:"total_rss,omitempty"`
 			} `json:"raw,omitempty"`
 		} `json:"memory,omitempty"`
+		Pids struct {
+			Current uint64 `json:"current,omitempty"`
+			Limit uint64 `json:"limit,omitempty"`
+		} `json:"pids"`
 	} `json:"data,omitempty"`
 }
 
@@ -256,10 +260,16 @@ func (m *Manager) Stats() (Statistics, error) {
 		return stats, err
 	}
 
+	processListItems, err := container.ProcessList()
+	if err != nil {
+		return stats, err
+	}
+
 	stats.Data.Memory.Raw.TotalRss = containerStats.Memory.UsageCommitBytes
 	stats.Data.CPUStats.CPUUsage.Usage = containerStats.Processor.TotalRuntime100ns * 100
 	stats.Data.CPUStats.CPUUsage.User = containerStats.Processor.RuntimeUser100ns * 100
 	stats.Data.CPUStats.CPUUsage.System = containerStats.Processor.RuntimeKernel100ns * 100
+	stats.Data.Pids.Current = uint64(len(processListItems))
 
 	return stats, nil
 }

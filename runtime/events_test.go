@@ -66,7 +66,8 @@ var _ = Describe("Events", func() {
     },
     "memory": {
       "raw": {}
-    }
+    },
+    "pids": {}
   }
 }`
 		})

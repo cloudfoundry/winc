@@ -52,6 +52,7 @@ var _ = Describe("Stats", func() {
 					RuntimeUser100ns:   22,
 				},
 			}, nil)
+			fakeContainer.ProcessListReturns([]hcsshim.ProcessListItem{hcsshim.ProcessListItem{}}, nil)
 		})
 
 		It("returns the correct container stats values", func() {
@@ -66,6 +67,8 @@ var _ = Describe("Stats", func() {
 			expectedStats.Data.CPUStats.CPUUsage.Usage = 12300
 			expectedStats.Data.CPUStats.CPUUsage.System = 10100
 			expectedStats.Data.CPUStats.CPUUsage.User = 2200
+			expectedStats.Data.Pids.Current = 1
+			expectedStats.Data.Pids.Limit = 0
 			Expect(stats).To(Equal(expectedStats))
 		})
 	})
