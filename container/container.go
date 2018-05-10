@@ -480,31 +480,31 @@ func (m *Manager) Start(detach bool, duplicateFile string) (hcsshim.Process, err
 	}
 
 	if duplicateFile != "" {
-		ch, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|syscall.SYNCHRONIZE, false, uint32(proc.Pid()))
+		childProcessHandle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|syscall.SYNCHRONIZE, false, uint32(proc.Pid()))
 		if err != nil {
 			return nil, fmt.Errorf("OpenProcess (container): %s", err.Error())
 		}
-		defer syscall.CloseHandle(ch)
+		defer syscall.CloseHandle(childProcessHandle)
 
-		pph, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|_PROCESS_DUP_HANDLE, false, uint32(os.Getppid()))
+		parentProcessHandle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION|_PROCESS_DUP_HANDLE, false, uint32(os.Getppid()))
 		if err != nil {
 			return nil, fmt.Errorf("OpenProcess (parent): %s", err.Error())
 		}
-		defer syscall.CloseHandle(pph)
+		defer syscall.CloseHandle(parentProcessHandle)
 
-		ph, err := syscall.GetCurrentProcess()
+		currentProcessHandle, err := syscall.GetCurrentProcess()
 		if err != nil {
 			return nil, fmt.Errorf("GetCurrentProcess: %s", err.Error())
 		}
-		defer syscall.CloseHandle(ph)
+		defer syscall.CloseHandle(currentProcessHandle)
 
-		var d syscall.Handle
+		var handle syscall.Handle
 
 		if err := syscall.DuplicateHandle(
-			ph,
-			ch,
-			pph,
-			&d,
+			currentProcessHandle,
+			childProcessHandle,
+			parentProcessHandle,
+			&handle,
 			0,
 			false,
 			syscall.DUPLICATE_SAME_ACCESS,
@@ -512,7 +512,7 @@ func (m *Manager) Start(detach bool, duplicateFile string) (hcsshim.Process, err
 			return nil, fmt.Errorf("DuplicateHandle: %s", err.Error())
 		}
 
-		if err := ioutil.WriteFile(duplicateFile, []byte(fmt.Sprintf("%d", d)), 0600); err != nil {
+		if err := ioutil.WriteFile(duplicateFile, []byte(fmt.Sprintf("%d", handle)), 0600); err != nil {
 			return nil, err
 		}
 	}
