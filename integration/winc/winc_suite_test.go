@@ -47,6 +47,10 @@ type wincStats struct {
 				TotalRss uint64 `json:"total_rss"`
 			} `json:"raw"`
 		} `json:"memory"`
+		Pids struct {
+			Current uint64 `json:"current,omitempty"`
+			Limit uint64 `json:"limit,omitempty"`
+		} `json:"pids"`
 	} `json:"data"`
 }
 

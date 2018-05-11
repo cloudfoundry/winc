@@ -93,6 +93,18 @@ var _ = Describe("Events", func() {
 					cpuUsageAfter := getStats(containerId).Data.CPUStats.CPUUsage.Usage
 					Expect(cpuUsageAfter).To(BeNumerically(">", cpuUsageBefore))
 				})
+
+				It("prints the number of running processes stats to stdout", func() {
+					pidCountBefore := getStats(containerId).Data.Pids.Current
+					Expect(pidCountBefore).To(BeNumerically(">", 0))
+
+					args := []string{"waitfor", "somethingelse", "/T", "9999"}
+					stdOut, stdErr, err := helpers.ExecInContainer(containerId, args, true)
+					Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+
+					pidCountAfter := getStats(containerId).Data.Pids.Current
+					Expect(pidCountAfter).To(Equal(pidCountBefore + 1))
+				})
 			})
 		})
 	})
