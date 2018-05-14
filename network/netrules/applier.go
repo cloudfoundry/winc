@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/firewall"
+	"github.com/Microsoft/hcsshim"
 )
 
 //go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
@@ -54,18 +56,41 @@ func NewApplier(netSh NetShRunner, containerId string, networkName string, portA
 	}
 }
 
-func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
+func (a *Applier) In(rule NetIn, containerIP string) (hcsshim.NatPolicy, hcsshim.ACLPolicy, error) {
 	externalPort := rule.HostPort
-	mapping := PortMapping{}
 
 	if externalPort == 0 {
 		allocatedPort, err := a.portAllocator.AllocatePort(a.containerId, 0)
 		if err != nil {
-			return mapping, err
+			return hcsshim.NatPolicy{}, hcsshim.ACLPolicy{}, err
 		}
 		externalPort = uint32(allocatedPort)
 	}
 
+	if err := a.netInModifyHostVM(rule, containerIP); err != nil {
+		return hcsshim.NatPolicy{}, hcsshim.ACLPolicy{}, err
+	}
+
+	if err := a.openPort(rule.ContainerPort); err != nil {
+		return hcsshim.NatPolicy{}, hcsshim.ACLPolicy{}, err
+	}
+
+	return hcsshim.NatPolicy{
+			Type:         hcsshim.Nat,
+			Protocol:     "TCP",
+			ExternalPort: uint16(externalPort),
+			InternalPort: uint16(rule.ContainerPort),
+		}, hcsshim.ACLPolicy{
+			Type:           hcsshim.ACL,
+			Action:         hcsshim.Allow,
+			Direction:      hcsshim.In,
+			Protocol:       uint16(firewall.NET_FW_IP_PROTOCOL_TCP),
+			LocalAddresses: containerIP,
+			LocalPort:      strconv.FormatUint(uint64(rule.ContainerPort), 10),
+		}, nil
+}
+
+func (a *Applier) netInModifyHostVM(rule NetIn, containerIP string) error {
 	fr := firewall.Rule{
 		Name:           a.containerId,
 		Action:         firewall.NET_FW_ACTION_ALLOW,
@@ -75,21 +100,47 @@ func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
 		LocalPorts:     strconv.FormatUint(uint64(rule.ContainerPort), 10),
 	}
 
-	if err := a.firewall.CreateRule(fr); err != nil {
-		return mapping, err
-	}
-
-	if err := a.openPort(rule.ContainerPort); err != nil {
-		return mapping, err
-	}
-
-	return PortMapping{
-		ContainerPort: rule.ContainerPort,
-		HostPort:      externalPort,
-	}, nil
+	return a.firewall.CreateRule(fr)
 }
 
-func (a *Applier) Out(rule NetOut, containerIP string) error {
+func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error) {
+	lAddrs := []string{}
+
+	for _, ipr := range rule.Networks {
+		lAddrs = append(lAddrs, IPRangeToCIDRs(ipr)...)
+	}
+
+	acl := hcsshim.ACLPolicy{
+		Type:            hcsshim.ACL,
+		Action:          hcsshim.Allow,
+		Direction:       hcsshim.Out,
+		LocalAddresses:  containerIP,
+		RemoteAddresses: strings.Join(lAddrs, ","),
+	}
+
+	switch rule.Protocol {
+	case ProtocolTCP:
+		acl.RemotePort = firewallRulePortRange(rule.Ports)
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_TCP)
+	case ProtocolUDP:
+		acl.RemotePort = firewallRulePortRange(rule.Ports)
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_UDP)
+	case ProtocolICMP:
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ICMP)
+	case ProtocolAll:
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ANY)
+	default:
+		return hcsshim.ACLPolicy{}, fmt.Errorf("invalid protocol: %d", rule.Protocol)
+	}
+
+	if err := a.netOutModifyHostVM(rule, containerIP); err != nil {
+		return hcsshim.ACLPolicy{}, err
+	}
+
+	return acl, nil
+}
+
+func (a *Applier) netOutModifyHostVM(rule NetOut, containerIP string) error {
 	fr := firewall.Rule{
 		Name:            a.containerId,
 		Action:          firewall.NET_FW_ACTION_ALLOW,

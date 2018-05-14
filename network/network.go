@@ -13,8 +13,8 @@ import (
 
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
-	In(netrules.NetIn, string) (netrules.PortMapping, error)
-	Out(netrules.NetOut, string) error
+	In(netrules.NetIn, string) (hcsshim.NatPolicy, hcsshim.ACLPolicy, error)
+	Out(netrules.NetOut, string) (hcsshim.ACLPolicy, error)
 	NatMTU(int) error
 	ContainerMTU(int) error
 	Cleanup() error
@@ -24,7 +24,7 @@ type NetRuleApplier interface {
 type EndpointManager interface {
 	Create() (hcsshim.HNSEndpoint, error)
 	Delete() error
-	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
+	ApplyPolicies(hcsshim.HNSEndpoint, []hcsshim.NatPolicy, []hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error)
 }
 
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
@@ -149,13 +149,21 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	mappedPorts := []netrules.PortMapping{}
+	hnsAcls := []hcsshim.ACLPolicy{}
+	hnsNats := []hcsshim.NatPolicy{}
+
 	for _, rule := range inputs.NetIn {
-		mapping, err := n.applier.In(rule, createdEndpoint.IPAddress.String())
+		nat, acl, err := n.applier.In(rule, createdEndpoint.IPAddress.String())
 		if err != nil {
 			return outputs, err
 		}
 
-		mappedPorts = append(mappedPorts, mapping)
+		mappedPorts = append(mappedPorts, netrules.PortMapping{
+			ContainerPort: uint32(nat.InternalPort),
+			HostPort:      uint32(nat.ExternalPort),
+		})
+		hnsAcls = append(hnsAcls, acl)
+		hnsNats = append(hnsNats, nat)
 	}
 
 	for _, dnsServer := range n.config.DNSServers {
@@ -175,12 +183,15 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	for _, rule := range inputs.NetOut {
-		if err := n.applier.Out(rule, createdEndpoint.IPAddress.String()); err != nil {
+		acl, err := n.applier.Out(rule, createdEndpoint.IPAddress.String())
+		if err != nil {
 			return outputs, err
 		}
+
+		hnsAcls = append(hnsAcls, acl)
 	}
 
-	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts); err != nil {
+	if _, err := n.endpointManager.ApplyPolicies(createdEndpoint, hnsNats, hnsAcls); err != nil {
 		return outputs, err
 	}
 

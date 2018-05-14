@@ -189,8 +189,12 @@ var _ = Describe("NetworkManager", func() {
 			inputs          network.UpInputs
 			createdEndpoint hcsshim.HNSEndpoint
 			containerIP     net.IP
-			mapping1        netrules.PortMapping
-			mapping2        netrules.PortMapping
+			nat1            hcsshim.NatPolicy
+			nat2            hcsshim.NatPolicy
+			inAcl1          hcsshim.ACLPolicy
+			inAcl2          hcsshim.ACLPolicy
+			outAcl1         hcsshim.ACLPolicy
+			outAcl2         hcsshim.ACLPolicy
 		)
 
 		BeforeEach(func() {
@@ -207,16 +211,58 @@ var _ = Describe("NetworkManager", func() {
 					{HostPort: 0, ContainerPort: 888},
 				},
 				NetOut: []netrules.NetOut{
-					{Protocol: 7},
-					{Protocol: 8},
+					{Protocol: 6},
+					{Protocol: 17},
 				},
 			}
 
-			mapping1 = netrules.PortMapping{HostPort: 111, ContainerPort: 666}
-			mapping2 = netrules.PortMapping{HostPort: 222, ContainerPort: 888}
+			nat1 = hcsshim.NatPolicy{
+				Type:         hcsshim.Nat,
+				Protocol:     "TCP",
+				ExternalPort: 111,
+				InternalPort: 666,
+			}
 
-			netRuleApplier.InReturnsOnCall(0, mapping1, nil)
-			netRuleApplier.InReturnsOnCall(1, mapping2, nil)
+			nat2 = hcsshim.NatPolicy{
+				Type:         hcsshim.Nat,
+				Protocol:     "TCP",
+				ExternalPort: 222,
+				InternalPort: 888,
+			}
+
+			inAcl1 = hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				LocalPort: "666",
+				Direction: hcsshim.In,
+				Action:    hcsshim.Allow,
+			}
+
+			inAcl2 = hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				LocalPort: "888",
+				Direction: hcsshim.In,
+				Action:    hcsshim.Allow,
+			}
+
+			outAcl1 = hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				Direction: hcsshim.Out,
+				Action:    hcsshim.Allow,
+				Protocol:  6,
+			}
+
+			outAcl2 = hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				Direction: hcsshim.In,
+				Action:    hcsshim.Allow,
+				Protocol:  17,
+			}
+
+			netRuleApplier.InReturnsOnCall(0, nat1, inAcl1, nil)
+			netRuleApplier.InReturnsOnCall(1, nat2, inAcl2, nil)
+
+			netRuleApplier.OutReturnsOnCall(0, outAcl1, nil)
+			netRuleApplier.OutReturnsOnCall(1, outAcl2, nil)
 
 			endpointManager.CreateReturns(createdEndpoint, nil)
 		})
@@ -249,10 +295,11 @@ var _ = Describe("NetworkManager", func() {
 			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 8}))
 			Expect(ip).To(Equal(containerIP.String()))
 
-			Expect(endpointManager.ApplyMappingsCallCount()).To(Equal(1))
-			ep, mappings := endpointManager.ApplyMappingsArgsForCall(0)
+			Expect(endpointManager.ApplyPoliciesCallCount()).To(Equal(1))
+			ep, nats, acls := endpointManager.ApplyPoliciesArgsForCall(0)
 			Expect(ep).To(Equal(createdEndpoint))
-			Expect(mappings).To(Equal([]netrules.PortMapping{mapping1, mapping2}))
+			Expect(nats).To(Equal([]hcsshim.NatPolicy{nat1, nat2}))
+			Expect(acls).To(Equal([]hcsshim.ACLPolicy{inAcl1, inAcl2, outAcl1, outAcl2}))
 
 			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
 			mtu := netRuleApplier.ContainerMTUArgsForCall(0)

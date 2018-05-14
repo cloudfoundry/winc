@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/winc/network/firewall"
 	"code.cloudfoundry.org/winc/network/netrules"
 	"code.cloudfoundry.org/winc/network/netrules/fakes"
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -46,7 +47,7 @@ var _ = Describe("Applier", func() {
 		})
 
 		It("creates the correct firewall rule on the host", func() {
-			_, err := applier.In(netInRule, containerIP)
+			_, _, err := applier.In(netInRule, containerIP)
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedRule := firewall.Rule{
@@ -62,19 +63,31 @@ var _ = Describe("Applier", func() {
 			Expect(fw.CreateRuleArgsForCall(0)).To(Equal(expectedRule))
 		})
 
-		It("returns the correct port mapping", func() {
-			mapping, err := applier.In(netInRule, containerIP)
+		It("returns the correct HNS Nat Policy and ACL Policy", func() {
+			nat, acl, err := applier.In(netInRule, containerIP)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedMapping := netrules.PortMapping{
-				ContainerPort: 1000,
-				HostPort:      2000,
+			expectedNat := hcsshim.NatPolicy{
+				Type:         hcsshim.Nat,
+				Protocol:     "TCP",
+				ExternalPort: 2000,
+				InternalPort: 1000,
 			}
-			Expect(mapping).To(Equal(expectedMapping))
+			Expect(nat).To(Equal(expectedNat))
+
+			expectedAcl := hcsshim.ACLPolicy{
+				Type:           hcsshim.ACL,
+				Action:         hcsshim.Allow,
+				Direction:      hcsshim.In,
+				Protocol:       uint16(firewall.NET_FW_IP_PROTOCOL_TCP),
+				LocalAddresses: "5.4.3.2",
+				LocalPort:      "1000",
+			}
+			Expect(acl).To(Equal(expectedAcl))
 		})
 
 		It("opens the port inside the container", func() {
-			_, err := applier.In(netInRule, containerIP)
+			_, _, err := applier.In(netInRule, containerIP)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(netSh.RunContainerCallCount()).To(Equal(1))
@@ -88,7 +101,7 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := applier.In(netInRule, containerIP)
+				_, _, err := applier.In(netInRule, containerIP)
 				Expect(err).To(MatchError("couldn't exec netsh"))
 			})
 		})
@@ -103,14 +116,16 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("uses the port allocator to find an open host port", func() {
-				mapping, err := applier.In(netInRule, containerIP)
+				nat, _, err := applier.In(netInRule, containerIP)
 				Expect(err).NotTo(HaveOccurred())
 
-				expectedMapping := netrules.PortMapping{
-					ContainerPort: 1000,
-					HostPort:      1234,
+				expectedNat := hcsshim.NatPolicy{
+					Type:         hcsshim.Nat,
+					Protocol:     "TCP",
+					ExternalPort: 1234,
+					InternalPort: 1000,
 				}
-				Expect(mapping).To(Equal(expectedMapping))
+				Expect(nat).To(Equal(expectedNat))
 
 				Expect(portAllocator.AllocatePortCallCount()).To(Equal(1))
 				id, p := portAllocator.AllocatePortArgsForCall(0)
@@ -124,7 +139,7 @@ var _ = Describe("Applier", func() {
 				})
 
 				It("returns an error", func() {
-					_, err := applier.In(netInRule, containerIP)
+					_, _, err := applier.In(netInRule, containerIP)
 					Expect(err).To(MatchError("some-error"))
 				})
 			})
@@ -162,8 +177,25 @@ var _ = Describe("Applier", func() {
 				protocol = netrules.ProtocolUDP
 			})
 
+			It("returns the correct HNS ACL", func() {
+				acl, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedAcl := hcsshim.ACLPolicy{
+					Type:            hcsshim.ACL,
+					Action:          hcsshim.Allow,
+					Direction:       hcsshim.Out,
+					Protocol:        uint16(firewall.NET_FW_IP_PROTOCOL_UDP),
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8/32,10.0.0.0/7,12.0.0.0/8,13.0.0.0/32",
+					RemotePort:      "80-80,8080-8090",
+				}
+				Expect(acl).To(Equal(expectedAcl))
+			})
+
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
+				_, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
 
 				expectedRule := firewall.Rule{
 					Name:            "containerabc",
@@ -185,8 +217,25 @@ var _ = Describe("Applier", func() {
 				protocol = netrules.ProtocolTCP
 			})
 
+			It("returns the correct HNS ACL", func() {
+				acl, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedAcl := hcsshim.ACLPolicy{
+					Type:            hcsshim.ACL,
+					Action:          hcsshim.Allow,
+					Direction:       hcsshim.Out,
+					Protocol:        uint16(firewall.NET_FW_IP_PROTOCOL_TCP),
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8/32,10.0.0.0/7,12.0.0.0/8,13.0.0.0/32",
+					RemotePort:      "80-80,8080-8090",
+				}
+				Expect(acl).To(Equal(expectedAcl))
+			})
+
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
+				_, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
 
 				expectedRule := firewall.Rule{
 					Name:            "containerabc",
@@ -208,8 +257,24 @@ var _ = Describe("Applier", func() {
 				protocol = netrules.ProtocolICMP
 			})
 
+			It("returns the correct HNS ACL", func() {
+				acl, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedAcl := hcsshim.ACLPolicy{
+					Type:            hcsshim.ACL,
+					Action:          hcsshim.Allow,
+					Direction:       hcsshim.Out,
+					Protocol:        uint16(firewall.NET_FW_IP_PROTOCOL_ICMP),
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8/32,10.0.0.0/7,12.0.0.0/8,13.0.0.0/32",
+				}
+				Expect(acl).To(Equal(expectedAcl))
+			})
+
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
+				_, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
 
 				expectedRule := firewall.Rule{
 					Name:            "containerabc",
@@ -230,8 +295,24 @@ var _ = Describe("Applier", func() {
 				protocol = netrules.ProtocolAll
 			})
 
+			It("returns the correct HNS ACL", func() {
+				acl, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedAcl := hcsshim.ACLPolicy{
+					Type:            hcsshim.ACL,
+					Action:          hcsshim.Allow,
+					Direction:       hcsshim.Out,
+					Protocol:        uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
+					LocalAddresses:  "5.4.3.2",
+					RemoteAddresses: "8.8.8.8/32,10.0.0.0/7,12.0.0.0/8,13.0.0.0/32",
+				}
+				Expect(acl).To(Equal(expectedAcl))
+			})
+
 			It("creates the correct firewall rule on the host", func() {
-				Expect(applier.Out(netOutRule, containerIP)).To(Succeed())
+				_, err := applier.Out(netOutRule, containerIP)
+				Expect(err).NotTo(HaveOccurred())
 
 				expectedRule := firewall.Rule{
 					Name:            "containerabc",
@@ -253,7 +334,8 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(applier.Out(netOutRule, containerIP)).To(MatchError(errors.New("invalid protocol: 7")))
+				_, err := applier.Out(netOutRule, containerIP)
+				Expect(err).To(MatchError(errors.New("invalid protocol: 7")))
 				Expect(fw.CreateRuleCallCount()).To(Equal(0))
 			})
 		})
