@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/endpoint"
 	"code.cloudfoundry.org/winc/network/endpoint/fakes"
-	"code.cloudfoundry.org/winc/network/netrules"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -264,17 +263,17 @@ var _ = Describe("EndpointManager", func() {
 		})
 	})
 
-	Describe("ApplyMappings", func() {
+	Describe("ApplyPolicies", func() {
 		var (
-			mapping1        netrules.PortMapping
-			mapping2        netrules.PortMapping
+			nat1            hcsshim.NatPolicy
+			nat2            hcsshim.NatPolicy
 			endpoint        hcsshim.HNSEndpoint
 			updatedEndpoint hcsshim.HNSEndpoint
 		)
 
 		BeforeEach(func() {
-			mapping1 = netrules.PortMapping{ContainerPort: 111, HostPort: 222}
-			mapping2 = netrules.PortMapping{ContainerPort: 333, HostPort: 444}
+			nat1 = hcsshim.NatPolicy{Type: hcsshim.Nat, Protocol: "TCP", InternalPort: 111, ExternalPort: 222}
+			nat2 = hcsshim.NatPolicy{Type: hcsshim.Nat, Protocol: "TCP", InternalPort: 333, ExternalPort: 444}
 			endpoint = hcsshim.HNSEndpoint{
 				Id:       endpointId,
 				Policies: []json.RawMessage{[]byte("existing policy")},
@@ -293,7 +292,7 @@ var _ = Describe("EndpointManager", func() {
 		})
 
 		It("updates the endpoint with the given port mappings", func() {
-			ep, err := endpointManager.ApplyMappings(endpoint, []netrules.PortMapping{mapping1, mapping2})
+			ep, err := endpointManager.ApplyPolicies(endpoint, []hcsshim.NatPolicy{nat1, nat2}, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ep).To(Equal(updatedEndpoint))
 
@@ -321,7 +320,7 @@ var _ = Describe("EndpointManager", func() {
 
 		Context("no mappings are provided", func() {
 			It("does not update the endpoint", func() {
-				ep, err := endpointManager.ApplyMappings(endpoint, []netrules.PortMapping{})
+				ep, err := endpointManager.ApplyPolicies(endpoint, []hcsshim.NatPolicy{}, nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(ep).To(Equal(endpoint))
 				Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(0))
@@ -340,7 +339,7 @@ var _ = Describe("EndpointManager", func() {
 			})
 
 			It("errors after repeatedly checking if the endpoint is ready", func() {
-				_, err := endpointManager.ApplyMappings(endpoint, []netrules.PortMapping{mapping1, mapping2})
+				_, err := endpointManager.ApplyPolicies(endpoint, []hcsshim.NatPolicy{nat1, nat2}, nil)
 				Expect(err).To(MatchError("NAT not initialized in time"))
 				Expect(hcsClient.GetHNSEndpointByIDCallCount()).To(Equal(10))
 			})
@@ -352,7 +351,7 @@ var _ = Describe("EndpointManager", func() {
 			})
 
 			It("does not retry", func() {
-				_, err := endpointManager.ApplyMappings(endpoint, []netrules.PortMapping{mapping1, mapping2})
+				_, err := endpointManager.ApplyPolicies(endpoint, []hcsshim.NatPolicy{nat1, nat2}, nil)
 				Expect(err).To(MatchError("cannot update endpoint"))
 			})
 		})

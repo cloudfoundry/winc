@@ -288,11 +288,11 @@ var _ = Describe("NetworkManager", func() {
 
 			Expect(netRuleApplier.OutCallCount()).To(Equal(2))
 			outRule, ip := netRuleApplier.OutArgsForCall(0)
-			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 7}))
+			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 6}))
 			Expect(ip).To(Equal(containerIP.String()))
 
 			outRule, ip = netRuleApplier.OutArgsForCall(1)
-			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 8}))
+			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 17}))
 			Expect(ip).To(Equal(containerIP.String()))
 
 			Expect(endpointManager.ApplyPoliciesCallCount()).To(Equal(1))
@@ -359,7 +359,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net in fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.InReturnsOnCall(0, netrules.PortMapping{}, errors.New("couldn't allocate port"))
+				netRuleApplier.InReturnsOnCall(0, hcsshim.NatPolicy{}, hcsshim.ACLPolicy{}, errors.New("couldn't allocate port"))
 			})
 
 			It("cleans up allocated ports", func() {
@@ -383,7 +383,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net out fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.OutReturns(errors.New("couldn't set firewall rules"))
+				netRuleApplier.OutReturnsOnCall(0, hcsshim.ACLPolicy{}, errors.New("couldn't set firewall rules"))
 			})
 
 			It("cleans up allocated ports, firewall rules and deletes the endpoint", func() {
