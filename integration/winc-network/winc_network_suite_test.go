@@ -44,6 +44,7 @@ var (
 	tempDir           string
 	networkConfigFile string
 	networkConfig     network.Config
+	windowsBuild      int
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -66,11 +67,23 @@ var _ = BeforeSuite(func() {
 	grootImageStore, present = os.LookupEnv("GROOT_IMAGE_STORE")
 	Expect(present).To(BeTrue(), "GROOT_IMAGE_STORE not set")
 
-	var err error
-	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
-	Expect(err).ToNot(HaveOccurred())
+	output, err := exec.Command("powershell", "-command", "[System.Environment]::OSVersion.Version.Build").CombinedOutput()
+	Expect(err).NotTo(HaveOccurred())
 
-	wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
+	windowsBuild, err = strconv.Atoi(strings.TrimSpace(string(output)))
+	Expect(err).NotTo(HaveOccurred())
+
+	if windowsBuild == 16299 {
+		// 1709
+		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
+		Expect(err).ToNot(HaveOccurred())
+	} else {
+		// 1803
+		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network", "-tags", "acl")
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 	Expect(err).ToNot(HaveOccurred())
 
 	wincNetworkDir := filepath.Dir(wincNetworkBin)

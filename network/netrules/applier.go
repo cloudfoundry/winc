@@ -86,21 +86,8 @@ func (a *Applier) In(rule NetIn, containerIP string) (hcsshim.NatPolicy, hcsshim
 			Direction:      hcsshim.In,
 			Protocol:       uint16(firewall.NET_FW_IP_PROTOCOL_TCP),
 			LocalAddresses: containerIP,
-			LocalPort:      strconv.FormatUint(uint64(rule.ContainerPort), 10),
+			LocalPorts:     strconv.FormatUint(uint64(rule.ContainerPort), 10),
 		}, nil
-}
-
-func (a *Applier) netInModifyHostVM(rule NetIn, containerIP string) error {
-	fr := firewall.Rule{
-		Name:           a.containerId,
-		Action:         firewall.NET_FW_ACTION_ALLOW,
-		Direction:      firewall.NET_FW_RULE_DIR_IN,
-		Protocol:       firewall.NET_FW_IP_PROTOCOL_TCP,
-		LocalAddresses: containerIP,
-		LocalPorts:     strconv.FormatUint(uint64(rule.ContainerPort), 10),
-	}
-
-	return a.firewall.CreateRule(fr)
 }
 
 func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error) {
@@ -108,6 +95,18 @@ func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error
 
 	for _, ipr := range rule.Networks {
 		lAddrs = append(lAddrs, IPRangeToCIDRs(ipr)...)
+	}
+
+	// if any IP CIDRS are 0.0.0.0/0, all remote destinations are allowed.
+	// However, passing 0.0.0.0/0 directly in our ACLPolicy doesn't actually
+	// have that effect.
+	// So just don't specfiy anything in our ACLPolicy -- this allows acces
+	// to all remote destinations
+	for _, addr := range lAddrs {
+		if addr == "0.0.0.0/0" {
+			lAddrs = []string{}
+			break
+		}
 	}
 
 	acl := hcsshim.ACLPolicy{
@@ -120,10 +119,10 @@ func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error
 
 	switch rule.Protocol {
 	case ProtocolTCP:
-		acl.RemotePort = firewallRulePortRange(rule.Ports)
+		acl.RemotePorts = firewallRulePortRange(rule.Ports)
 		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_TCP)
 	case ProtocolUDP:
-		acl.RemotePort = firewallRulePortRange(rule.Ports)
+		acl.RemotePorts = firewallRulePortRange(rule.Ports)
 		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_UDP)
 	case ProtocolICMP:
 		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ICMP)
@@ -138,33 +137,6 @@ func (a *Applier) Out(rule NetOut, containerIP string) (hcsshim.ACLPolicy, error
 	}
 
 	return acl, nil
-}
-
-func (a *Applier) netOutModifyHostVM(rule NetOut, containerIP string) error {
-	fr := firewall.Rule{
-		Name:            a.containerId,
-		Action:          firewall.NET_FW_ACTION_ALLOW,
-		Direction:       firewall.NET_FW_RULE_DIR_OUT,
-		LocalAddresses:  containerIP,
-		RemoteAddresses: firewallRuleIPRange(rule.Networks),
-	}
-
-	switch rule.Protocol {
-	case ProtocolTCP:
-		fr.RemotePorts = firewallRulePortRange(rule.Ports)
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_TCP
-	case ProtocolUDP:
-		fr.RemotePorts = firewallRulePortRange(rule.Ports)
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_UDP
-	case ProtocolICMP:
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ICMP
-	case ProtocolAll:
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ANY
-	default:
-		return fmt.Errorf("invalid protocol: %d", rule.Protocol)
-	}
-
-	return a.firewall.CreateRule(fr)
 }
 
 func (a *Applier) ContainerMTU(mtu int) error {
@@ -205,18 +177,16 @@ func (a *Applier) openPort(port uint32) error {
 func (a *Applier) Cleanup() error {
 	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.containerId)
 
-	// we can just delete the rule here since it will succeed
-	// if the rule does not exist
-	deleteErr := a.firewall.DeleteRule(a.containerId)
+	cleanupErr := a.cleanupModifyHostVM()
 
-	if portReleaseErr != nil && deleteErr != nil {
-		return fmt.Errorf("%s, %s", portReleaseErr.Error(), deleteErr.Error())
+	if portReleaseErr != nil && cleanupErr != nil {
+		return fmt.Errorf("%s, %s", portReleaseErr.Error(), cleanupErr.Error())
 	}
 	if portReleaseErr != nil {
 		return portReleaseErr
 	}
-	if deleteErr != nil {
-		return deleteErr
+	if cleanupErr != nil {
+		return cleanupErr
 	}
 
 	return nil
