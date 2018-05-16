@@ -214,7 +214,10 @@ var _ = Describe("Up", func() {
 			})
 
 			It("cannot connect to a remote host over ICMP", func() {
-				Skip("ping.exe elevates to admin, breaking this test")
+				if windowsBuild == 16299 {
+					Skip("ping.exe elevates to admin, breaking this test on 1709")
+				}
+
 				helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
 				stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
@@ -272,7 +275,10 @@ var _ = Describe("Up", func() {
 				})
 
 				It("cannot connect to a remote host over ICMP", func() {
-					Skip("ping.exe elevates to admin, breaking this test")
+					if windowsBuild == 16299 {
+						Skip("ping.exe elevates to admin, breaking this test on 1709")
+					}
+
 					helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
@@ -345,7 +351,10 @@ var _ = Describe("Up", func() {
 				})
 
 				It("cannot connect to a remote host over ICMP", func() {
-					Skip("ping.exe elevates to admin, breaking this test")
+					if windowsBuild == 16299 {
+						Skip("ping.exe elevates to admin, breaking this test on 1709")
+					}
+
 					helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
@@ -407,7 +416,10 @@ var _ = Describe("Up", func() {
 				})
 
 				It("cannot connect to a remote host over ICMP prohibited by netout", func() {
-					Skip("ping.exe elevates to admin, breaking this test")
+					if windowsBuild == 16299 {
+						Skip("ping.exe elevates to admin, breaking this test on 1709")
+					}
+
 					helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {}, "netout_rules": %s}`, string(netOutRules)), networkConfigFile)
 
 					stdout, _, err := helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)

@@ -22,6 +22,7 @@ var _ = Describe("NetworkManager", func() {
 		netRuleApplier  *fakes.NetRuleApplier
 		hcsClient       *fakes.HCSClient
 		endpointManager *fakes.EndpointManager
+		mtu             *fakes.Mtu
 		hnsNetwork      *hcsshim.HNSNetwork
 	)
 
@@ -29,6 +30,7 @@ var _ = Describe("NetworkManager", func() {
 		hcsClient = &fakes.HCSClient{}
 		netRuleApplier = &fakes.NetRuleApplier{}
 		endpointManager = &fakes.EndpointManager{}
+		mtu = &fakes.Mtu{}
 		config := network.Config{
 			MTU:            1434,
 			SubnetRange:    "123.45.0.0/67",
@@ -36,7 +38,7 @@ var _ = Describe("NetworkManager", func() {
 			NetworkName:    "unit-test-name",
 		}
 
-		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config)
+		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -57,8 +59,8 @@ var _ = Describe("NetworkManager", func() {
 			Expect(net.Name).To(Equal("unit-test-name"))
 			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
 
-			Expect(netRuleApplier.NatMTUCallCount()).To(Equal(1))
-			Expect(netRuleApplier.NatMTUArgsForCall(0)).To(Equal(1434))
+			Expect(mtu.SetNatCallCount()).To(Equal(1))
+			Expect(mtu.SetNatArgsForCall(0)).To(Equal(1434))
 		})
 
 		Context("the network already exists with the correct values", func() {
@@ -133,7 +135,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("NatMTU returns an error", func() {
 			BeforeEach(func() {
-				netRuleApplier.NatMTUReturns(errors.New("couldn't set MTU on NAT network"))
+				mtu.SetNatReturns(errors.New("couldn't set MTU on NAT network"))
 			})
 
 			It("returns an error", func() {
@@ -189,8 +191,12 @@ var _ = Describe("NetworkManager", func() {
 			inputs          network.UpInputs
 			createdEndpoint hcsshim.HNSEndpoint
 			containerIP     net.IP
-			mapping1        netrules.PortMapping
-			mapping2        netrules.PortMapping
+			nat1            *hcsshim.NatPolicy
+			nat2            *hcsshim.NatPolicy
+			inAcl1          *hcsshim.ACLPolicy
+			inAcl2          *hcsshim.ACLPolicy
+			outAcl1         *hcsshim.ACLPolicy
+			outAcl2         *hcsshim.ACLPolicy
 		)
 
 		BeforeEach(func() {
@@ -207,16 +213,58 @@ var _ = Describe("NetworkManager", func() {
 					{HostPort: 0, ContainerPort: 888},
 				},
 				NetOut: []netrules.NetOut{
-					{Protocol: 7},
-					{Protocol: 8},
+					{Protocol: 6},
+					{Protocol: 17},
 				},
 			}
 
-			mapping1 = netrules.PortMapping{HostPort: 111, ContainerPort: 666}
-			mapping2 = netrules.PortMapping{HostPort: 222, ContainerPort: 888}
+			nat1 = &hcsshim.NatPolicy{
+				Type:         hcsshim.Nat,
+				Protocol:     "TCP",
+				ExternalPort: 111,
+				InternalPort: 666,
+			}
 
-			netRuleApplier.InReturnsOnCall(0, mapping1, nil)
-			netRuleApplier.InReturnsOnCall(1, mapping2, nil)
+			nat2 = &hcsshim.NatPolicy{
+				Type:         hcsshim.Nat,
+				Protocol:     "TCP",
+				ExternalPort: 222,
+				InternalPort: 888,
+			}
+
+			inAcl1 = &hcsshim.ACLPolicy{
+				Type:       hcsshim.ACL,
+				LocalPorts: "666",
+				Direction:  hcsshim.In,
+				Action:     hcsshim.Allow,
+			}
+
+			inAcl2 = &hcsshim.ACLPolicy{
+				Type:       hcsshim.ACL,
+				LocalPorts: "888",
+				Direction:  hcsshim.In,
+				Action:     hcsshim.Allow,
+			}
+
+			outAcl1 = &hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				Direction: hcsshim.Out,
+				Action:    hcsshim.Allow,
+				Protocol:  6,
+			}
+
+			outAcl2 = &hcsshim.ACLPolicy{
+				Type:      hcsshim.ACL,
+				Direction: hcsshim.In,
+				Action:    hcsshim.Allow,
+				Protocol:  17,
+			}
+
+			netRuleApplier.InReturnsOnCall(0, nat1, inAcl1, nil)
+			netRuleApplier.InReturnsOnCall(1, nat2, inAcl2, nil)
+
+			netRuleApplier.OutReturnsOnCall(0, outAcl1, nil)
+			netRuleApplier.OutReturnsOnCall(1, outAcl2, nil)
 
 			endpointManager.CreateReturns(createdEndpoint, nil)
 		})
@@ -242,21 +290,34 @@ var _ = Describe("NetworkManager", func() {
 
 			Expect(netRuleApplier.OutCallCount()).To(Equal(2))
 			outRule, ip := netRuleApplier.OutArgsForCall(0)
-			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 7}))
+			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 6}))
 			Expect(ip).To(Equal(containerIP.String()))
 
 			outRule, ip = netRuleApplier.OutArgsForCall(1)
-			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 8}))
+			Expect(outRule).To(Equal(netrules.NetOut{Protocol: 17}))
 			Expect(ip).To(Equal(containerIP.String()))
 
-			Expect(endpointManager.ApplyMappingsCallCount()).To(Equal(1))
-			ep, mappings := endpointManager.ApplyMappingsArgsForCall(0)
+			Expect(endpointManager.ApplyPoliciesCallCount()).To(Equal(1))
+			ep, nats, acls := endpointManager.ApplyPoliciesArgsForCall(0)
 			Expect(ep).To(Equal(createdEndpoint))
-			Expect(mappings).To(Equal([]netrules.PortMapping{mapping1, mapping2}))
 
-			Expect(netRuleApplier.ContainerMTUCallCount()).To(Equal(1))
-			mtu := netRuleApplier.ContainerMTUArgsForCall(0)
-			Expect(mtu).To(Equal(1434))
+			expectedNatPolicies := []hcsshim.NatPolicy{*nat1, *nat2}
+			var receivedNatPolicies []hcsshim.NatPolicy
+			for _, v := range nats {
+				receivedNatPolicies = append(receivedNatPolicies, *v)
+			}
+			Expect(receivedNatPolicies).To(Equal(expectedNatPolicies))
+
+			expectedAclPolicies := []hcsshim.ACLPolicy{*inAcl1, *inAcl2, *outAcl1, *outAcl2}
+			var receivedAclPolicies []hcsshim.ACLPolicy
+			for _, v := range acls {
+				receivedAclPolicies = append(receivedAclPolicies, *v)
+			}
+			Expect(receivedAclPolicies).To(Equal(expectedAclPolicies))
+
+			Expect(mtu.SetContainerCallCount()).To(Equal(1))
+			receivedMtu := mtu.SetContainerArgsForCall(0)
+			Expect(receivedMtu).To(Equal(1434))
 		})
 
 		Context("when the config specifies DNS servers", func() {
@@ -264,7 +325,7 @@ var _ = Describe("NetworkManager", func() {
 				config := network.Config{
 					DNSServers: []string{"1.1.1.1", "2.2.2.2"},
 				}
-				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config)
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
 				inputs.NetOut = []netrules.NetOut{}
 			})
 
@@ -312,7 +373,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net in fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.InReturnsOnCall(0, netrules.PortMapping{}, errors.New("couldn't allocate port"))
+				netRuleApplier.InReturnsOnCall(0, nil, nil, errors.New("couldn't allocate port"))
 			})
 
 			It("cleans up allocated ports", func() {
@@ -336,7 +397,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("net out fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.OutReturns(errors.New("couldn't set firewall rules"))
+				netRuleApplier.OutReturnsOnCall(0, nil, errors.New("couldn't set firewall rules"))
 			})
 
 			It("cleans up allocated ports, firewall rules and deletes the endpoint", func() {
@@ -349,7 +410,7 @@ var _ = Describe("NetworkManager", func() {
 
 		Context("MTU fails", func() {
 			BeforeEach(func() {
-				netRuleApplier.ContainerMTUReturns(errors.New("couldn't set MTU"))
+				mtu.SetContainerReturns(errors.New("couldn't set MTU"))
 			})
 
 			It("cleans up allocated ports, firewall rules and deletes the endpoint", func() {

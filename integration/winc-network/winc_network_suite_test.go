@@ -44,6 +44,7 @@ var (
 	tempDir           string
 	networkConfigFile string
 	networkConfig     network.Config
+	windowsBuild      int
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -70,19 +71,32 @@ var _ = BeforeSuite(func() {
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 	Expect(err).ToNot(HaveOccurred())
 
-	wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
-	Expect(err).ToNot(HaveOccurred())
-
-	wincNetworkDir := filepath.Dir(wincNetworkBin)
-	o, err := exec.Command("gcc.exe", "-c", "..\\..\\network\\firewall\\dll\\firewall.c", "-o", filepath.Join(wincNetworkDir, "firewall.o")).CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(o))
-
-	err = exec.Command("gcc.exe",
-		"-shared",
-		"-o", filepath.Join(wincNetworkDir, "firewall.dll"),
-		filepath.Join(wincNetworkDir, "firewall.o"),
-		"-lole32", "-loleaut32").Run()
+	output, err := exec.Command("powershell", "-command", "[System.Environment]::OSVersion.Version.Build").CombinedOutput()
 	Expect(err).NotTo(HaveOccurred())
+
+	windowsBuild, err = strconv.Atoi(strings.TrimSpace(string(output)))
+	Expect(err).NotTo(HaveOccurred())
+
+	if windowsBuild == 16299 {
+		// 1709
+		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
+		Expect(err).ToNot(HaveOccurred())
+
+		wincNetworkDir := filepath.Dir(wincNetworkBin)
+		o, err := exec.Command("gcc.exe", "-c", "..\\..\\network\\firewall\\dll\\firewall.c", "-o", filepath.Join(wincNetworkDir, "firewall.o")).CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), string(o))
+
+		err = exec.Command("gcc.exe",
+			"-shared",
+			"-o", filepath.Join(wincNetworkDir, "firewall.dll"),
+			filepath.Join(wincNetworkDir, "firewall.o"),
+			"-lole32", "-loleaut32").Run()
+		Expect(err).NotTo(HaveOccurred())
+	} else {
+		// 1803
+		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network", "-tags", "1803")
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	serverBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc-network/fixtures/server")
 	Expect(err).ToNot(HaveOccurred())

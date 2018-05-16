@@ -4,10 +4,22 @@ package fakes
 import (
 	"sync"
 
-	"code.cloudfoundry.org/winc/network/endpoint"
+	"code.cloudfoundry.org/winc/network/firewall"
+	"code.cloudfoundry.org/winc/network/netrules/firewallapplier"
 )
 
 type Firewall struct {
+	CreateRuleStub        func(firewall.Rule) error
+	createRuleMutex       sync.RWMutex
+	createRuleArgsForCall []struct {
+		arg1 firewall.Rule
+	}
+	createRuleReturns struct {
+		result1 error
+	}
+	createRuleReturnsOnCall map[int]struct {
+		result1 error
+	}
 	DeleteRuleStub        func(string) error
 	deleteRuleMutex       sync.RWMutex
 	deleteRuleArgsForCall []struct {
@@ -34,6 +46,54 @@ type Firewall struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *Firewall) CreateRule(arg1 firewall.Rule) error {
+	fake.createRuleMutex.Lock()
+	ret, specificReturn := fake.createRuleReturnsOnCall[len(fake.createRuleArgsForCall)]
+	fake.createRuleArgsForCall = append(fake.createRuleArgsForCall, struct {
+		arg1 firewall.Rule
+	}{arg1})
+	fake.recordInvocation("CreateRule", []interface{}{arg1})
+	fake.createRuleMutex.Unlock()
+	if fake.CreateRuleStub != nil {
+		return fake.CreateRuleStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.createRuleReturns.result1
+}
+
+func (fake *Firewall) CreateRuleCallCount() int {
+	fake.createRuleMutex.RLock()
+	defer fake.createRuleMutex.RUnlock()
+	return len(fake.createRuleArgsForCall)
+}
+
+func (fake *Firewall) CreateRuleArgsForCall(i int) firewall.Rule {
+	fake.createRuleMutex.RLock()
+	defer fake.createRuleMutex.RUnlock()
+	return fake.createRuleArgsForCall[i].arg1
+}
+
+func (fake *Firewall) CreateRuleReturns(result1 error) {
+	fake.CreateRuleStub = nil
+	fake.createRuleReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Firewall) CreateRuleReturnsOnCall(i int, result1 error) {
+	fake.CreateRuleStub = nil
+	if fake.createRuleReturnsOnCall == nil {
+		fake.createRuleReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.createRuleReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *Firewall) DeleteRule(arg1 string) error {
@@ -138,6 +198,8 @@ func (fake *Firewall) RuleExistsReturnsOnCall(i int, result1 bool, result2 error
 func (fake *Firewall) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.createRuleMutex.RLock()
+	defer fake.createRuleMutex.RUnlock()
 	fake.deleteRuleMutex.RLock()
 	defer fake.deleteRuleMutex.RUnlock()
 	fake.ruleExistsMutex.RLock()
@@ -161,4 +223,4 @@ func (fake *Firewall) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ endpoint.Firewall = new(Firewall)
+var _ firewallapplier.Firewall = new(Firewall)

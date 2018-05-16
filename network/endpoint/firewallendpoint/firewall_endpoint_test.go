@@ -1,4 +1,4 @@
-package endpoint_test
+package firewallendpoint_test
 
 import (
 	"encoding/json"
@@ -6,15 +6,15 @@ import (
 	"io/ioutil"
 
 	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/network/endpoint"
-	"code.cloudfoundry.org/winc/network/endpoint/fakes"
+	"code.cloudfoundry.org/winc/network/endpoint/firewallendpoint"
+	"code.cloudfoundry.org/winc/network/endpoint/firewallendpoint/fakes"
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("EndpointManager", func() {
+var _ = Describe("FirewallEndpointManager", func() {
 	const (
 		containerId = "containerid-1234"
 		networkId   = "networkid-5678"
@@ -23,19 +23,21 @@ var _ = Describe("EndpointManager", func() {
 	)
 
 	var (
-		endpointManager *endpoint.EndpointManager
+		endpointManager *firewallendpoint.EndpointManager
 		hcsClient       *fakes.HCSClient
 		config          network.Config
+		firewall        *fakes.Firewall
 	)
 
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
+		firewall = &fakes.Firewall{}
 		config = network.Config{
 			NetworkName: networkName,
 			DNSServers:  []string{"1.1.1.1", "2.2.2.2"},
 		}
 
-		endpointManager = endpoint.NewEndpointManager(hcsClient, containerId, config)
+		endpointManager = firewallendpoint.NewEndpointManager(hcsClient, firewall, containerId, config)
 
 		logrus.SetOutput(ioutil.Discard)
 	})
@@ -49,9 +51,11 @@ var _ = Describe("EndpointManager", func() {
 					Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb", Type: hcsshim.EndpointPortType}, {Type: 5}},
 				},
 			}, nil)
+
+			firewall.RuleExistsReturnsOnCall(0, true, nil)
 		})
 
-		It("creates an endpoint on the configured network, attaches it to the container", func() {
+		It("creates an endpoint on the configured network, attaches it to the container, and deletes the compartment firewall rule", func() {
 			ep, err := endpointManager.Create()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ep.Id).To(Equal(endpointId))
@@ -67,12 +71,15 @@ var _ = Describe("EndpointManager", func() {
 			cId, eId, _ := hcsClient.HotAttachEndpointArgsForCall(0)
 			Expect(cId).To(Equal(containerId))
 			Expect(eId).To(Equal(endpointId))
+
+			Expect(firewall.DeleteRuleCallCount()).To(Equal(1))
+			Expect(firewall.DeleteRuleArgsForCall(0)).To(Equal("Compartment 9 - aaa-bbb"))
 		})
 
 		Context("the network config has MaximumOutgoingBandwidth set", func() {
 			BeforeEach(func() {
 				config.MaximumOutgoingBandwidth = 9988
-				endpointManager = endpoint.NewEndpointManager(hcsClient, containerId, config)
+				endpointManager = firewallendpoint.NewEndpointManager(hcsClient, firewall, containerId, config)
 			})
 
 			It("adds a QOS policy with the correct bandwidth", func() {
@@ -169,14 +176,97 @@ var _ = Describe("EndpointManager", func() {
 				Expect(deletedEndpoint.Id).To(Equal(endpointId))
 			})
 		})
+
+		Context("the allocated endpoint does not return an EndpointPort allocator", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
+					Id: endpointId, Resources: hcsshim.Resources{
+						Allocators: []hcsshim.Allocator{{Type: 5}},
+					},
+				}, nil)
+			})
+
+			It("deletes the endpoint and returns an error", func() {
+				_, err := endpointManager.Create()
+				Expect(err.Error()).To(ContainSubstring("invalid endpoint endpointid-abcd allocators"))
+
+				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+		})
+
+		Context("checking existance of the firewall rule fails", func() {
+			BeforeEach(func() {
+				firewall.RuleExistsReturnsOnCall(0, false, errors.New("couldn't check"))
+			})
+
+			It("returns an error and deletes the endpoint", func() {
+				_, err := endpointManager.Create()
+				Expect(err).To(MatchError("couldn't check"))
+
+				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+		})
+
+		Context("removing the firewall fails", func() {
+			BeforeEach(func() {
+				firewall.DeleteRuleReturnsOnCall(0, errors.New("couldn't delete"))
+			})
+
+			It("deletes the endpoint and returns an error", func() {
+				_, err := endpointManager.Create()
+				Expect(err).To(MatchError("couldn't delete"))
+
+				Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+				deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+				Expect(deletedEndpoint.Id).To(Equal(endpointId))
+			})
+		})
+
+		Context("the firewall rule takes a while to be created", func() {
+			Context("the rule exists by the 3rd check", func() {
+				BeforeEach(func() {
+					firewall.RuleExistsReturnsOnCall(0, false, nil)
+					firewall.RuleExistsReturnsOnCall(1, false, nil)
+					firewall.RuleExistsReturnsOnCall(2, true, nil)
+				})
+
+				It("it removes the firewall rule", func() {
+					_, err := endpointManager.Create()
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(firewall.DeleteRuleCallCount()).To(Equal(1))
+					Expect(firewall.DeleteRuleArgsForCall(0)).To(Equal("Compartment 9 - aaa-bbb"))
+				})
+			})
+
+			Context("the firewall rule does not exist by the 3rd check", func() {
+				BeforeEach(func() {
+					firewall.RuleExistsReturnsOnCall(0, false, nil)
+					firewall.RuleExistsReturnsOnCall(1, false, nil)
+					firewall.RuleExistsReturnsOnCall(2, false, nil)
+				})
+
+				It("returns an error and doesn't delete the rule", func() {
+					_, err := endpointManager.Create()
+					Expect(err).To(MatchError("firewall rule Compartment 9 - aaa-bbb not generated in time"))
+
+					Expect(firewall.DeleteRuleCallCount()).To(Equal(0))
+					Expect(hcsClient.DeleteEndpointCallCount()).To(Equal(1))
+					deletedEndpoint := hcsClient.DeleteEndpointArgsForCall(0)
+					Expect(deletedEndpoint.Id).To(Equal(endpointId))
+				})
+			})
+		})
 	})
 
 	Describe("ApplyPolicies", func() {
 		var (
 			nat1            *hcsshim.NatPolicy
 			nat2            *hcsshim.NatPolicy
-			acl1            *hcsshim.ACLPolicy
-			acl2            *hcsshim.ACLPolicy
 			endpoint        hcsshim.HNSEndpoint
 			updatedEndpoint hcsshim.HNSEndpoint
 		)
@@ -184,9 +274,6 @@ var _ = Describe("EndpointManager", func() {
 		BeforeEach(func() {
 			nat1 = &hcsshim.NatPolicy{Type: hcsshim.Nat, Protocol: "TCP", InternalPort: 111, ExternalPort: 222}
 			nat2 = &hcsshim.NatPolicy{Type: hcsshim.Nat, Protocol: "TCP", InternalPort: 333, ExternalPort: 444}
-
-			acl1 = &hcsshim.ACLPolicy{Type: hcsshim.ACL, Direction: hcsshim.In, Action: hcsshim.Allow, LocalPorts: "111"}
-			acl2 = &hcsshim.ACLPolicy{Type: hcsshim.ACL, Direction: hcsshim.In, Action: hcsshim.Allow, LocalPorts: "333"}
 
 			endpoint = hcsshim.HNSEndpoint{
 				Id:       endpointId,
@@ -206,88 +293,56 @@ var _ = Describe("EndpointManager", func() {
 		})
 
 		It("updates the endpoint with the given port mappings", func() {
-			ep, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{nat1, nat2}, []*hcsshim.ACLPolicy{acl1, acl2})
+			ep, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{nat1, nat2}, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ep).To(Equal(updatedEndpoint))
 
 			Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(1))
 			endpointToUpdate := hcsClient.UpdateEndpointArgsForCall(0)
 			Expect(endpointToUpdate.Id).To(Equal(endpointId))
-			Expect(len(endpointToUpdate.Policies)).To(Equal(5))
+			Expect(len(endpointToUpdate.Policies)).To(Equal(3))
 			Expect(endpointToUpdate.Policies[0]).To(Equal(json.RawMessage("existing policy")))
 
-			requestedNats := []hcsshim.NatPolicy{}
-			requestedAcls := []hcsshim.ACLPolicy{}
-
+			requestedPortMappings := []hcsshim.NatPolicy{}
 			for _, pol := range endpointToUpdate.Policies[1:] {
-				p := hcsshim.Policy{}
-				nat := hcsshim.NatPolicy{}
-				acl := hcsshim.ACLPolicy{}
+				mapping := hcsshim.NatPolicy{}
 
-				Expect(json.Unmarshal(pol, &p)).To(Succeed())
-
-				if p.Type == hcsshim.Nat {
-					Expect(json.Unmarshal(pol, &nat)).To(Succeed())
-					requestedNats = append(requestedNats, nat)
-				}
-
-				if p.Type == hcsshim.ACL {
-					Expect(json.Unmarshal(pol, &acl)).To(Succeed())
-					requestedAcls = append(requestedAcls, acl)
-				}
+				Expect(json.Unmarshal(pol, &mapping)).To(Succeed())
+				requestedPortMappings = append(requestedPortMappings, mapping)
 			}
-			expectedNats := []hcsshim.NatPolicy{
+			policies := []hcsshim.NatPolicy{
 				{Type: "NAT", Protocol: "TCP", InternalPort: 111, ExternalPort: 222},
 				{Type: "NAT", Protocol: "TCP", InternalPort: 333, ExternalPort: 444},
 			}
-			Expect(requestedNats).To(ConsistOf(expectedNats))
+			Expect(requestedPortMappings).To(ConsistOf(policies))
 
-			expectedAcls := []hcsshim.ACLPolicy{
-				{Type: hcsshim.ACL, Direction: hcsshim.In, Action: hcsshim.Allow, LocalPorts: "111"},
-				{Type: hcsshim.ACL, Direction: hcsshim.In, Action: hcsshim.Allow, LocalPorts: "333"},
-			}
-			Expect(requestedAcls).To(ConsistOf(expectedAcls))
+			Expect(hcsClient.GetHNSEndpointByIDCallCount()).To(Equal(1))
 		})
 
-		Context("no HNS ACLs are provided", func() {
-			It("generates default block all ACL policies", func() {
-				ep, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{nat1, nat2}, []*hcsshim.ACLPolicy{})
+		Context("no mappings are provided", func() {
+			It("does not update the endpoint", func() {
+				ep, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{}, nil)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ep).To(Equal(updatedEndpoint))
-
-				endpointToUpdate := hcsClient.UpdateEndpointArgsForCall(0)
-				Expect(len(endpointToUpdate.Policies)).To(Equal(5))
-				Expect(endpointToUpdate.Policies[0]).To(Equal(json.RawMessage("existing policy")))
-
-				requestedAcls := []hcsshim.ACLPolicy{}
-
-				for _, pol := range endpointToUpdate.Policies[1:] {
-					p := hcsshim.Policy{}
-					acl := hcsshim.ACLPolicy{}
-
-					Expect(json.Unmarshal(pol, &p)).To(Succeed())
-
-					if p.Type == hcsshim.ACL {
-						Expect(json.Unmarshal(pol, &acl)).To(Succeed())
-						requestedAcls = append(requestedAcls, acl)
-					}
-				}
-
-				expectedAcls := []hcsshim.ACLPolicy{
-					{Type: hcsshim.ACL, Direction: hcsshim.In, Action: hcsshim.Block, Protocol: 256},
-					{Type: hcsshim.ACL, Direction: hcsshim.Out, Action: hcsshim.Block, Protocol: 256},
-				}
-				Expect(requestedAcls).To(ConsistOf(expectedAcls))
+				Expect(ep).To(Equal(endpoint))
+				Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(0))
 			})
 		})
 
-		Context("no HNS Nat policies are provided", func() {
-			It("still updates the endpoint", func() {
-				ep, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{}, []*hcsshim.ACLPolicy{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(ep).To(Equal(updatedEndpoint))
+		Context("nat initialization takes too long", func() {
+			BeforeEach(func() {
+				hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
+					Resources: hcsshim.Resources{
+						Allocators: []hcsshim.Allocator{
+							{Type: 10},
+						},
+					},
+				}, nil)
+			})
 
-				Expect(hcsClient.UpdateEndpointCallCount()).To(Equal(1))
+			It("errors after repeatedly checking if the endpoint is ready", func() {
+				_, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{nat1, nat2}, nil)
+				Expect(err).To(MatchError("NAT not initialized in time"))
+				Expect(hcsClient.GetHNSEndpointByIDCallCount()).To(Equal(10))
 			})
 		})
 
@@ -297,7 +352,7 @@ var _ = Describe("EndpointManager", func() {
 			})
 
 			It("does not retry", func() {
-				_, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{}, []*hcsshim.ACLPolicy{})
+				_, err := endpointManager.ApplyPolicies(endpoint, []*hcsshim.NatPolicy{nat1, nat2}, nil)
 				Expect(err).To(MatchError("cannot update endpoint"))
 			})
 		})

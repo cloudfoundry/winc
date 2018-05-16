@@ -13,18 +13,22 @@ import (
 
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
-	In(netrules.NetIn, string) (netrules.PortMapping, error)
-	Out(netrules.NetOut, string) error
-	NatMTU(int) error
-	ContainerMTU(int) error
+	In(netrules.NetIn, string) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error)
+	Out(netrules.NetOut, string) (*hcsshim.ACLPolicy, error)
 	Cleanup() error
+}
+
+//go:generate counterfeiter -o fakes/mtu.go --fake-name Mtu . Mtu
+type Mtu interface {
+	SetNat(int) error
+	SetContainer(int) error
 }
 
 //go:generate counterfeiter -o fakes/endpoint_manager.go --fake-name EndpointManager . EndpointManager
 type EndpointManager interface {
 	Create() (hcsshim.HNSEndpoint, error)
 	Delete() error
-	ApplyMappings(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
+	ApplyPolicies(hcsshim.HNSEndpoint, []*hcsshim.NatPolicy, []*hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error)
 }
 
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
@@ -65,15 +69,17 @@ type NetworkManager struct {
 	endpointManager EndpointManager
 	containerId     string
 	config          Config
+	mtu             Mtu
 }
 
-func NewNetworkManager(client HCSClient, applier NetRuleApplier, endpointManager EndpointManager, containerId string, config Config) *NetworkManager {
+func NewNetworkManager(client HCSClient, applier NetRuleApplier, endpointManager EndpointManager, containerId string, config Config, mtu Mtu) *NetworkManager {
 	return &NetworkManager{
 		hcsClient:       client,
 		applier:         applier,
 		endpointManager: endpointManager,
 		containerId:     containerId,
 		config:          config,
+		mtu:             mtu,
 	}
 }
 
@@ -111,7 +117,7 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		return err
 	}
 
-	return n.applier.NatMTU(n.config.MTU)
+	return n.mtu.SetNat(n.config.MTU)
 }
 
 func subnetsMatch(a, b hcsshim.Subnet) bool {
@@ -148,14 +154,22 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		return outputs, err
 	}
 
-	mappedPorts := []netrules.PortMapping{}
+	hnsAcls := []*hcsshim.ACLPolicy{}
+	hnsNats := []*hcsshim.NatPolicy{}
+
 	for _, rule := range inputs.NetIn {
-		mapping, err := n.applier.In(rule, createdEndpoint.IPAddress.String())
+		nat, acl, err := n.applier.In(rule, createdEndpoint.IPAddress.String())
 		if err != nil {
 			return outputs, err
 		}
 
-		mappedPorts = append(mappedPorts, mapping)
+		if nat != nil {
+			hnsNats = append(hnsNats, nat)
+		}
+
+		if acl != nil {
+			hnsAcls = append(hnsAcls, acl)
+		}
 	}
 
 	for _, dnsServer := range n.config.DNSServers {
@@ -175,19 +189,31 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	}
 
 	for _, rule := range inputs.NetOut {
-		if err := n.applier.Out(rule, createdEndpoint.IPAddress.String()); err != nil {
+		acl, err := n.applier.Out(rule, createdEndpoint.IPAddress.String())
+		if err != nil {
 			return outputs, err
+		}
+
+		if acl != nil {
+			hnsAcls = append(hnsAcls, acl)
 		}
 	}
 
-	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts); err != nil {
+	if _, err := n.endpointManager.ApplyPolicies(createdEndpoint, hnsNats, hnsAcls); err != nil {
 		return outputs, err
 	}
 
-	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
+	if err := n.mtu.SetContainer(n.config.MTU); err != nil {
 		return outputs, err
 	}
 
+	mappedPorts := []netrules.PortMapping{}
+	for _, nat := range hnsNats {
+		mappedPorts = append(mappedPorts, netrules.PortMapping{
+			ContainerPort: uint32(nat.InternalPort),
+			HostPort:      uint32(nat.ExternalPort),
+		})
+	}
 	portBytes, err := json.Marshal(mappedPorts)
 	if err != nil {
 		return outputs, err

@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/network/netrules"
 	"github.com/Microsoft/hcsshim"
 )
 
@@ -30,17 +29,18 @@ type EndpointManager struct {
 	deleteReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ApplyMappingsStub        func(hcsshim.HNSEndpoint, []netrules.PortMapping) (hcsshim.HNSEndpoint, error)
-	applyMappingsMutex       sync.RWMutex
-	applyMappingsArgsForCall []struct {
+	ApplyPoliciesStub        func(hcsshim.HNSEndpoint, []*hcsshim.NatPolicy, []*hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error)
+	applyPoliciesMutex       sync.RWMutex
+	applyPoliciesArgsForCall []struct {
 		arg1 hcsshim.HNSEndpoint
-		arg2 []netrules.PortMapping
+		arg2 []*hcsshim.NatPolicy
+		arg3 []*hcsshim.ACLPolicy
 	}
-	applyMappingsReturns struct {
+	applyPoliciesReturns struct {
 		result1 hcsshim.HNSEndpoint
 		result2 error
 	}
-	applyMappingsReturnsOnCall map[int]struct {
+	applyPoliciesReturnsOnCall map[int]struct {
 		result1 hcsshim.HNSEndpoint
 		result2 error
 	}
@@ -131,58 +131,64 @@ func (fake *EndpointManager) DeleteReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *EndpointManager) ApplyMappings(arg1 hcsshim.HNSEndpoint, arg2 []netrules.PortMapping) (hcsshim.HNSEndpoint, error) {
-	var arg2Copy []netrules.PortMapping
+func (fake *EndpointManager) ApplyPolicies(arg1 hcsshim.HNSEndpoint, arg2 []*hcsshim.NatPolicy, arg3 []*hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error) {
+	var arg2Copy []*hcsshim.NatPolicy
 	if arg2 != nil {
-		arg2Copy = make([]netrules.PortMapping, len(arg2))
+		arg2Copy = make([]*hcsshim.NatPolicy, len(arg2))
 		copy(arg2Copy, arg2)
 	}
-	fake.applyMappingsMutex.Lock()
-	ret, specificReturn := fake.applyMappingsReturnsOnCall[len(fake.applyMappingsArgsForCall)]
-	fake.applyMappingsArgsForCall = append(fake.applyMappingsArgsForCall, struct {
+	var arg3Copy []*hcsshim.ACLPolicy
+	if arg3 != nil {
+		arg3Copy = make([]*hcsshim.ACLPolicy, len(arg3))
+		copy(arg3Copy, arg3)
+	}
+	fake.applyPoliciesMutex.Lock()
+	ret, specificReturn := fake.applyPoliciesReturnsOnCall[len(fake.applyPoliciesArgsForCall)]
+	fake.applyPoliciesArgsForCall = append(fake.applyPoliciesArgsForCall, struct {
 		arg1 hcsshim.HNSEndpoint
-		arg2 []netrules.PortMapping
-	}{arg1, arg2Copy})
-	fake.recordInvocation("ApplyMappings", []interface{}{arg1, arg2Copy})
-	fake.applyMappingsMutex.Unlock()
-	if fake.ApplyMappingsStub != nil {
-		return fake.ApplyMappingsStub(arg1, arg2)
+		arg2 []*hcsshim.NatPolicy
+		arg3 []*hcsshim.ACLPolicy
+	}{arg1, arg2Copy, arg3Copy})
+	fake.recordInvocation("ApplyPolicies", []interface{}{arg1, arg2Copy, arg3Copy})
+	fake.applyPoliciesMutex.Unlock()
+	if fake.ApplyPoliciesStub != nil {
+		return fake.ApplyPoliciesStub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.applyMappingsReturns.result1, fake.applyMappingsReturns.result2
+	return fake.applyPoliciesReturns.result1, fake.applyPoliciesReturns.result2
 }
 
-func (fake *EndpointManager) ApplyMappingsCallCount() int {
-	fake.applyMappingsMutex.RLock()
-	defer fake.applyMappingsMutex.RUnlock()
-	return len(fake.applyMappingsArgsForCall)
+func (fake *EndpointManager) ApplyPoliciesCallCount() int {
+	fake.applyPoliciesMutex.RLock()
+	defer fake.applyPoliciesMutex.RUnlock()
+	return len(fake.applyPoliciesArgsForCall)
 }
 
-func (fake *EndpointManager) ApplyMappingsArgsForCall(i int) (hcsshim.HNSEndpoint, []netrules.PortMapping) {
-	fake.applyMappingsMutex.RLock()
-	defer fake.applyMappingsMutex.RUnlock()
-	return fake.applyMappingsArgsForCall[i].arg1, fake.applyMappingsArgsForCall[i].arg2
+func (fake *EndpointManager) ApplyPoliciesArgsForCall(i int) (hcsshim.HNSEndpoint, []*hcsshim.NatPolicy, []*hcsshim.ACLPolicy) {
+	fake.applyPoliciesMutex.RLock()
+	defer fake.applyPoliciesMutex.RUnlock()
+	return fake.applyPoliciesArgsForCall[i].arg1, fake.applyPoliciesArgsForCall[i].arg2, fake.applyPoliciesArgsForCall[i].arg3
 }
 
-func (fake *EndpointManager) ApplyMappingsReturns(result1 hcsshim.HNSEndpoint, result2 error) {
-	fake.ApplyMappingsStub = nil
-	fake.applyMappingsReturns = struct {
+func (fake *EndpointManager) ApplyPoliciesReturns(result1 hcsshim.HNSEndpoint, result2 error) {
+	fake.ApplyPoliciesStub = nil
+	fake.applyPoliciesReturns = struct {
 		result1 hcsshim.HNSEndpoint
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *EndpointManager) ApplyMappingsReturnsOnCall(i int, result1 hcsshim.HNSEndpoint, result2 error) {
-	fake.ApplyMappingsStub = nil
-	if fake.applyMappingsReturnsOnCall == nil {
-		fake.applyMappingsReturnsOnCall = make(map[int]struct {
+func (fake *EndpointManager) ApplyPoliciesReturnsOnCall(i int, result1 hcsshim.HNSEndpoint, result2 error) {
+	fake.ApplyPoliciesStub = nil
+	if fake.applyPoliciesReturnsOnCall == nil {
+		fake.applyPoliciesReturnsOnCall = make(map[int]struct {
 			result1 hcsshim.HNSEndpoint
 			result2 error
 		})
 	}
-	fake.applyMappingsReturnsOnCall[i] = struct {
+	fake.applyPoliciesReturnsOnCall[i] = struct {
 		result1 hcsshim.HNSEndpoint
 		result2 error
 	}{result1, result2}
@@ -195,8 +201,8 @@ func (fake *EndpointManager) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	fake.applyMappingsMutex.RLock()
-	defer fake.applyMappingsMutex.RUnlock()
+	fake.applyPoliciesMutex.RLock()
+	defer fake.applyPoliciesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

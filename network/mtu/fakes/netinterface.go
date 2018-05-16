@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync"
 
-	"code.cloudfoundry.org/winc/network/netrules"
+	"code.cloudfoundry.org/winc/network/mtu"
 )
 
 type NetInterface struct {
@@ -230,4 +230,4 @@ func (fake *NetInterface) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ netrules.NetInterface = new(NetInterface)
+var _ mtu.NetInterface = new(NetInterface)

@@ -1,12 +1,13 @@
-package endpoint
+package firewallendpoint
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/network/firewall"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
@@ -24,15 +25,23 @@ type HCSClient interface {
 	HotDetachEndpoint(containerID string, endpointID string) error
 }
 
+//go:generate counterfeiter -o fakes/firewall.go --fake-name Firewall . Firewall
+type Firewall interface {
+	DeleteRule(string) error
+	RuleExists(string) (bool, error)
+}
+
 type EndpointManager struct {
 	hcsClient   HCSClient
+	firewall    Firewall
 	containerId string
 	config      network.Config
 }
 
-func NewEndpointManager(hcsClient HCSClient, containerId string, config network.Config) *EndpointManager {
+func NewEndpointManager(hcsClient HCSClient, firewall Firewall, containerId string, config network.Config) *EndpointManager {
 	return &EndpointManager{
 		hcsClient:   hcsClient,
+		firewall:    firewall,
 		containerId: containerId,
 		config:      config,
 	}
@@ -98,39 +107,66 @@ func (e *EndpointManager) attachEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshi
 		return nil, err
 	}
 
+	var compartmentId uint32
+	var endpointPortGuid string
+
+	for _, a := range allocatedEndpoint.Resources.Allocators {
+		if a.Type == hcsshim.EndpointPortType {
+			compartmentId = a.CompartmentId
+			endpointPortGuid = a.EndpointPortGuid
+			break
+		}
+	}
+
+	if compartmentId == 0 || endpointPortGuid == "" {
+		return nil, fmt.Errorf("invalid endpoint %s allocators: %+v", endpoint.Id, allocatedEndpoint.Resources.Allocators)
+	}
+
+	ruleName := fmt.Sprintf("Compartment %d - %s", compartmentId, endpointPortGuid)
+	if err := e.deleteFirewallRule(ruleName); err != nil {
+		return nil, err
+	}
+
 	return allocatedEndpoint, nil
+
 }
 
-func (e *EndpointManager) ApplyPolicies(endpoint hcsshim.HNSEndpoint, nats []*hcsshim.NatPolicy, acls []*hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error) {
-	var policies []json.RawMessage
+func (e *EndpointManager) deleteFirewallRule(ruleName string) error {
+	ruleCreated := false
 
-	if len(acls) == 0 {
-		// make sure everything's blocked if no netout rules present
-		acls = []*hcsshim.ACLPolicy{
-			{
-				Type:      hcsshim.ACL,
-				Action:    hcsshim.Block,
-				Direction: hcsshim.Out,
-				Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
-			},
-			{
-				Type:      hcsshim.ACL,
-				Action:    hcsshim.Block,
-				Direction: hcsshim.In,
-				Protocol:  uint16(firewall.NET_FW_IP_PROTOCOL_ANY),
-			},
-		}
-	}
+	for i := 0; i < 3; i++ {
+		var err error
+		time.Sleep(time.Millisecond * 200 * time.Duration(i))
 
-	for _, acl := range acls {
-		policy, err := json.Marshal(acl)
+		ruleCreated, err = e.firewall.RuleExists(ruleName)
 		if err != nil {
-			return hcsshim.HNSEndpoint{}, err
+			return err
 		}
-		policies = append(policies, policy)
+
+		if ruleCreated {
+			if err := e.firewall.DeleteRule(ruleName); err != nil {
+				logrus.Error(fmt.Sprintf("Unable to delete generated firewall rule %s: %s", ruleName, err.Error()))
+				return err
+			}
+
+			break
+		}
 	}
 
-	for _, nat := range nats {
+	if !ruleCreated {
+		return fmt.Errorf("firewall rule %s not generated in time", ruleName)
+	}
+
+	return nil
+}
+
+func (e *EndpointManager) ApplyPolicies(endpoint hcsshim.HNSEndpoint, natPolicies []*hcsshim.NatPolicy, _ []*hcsshim.ACLPolicy) (hcsshim.HNSEndpoint, error) {
+	var policies []json.RawMessage
+	if len(natPolicies) == 0 {
+		return endpoint, nil
+	}
+
+	for _, nat := range natPolicies {
 		policy, err := json.Marshal(nat)
 		if err != nil {
 			return hcsshim.HNSEndpoint{}, err
@@ -145,7 +181,33 @@ func (e *EndpointManager) ApplyPolicies(endpoint hcsshim.HNSEndpoint, nats []*hc
 		return hcsshim.HNSEndpoint{}, err
 	}
 
-	return *updatedEndpoint, nil
+	id := updatedEndpoint.Id
+	var natAllocated bool
+	var allocatedEndpoint *hcsshim.HNSEndpoint
+
+	for i := 0; i < 10; i++ {
+		natAllocated = false
+		allocatedEndpoint, err = e.hcsClient.GetHNSEndpointByID(id)
+
+		for _, a := range allocatedEndpoint.Resources.Allocators {
+			if a.Type == hcsshim.NATPolicyType {
+				natAllocated = true
+				break
+			}
+		}
+
+		if natAllocated {
+			break
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if !natAllocated {
+		return hcsshim.HNSEndpoint{}, errors.New("NAT not initialized in time")
+	}
+
+	return *allocatedEndpoint, nil
 }
 
 func (e *EndpointManager) Delete() error {

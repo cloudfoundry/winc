@@ -2,11 +2,11 @@ package netrules
 
 import (
 	"fmt"
-	"net"
 	"strconv"
+	"strings"
 
-	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/firewall"
+	"github.com/Microsoft/hcsshim"
 )
 
 //go:generate counterfeiter -o fakes/netsh_runner.go --fake-name NetShRunner . NetShRunner
@@ -20,130 +20,93 @@ type PortAllocator interface {
 	ReleaseAllPorts(handle string) error
 }
 
-//go:generate counterfeiter -o fakes/netinterface.go --fake-name NetInterface . NetInterface
-type NetInterface interface {
-	ByName(string) (*net.Interface, error)
-	ByIP(string) (*net.Interface, error)
-	SetMTU(string, int) error
-}
-
-//go:generate counterfeiter -o fakes/firewall.go --fake-name Firewall . Firewall
-type Firewall interface {
-	CreateRule(firewall.Rule) error
-	DeleteRule(string) error
-	RuleExists(string) (bool, error)
-}
-
 type Applier struct {
 	netSh         NetShRunner
 	containerId   string
-	networkName   string
 	portAllocator PortAllocator
-	netInterface  NetInterface
-	firewall      Firewall
 }
 
-func NewApplier(netSh NetShRunner, containerId string, networkName string, portAllocator PortAllocator, netInterface NetInterface, firewall Firewall) *Applier {
+func NewApplier(netSh NetShRunner, containerId string, portAllocator PortAllocator) *Applier {
 	return &Applier{
 		netSh:         netSh,
 		containerId:   containerId,
-		networkName:   networkName,
 		portAllocator: portAllocator,
-		netInterface:  netInterface,
-		firewall:      firewall,
 	}
 }
 
-func (a *Applier) In(rule NetIn, containerIP string) (PortMapping, error) {
+func (a *Applier) In(rule NetIn, containerIP string) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error) {
 	externalPort := rule.HostPort
-	mapping := PortMapping{}
 
 	if externalPort == 0 {
 		allocatedPort, err := a.portAllocator.AllocatePort(a.containerId, 0)
 		if err != nil {
-			return mapping, err
+			return nil, nil, err
 		}
 		externalPort = uint32(allocatedPort)
 	}
 
-	fr := firewall.Rule{
-		Name:           a.containerId,
-		Action:         firewall.NET_FW_ACTION_ALLOW,
-		Direction:      firewall.NET_FW_RULE_DIR_IN,
-		Protocol:       firewall.NET_FW_IP_PROTOCOL_TCP,
-		LocalAddresses: containerIP,
-		LocalPorts:     strconv.FormatUint(uint64(rule.ContainerPort), 10),
-	}
-
-	if err := a.firewall.CreateRule(fr); err != nil {
-		return mapping, err
-	}
-
 	if err := a.openPort(rule.ContainerPort); err != nil {
-		return mapping, err
+		return nil, nil, err
 	}
 
-	return PortMapping{
-		ContainerPort: rule.ContainerPort,
-		HostPort:      externalPort,
-	}, nil
+	return &hcsshim.NatPolicy{
+			Type:         hcsshim.Nat,
+			Protocol:     "TCP",
+			ExternalPort: uint16(externalPort),
+			InternalPort: uint16(rule.ContainerPort),
+		}, &hcsshim.ACLPolicy{
+			Type:           hcsshim.ACL,
+			Action:         hcsshim.Allow,
+			Direction:      hcsshim.In,
+			Protocol:       uint16(firewall.NET_FW_IP_PROTOCOL_TCP),
+			LocalAddresses: containerIP,
+			LocalPorts:     strconv.FormatUint(uint64(rule.ContainerPort), 10),
+		}, nil
 }
 
-func (a *Applier) Out(rule NetOut, containerIP string) error {
-	fr := firewall.Rule{
-		Name:            a.containerId,
-		Action:          firewall.NET_FW_ACTION_ALLOW,
-		Direction:       firewall.NET_FW_RULE_DIR_OUT,
+func (a *Applier) Out(rule NetOut, containerIP string) (*hcsshim.ACLPolicy, error) {
+	rAddrs := []string{}
+
+	for _, ipr := range rule.Networks {
+		rAddrs = append(rAddrs, IPRangeToCIDRs(ipr)...)
+	}
+
+	// if any IP CIDRS are 0.0.0.0/0, all remote destinations are allowed.
+	// However, passing 0.0.0.0/0 directly in our ACLPolicy doesn't actually
+	// have that effect.
+	// So just don't specfiy anything in our ACLPolicy -- this allows acces
+	// to all remote destinations
+	for _, addr := range rAddrs {
+		if addr == "0.0.0.0/0" {
+			rAddrs = []string{}
+			break
+		}
+	}
+
+	acl := hcsshim.ACLPolicy{
+		Type:            hcsshim.ACL,
+		Action:          hcsshim.Allow,
+		Direction:       hcsshim.Out,
 		LocalAddresses:  containerIP,
-		RemoteAddresses: firewallRuleIPRange(rule.Networks),
+		RemoteAddresses: strings.Join(rAddrs, ","),
 	}
 
 	switch rule.Protocol {
 	case ProtocolTCP:
-		fr.RemotePorts = firewallRulePortRange(rule.Ports)
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_TCP
+		acl.RemotePorts = FirewallRulePortRange(rule.Ports)
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_TCP)
 	case ProtocolUDP:
-		fr.RemotePorts = firewallRulePortRange(rule.Ports)
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_UDP
+		acl.RemotePorts = FirewallRulePortRange(rule.Ports)
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_UDP)
 	case ProtocolICMP:
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ICMP
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ICMP)
 	case ProtocolAll:
-		fr.Protocol = firewall.NET_FW_IP_PROTOCOL_ANY
+		acl.Protocol = uint16(firewall.NET_FW_IP_PROTOCOL_ANY)
 	default:
-		return fmt.Errorf("invalid protocol: %d", rule.Protocol)
+		return nil, fmt.Errorf("invalid protocol: %d", rule.Protocol)
 	}
 
-	return a.firewall.CreateRule(fr)
-}
-
-func (a *Applier) ContainerMTU(mtu int) error {
-	if mtu == 0 {
-		iface, err := a.netInterface.ByName(fmt.Sprintf("vEthernet (%s)", a.networkName))
-		if err != nil {
-			return err
-		}
-		mtu = iface.MTU
-	}
-
-	interfaceAlias := fmt.Sprintf("vEthernet (%s)", a.containerId)
-	return a.netInterface.SetMTU(interfaceAlias, mtu)
-}
-
-func (a *Applier) NatMTU(mtu int) error {
-	if mtu == 0 {
-		hostIP, err := localip.LocalIP()
-		if err != nil {
-			return err
-		}
-		iface, err := a.netInterface.ByIP(hostIP)
-		if err != nil {
-			return err
-		}
-		mtu = iface.MTU
-	}
-
-	interfaceId := fmt.Sprintf("vEthernet (%s)", a.networkName)
-	return a.netInterface.SetMTU(interfaceId, mtu)
+	return &acl, nil
 }
 
 func (a *Applier) openPort(port uint32) error {
@@ -152,21 +115,5 @@ func (a *Applier) openPort(port uint32) error {
 }
 
 func (a *Applier) Cleanup() error {
-	portReleaseErr := a.portAllocator.ReleaseAllPorts(a.containerId)
-
-	// we can just delete the rule here since it will succeed
-	// if the rule does not exist
-	deleteErr := a.firewall.DeleteRule(a.containerId)
-
-	if portReleaseErr != nil && deleteErr != nil {
-		return fmt.Errorf("%s, %s", portReleaseErr.Error(), deleteErr.Error())
-	}
-	if portReleaseErr != nil {
-		return portReleaseErr
-	}
-	if deleteErr != nil {
-		return deleteErr
-	}
-
-	return nil
+	return a.portAllocator.ReleaseAllPorts(a.containerId)
 }

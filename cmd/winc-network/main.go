@@ -11,10 +11,8 @@ import (
 	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/network"
-	"code.cloudfoundry.org/winc/network/endpoint"
-	"code.cloudfoundry.org/winc/network/firewall"
+	"code.cloudfoundry.org/winc/network/mtu"
 	"code.cloudfoundry.org/winc/network/netinterface"
-	"code.cloudfoundry.org/winc/network/netrules"
 	"code.cloudfoundry.org/winc/network/netsh"
 	"code.cloudfoundry.org/winc/network/port_allocator"
 	"code.cloudfoundry.org/winc/network/port_allocator/serial"
@@ -185,15 +183,17 @@ func wireNetworkManager(config network.Config, handle string) (*network.NetworkM
 		Locker:     locker,
 	}
 
-	netIface := &netinterface.NetInterface{}
-
-	firewall, err := firewall.NewFirewall("")
+	applier, err := wireApplier(runner, handle, portAllocator)
 	if err != nil {
 		return nil, err
 	}
 
-	applier := netrules.NewApplier(runner, handle, config.NetworkName, portAllocator, netIface, firewall)
-	endpointManager := endpoint.NewEndpointManager(hcsClient, firewall, handle, config)
+	endpointManager, err := wireEndpointManager(hcsClient, handle, config)
+	if err != nil {
+		return nil, err
+	}
+
+	m := mtu.New(handle, config.NetworkName, &netinterface.NetInterface{})
 
 	return network.NewNetworkManager(
 		hcsClient,
@@ -201,6 +201,7 @@ func wireNetworkManager(config network.Config, handle string) (*network.NetworkM
 		endpointManager,
 		handle,
 		config,
+		m,
 	), nil
 }
 
