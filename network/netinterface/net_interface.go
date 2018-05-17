@@ -196,6 +196,36 @@ func (n *NetInterface) SetMTU(alias string, mtu int) error {
 	return nil
 }
 
+func (n *NetInterface) GetMTU(alias string) (uint32, error) {
+	luid, compartmentID, err := getLuidAndCompartment(alias)
+	if err != nil {
+		return 0, err
+	}
+
+	runtime.LockOSThread()
+	defer func() {
+		hcsshim.SetCurrentThreadCompartmentId(0)
+		runtime.UnlockOSThread()
+	}()
+	if err := hcsshim.SetCurrentThreadCompartmentId(compartmentID); err != nil {
+		logrus.Error(err)
+		return 0, err
+	}
+
+	var row MIB_IPINTERFACE_ROW
+	row.InterfaceLuid = luid
+	row.Family = windows.AF_INET
+
+	r0, _, err := syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	if int32(r0) != 0 {
+		err := fmt.Errorf("GetIpInterfaceEntry: 0x%x", r0)
+		logrus.Error(err)
+		return 0, err
+	}
+
+	return row.NlMtu, nil
+}
+
 func InterfaceExists(alias string) (bool, error) {
 	_, _, err := getLuidAndCompartment(alias)
 	if err != nil {

@@ -34,6 +34,9 @@ var _ = Describe("Down", func() {
 	})
 
 	It("deletes the associated firewall rules", func() {
+		if windowsBuild != 16299 {
+			Skip("1803 doesn't use firewall rules")
+		}
 		cmd := exec.Command(wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", containerId)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), string(output))

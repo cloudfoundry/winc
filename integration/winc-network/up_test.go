@@ -7,13 +7,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	. "github.com/onsi/ginkgo"
@@ -24,10 +24,17 @@ import (
 var _ = Describe("Up", func() {
 	var (
 		bundleSpec specs.Spec
+		n          netinterface.NetInterface
+		localIp    string
 	)
 
 	BeforeEach(func() {
 		bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+		n = netinterface.NetInterface{}
+
+		var err error
+		localIp, err = localip.LocalIP()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("default network config", func() {
@@ -44,15 +51,13 @@ var _ = Describe("Up", func() {
 		It("sets the host MTU in the container", func() {
 			helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
-			powershellCommand := fmt.Sprintf(`(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet (%s)').NlMtu`, networkConfig.GatewayAddress)
-			cmd := exec.Command("powershell.exe", "-Command", powershellCommand)
-			output, err := cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred(), string(output))
-			hostMTU := strings.TrimSpace(string(output))
+			containerMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", containerId))
+			Expect(err).ToNot(HaveOccurred())
 
-			stdout, _, err := helpers.ExecInContainer(containerId, []string{"powershell.exe", "-Command", "(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias 'vEthernet *').NlMtu"}, false)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(stdout.String())).To(Equal(hostMTU))
+			hostAdapter, err := n.ByIP(localIp)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(containerMtu).To(Equal(uint32(hostAdapter.MTU)))
 		})
 
 		Context("stdin contains a net in rule", func() {
@@ -469,12 +474,14 @@ var _ = Describe("Up", func() {
 					errStr := "dial tcp 8.8.4.4:53: connectex: An attempt was made to access a socket in a way forbidden by its access permissions."
 					Expect(strings.TrimSpace(stdout.String())).To(Equal(errStr))
 
-					// ping.exe elevates to admin, breaking this test
+					if windowsBuild != 16299 {
+						// this test works on 1803
 
-					//	stdout, _, err = helpers.ExecInContainer([]string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
-					//	Expect(err).To(HaveOccurred())
-					//	Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.4.4"))
-					//	Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+						stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.4.4"}, false)
+						Expect(err).To(HaveOccurred())
+						Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.4.4"))
+						Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
+					}
 				})
 			})
 		})
@@ -497,9 +504,10 @@ var _ = Describe("Up", func() {
 		It("sets the network MTU on the internal container NIC", func() {
 			helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
-			stdout, _, err := helpers.ExecInContainer(containerId, []string{"powershell.exe", "-Command", `(Get-Netipinterface -AddressFamily ipv4 -InterfaceAlias "vEthernet*").NlMtu`}, false)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(stdout.String())).To(Equal("1405"))
+			containerMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", containerId))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(containerMtu).To(Equal(uint32(1405)))
 		})
 	})
 
