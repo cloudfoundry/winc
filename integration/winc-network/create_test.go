@@ -27,6 +27,7 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
 		helpers.DeleteNetwork(networkConfig, networkConfigFile)
 		Expect(os.Remove(networkConfigFile)).To(Succeed())
 	})

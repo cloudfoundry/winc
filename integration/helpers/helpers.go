@@ -33,20 +33,38 @@ type Helpers struct {
 	grootImageStore string
 	wincNetworkBin  string
 	gatewayFileName string
+	debug           bool
+	logFile         *os.File
 }
 
-func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string) *Helpers {
-	return &Helpers{
+func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string, debug bool) *Helpers {
+	h := &Helpers{
 		wincBin:         wincBin,
 		grootBin:        grootBin,
 		grootImageStore: grootImageStore,
 		wincNetworkBin:  wincNetworkBin,
 		gatewayFileName: "c:\\var\\vcap\\data\\winc-network\\gateways.json",
+		debug:           debug,
 	}
+
+	if h.debug {
+		var err error
+		h.logFile, err = ioutil.TempFile("", "log")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	}
+	return h
+}
+
+func (h *Helpers) Logs() []byte {
+	h.logFile.Close()
+	content, err := ioutil.ReadFile(h.logFile.Name())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	Expect(os.RemoveAll(h.logFile.Name())).To(Succeed())
+	return content
 }
 
 func (h *Helpers) GetContainerState(containerId string) specs.State {
-	stdOut, _, err := h.Execute(exec.Command(h.wincBin, "state", containerId))
+	stdOut, _, err := h.Execute(h.ExecCommand(h.wincBin, "state", containerId))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	var state specs.State
@@ -64,24 +82,24 @@ func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
 
 func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
 	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(exec.Command(h.wincBin, "create", "-b", bundlePath, containerId))
+	_, _, err := h.Execute(h.ExecCommand(h.wincBin, "create", "-b", bundlePath, containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) RunContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
 	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(exec.Command(h.wincBin, "run", "--detach", "-b", bundlePath, containerId))
+	_, _, err := h.Execute(h.ExecCommand(h.wincBin, "run", "--detach", "-b", bundlePath, containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) StartContainer(containerId string) {
-	_, _, err := h.Execute(exec.Command(h.wincBin, "start", containerId))
+	_, _, err := h.Execute(h.ExecCommand(h.wincBin, "start", containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
-		output, err := exec.Command(h.wincBin, "delete", id).CombinedOutput()
+		output, err := h.ExecCommand(h.wincBin, "delete", id).CombinedOutput()
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
 	}
 }
@@ -119,7 +137,7 @@ func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile 
 
 	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
 	args = append(args, extraArgs...)
-	_, _, err := h.Execute(exec.Command(h.wincNetworkBin, args...))
+	_, _, err := h.Execute(h.ExecCommand(h.wincNetworkBin, args...))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
@@ -140,13 +158,13 @@ func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile 
 
 	h.writeGatewaysInUse(f, newGatewaysInUse)
 	args := []string{"--action", "delete", "--configFile", networkConfigFile}
-	_, _, err = h.Execute(exec.Command(h.wincNetworkBin, args...))
+	_, _, err = h.Execute(h.ExecCommand(h.wincNetworkBin, args...))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutputs {
 	args := []string{"--action", "up", "--configFile", networkConfigFile, "--handle", id}
-	cmd := exec.Command(h.wincNetworkBin, args...)
+	cmd := h.ExecCommand(h.wincNetworkBin, args...)
 	cmd.Stdin = strings.NewReader(input)
 	stdOut, _, err := h.Execute(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -157,7 +175,7 @@ func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutpu
 }
 
 func (h *Helpers) NetworkDown(id, networkConfigFile string) {
-	_, _, err := h.Execute(exec.Command(h.wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id))
+	_, _, err := h.Execute(h.ExecCommand(h.wincNetworkBin, "--configFile", networkConfigFile, "--action", "down", "--handle", id))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
@@ -206,7 +224,7 @@ func (h *Helpers) ExecInContainer(id string, args []string, detach bool) (*bytes
 		defaultArgs = []string{"exec", "-u", "vcap", id}
 	}
 
-	return h.Execute(exec.Command(h.wincBin, append(defaultArgs, args...)...))
+	return h.Execute(h.ExecCommand(h.wincBin, append(defaultArgs, args...)...))
 }
 
 func (h *Helpers) GenerateRuntimeSpec(baseSpec specs.Spec) specs.Spec {
@@ -301,6 +319,16 @@ func (h *Helpers) ContainerProcesses(containerId, filter string) []hcsshim.Proce
 	}
 
 	return pl
+}
+
+func (h *Helpers) ExecCommand(command string, args ...string) *exec.Cmd {
+	allArgs := []string{}
+	if h.debug {
+		allArgs = append([]string{"--log", h.logFile.Name(), "--debug"}, args...)
+	} else {
+		allArgs = args[0:]
+	}
+	return exec.Command(command, allArgs...)
 }
 
 func (h *Helpers) loadGatewaysInUse(f filelock.LockedFile) []string {

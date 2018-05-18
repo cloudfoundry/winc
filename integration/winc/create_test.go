@@ -39,6 +39,7 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
 		helpers.DeleteVolume(containerId)
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})

@@ -6,6 +6,7 @@ import (
 	mathrand "math/rand"
 	"os"
 	"os/exec"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -31,6 +32,8 @@ var (
 	consumeBin      string
 	sleepBin        string
 	helpers         *testhelpers.Helpers
+	debug           bool
+	failed          bool
 )
 
 type wincStats struct {
@@ -49,7 +52,7 @@ type wincStats struct {
 		} `json:"memory"`
 		Pids struct {
 			Current uint64 `json:"current,omitempty"`
-			Limit uint64 `json:"limit,omitempty"`
+			Limit   uint64 `json:"limit,omitempty"`
 		} `json:"pids"`
 	} `json:"data"`
 }
@@ -77,6 +80,8 @@ var _ = BeforeSuite(func() {
 	grootImageStore, present = os.LookupEnv("GROOT_IMAGE_STORE")
 	Expect(present).To(BeTrue(), "GROOT_IMAGE_STORE not set")
 
+	debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
+
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
 	Expect(err).ToNot(HaveOccurred())
 
@@ -85,10 +90,13 @@ var _ = BeforeSuite(func() {
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/sleep")
 	Expect(err).ToNot(HaveOccurred())
 
-	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, "")
+	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, "", debug)
 })
 
 var _ = AfterSuite(func() {
+	if failed && debug {
+		fmt.Println(string(helpers.Logs()))
+	}
 	gexec.CleanupBuildArtifacts()
 })
 

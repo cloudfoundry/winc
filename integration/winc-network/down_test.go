@@ -22,6 +22,7 @@ var _ = Describe("Down", func() {
 	})
 
 	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
 		deleteContainerAndNetwork(containerId, networkConfig)
 	})
 

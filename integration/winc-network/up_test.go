@@ -37,6 +37,10 @@ var _ = Describe("Up", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
+	})
+
 	Context("default network config", func() {
 		BeforeEach(func() {
 			helpers.RunContainer(bundleSpec, bundlePath, containerId)

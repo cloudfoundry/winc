@@ -29,6 +29,7 @@ var _ = Describe("Logging", func() {
 	})
 
 	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
 		deleteContainerAndNetwork(containerId, networkConfig)
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
