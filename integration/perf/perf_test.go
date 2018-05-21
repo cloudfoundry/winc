@@ -39,6 +39,7 @@ var _ = Describe("Perf", func() {
 	})
 
 	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
 		for _, containerId := range containerIds {
 			helpers.NetworkDown(containerId, networkConfigFile)
 			helpers.DeleteContainer(containerId)

@@ -15,6 +15,9 @@ var _ = Describe("Delete", func() {
 		helpers.CreateNetwork(networkConfig, networkConfigFile)
 
 	})
+	AfterEach(func() {
+		failed = failed || CurrentGinkgoTestDescription().Failed
+	})
 
 	It("deletes the NAT network", func() {
 		helpers.DeleteNetwork(networkConfig, networkConfigFile)

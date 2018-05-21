@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -45,6 +46,8 @@ var (
 	networkConfigFile string
 	networkConfig     network.Config
 	windowsBuild      int
+	debug             bool
+	failed            bool
 )
 
 func TestWincNetwork(t *testing.T) {
@@ -66,6 +69,8 @@ var _ = BeforeSuite(func() {
 
 	grootImageStore, present = os.LookupEnv("GROOT_IMAGE_STORE")
 	Expect(present).To(BeTrue(), "GROOT_IMAGE_STORE not set")
+
+	debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
 
 	var err error
 	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
@@ -107,10 +112,13 @@ var _ = BeforeSuite(func() {
 	clientBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc-network/fixtures/client")
 	Expect(err).ToNot(HaveOccurred())
 
-	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin)
+	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin, debug)
 })
 
 var _ = AfterSuite(func() {
+	if failed && debug {
+		fmt.Println(string(helpers.Logs()))
+	}
 	gexec.CleanupBuildArtifacts()
 })
 

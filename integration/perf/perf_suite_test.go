@@ -1,6 +1,7 @@
 package perf_test
 
 import (
+	"fmt"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -30,6 +31,8 @@ var (
 	rootfsURI            string
 	concurrentContainers int
 	helpers              *testhelpers.Helpers
+	debug                bool
+	failed               bool
 )
 
 func TestPerf(t *testing.T) {
@@ -56,6 +59,8 @@ var _ = BeforeSuite(func() {
 	grootImageStore, present = os.LookupEnv("GROOT_IMAGE_STORE")
 	Expect(present).To(BeTrue(), "GROOT_IMAGE_STORE not set")
 
+	debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
+
 	concurrentContainers = defaultConcurrentContainers
 	concurrentContainersStr, present := os.LookupEnv("WINC_TEST_PERF_CONCURRENT_CONTAINERS")
 	if present {
@@ -80,9 +85,12 @@ var _ = BeforeSuite(func() {
 		"-lole32", "-loleaut32").Run()
 	Expect(err).NotTo(HaveOccurred())
 
-	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin)
+	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin, debug)
 })
 
 var _ = AfterSuite(func() {
+	if failed && debug {
+		fmt.Println(string(helpers.Logs()))
+	}
 	gexec.CleanupBuildArtifacts()
 })
