@@ -137,7 +137,8 @@ func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile 
 
 	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
 	args = append(args, extraArgs...)
-	_, _, err := h.Execute(h.ExecCommand(h.wincNetworkBin, args...))
+	cmd := exec.Command(h.wincNetworkBin, args...)
+	_, _, err := h.Execute(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
