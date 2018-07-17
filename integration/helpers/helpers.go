@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -35,9 +36,16 @@ type Helpers struct {
 	gatewayFileName string
 	debug           bool
 	logFile         *os.File
+	windowsBuild    int
 }
 
 func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string, debug bool) *Helpers {
+	output, err := exec.Command("powershell", "-command", "[System.Environment]::OSVersion.Version.Build").CombinedOutput()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	windowsBuild, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
 	h := &Helpers{
 		wincBin:         wincBin,
 		grootBin:        grootBin,
@@ -45,6 +53,7 @@ func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string, debug
 		wincNetworkBin:  wincNetworkBin,
 		gatewayFileName: "c:\\var\\vcap\\data\\winc-network\\gateways.json",
 		debug:           debug,
+		windowsBuild:    windowsBuild,
 	}
 
 	if h.debug {
@@ -219,11 +228,17 @@ func (h *Helpers) ContainerExists(containerId string) bool {
 func (h *Helpers) ExecInContainer(id string, args []string, detach bool) (*bytes.Buffer, *bytes.Buffer, error) {
 	var defaultArgs []string
 
-	if detach {
-		defaultArgs = []string{"exec", "-u", "vcap", "-d", id}
-	} else {
-		defaultArgs = []string{"exec", "-u", "vcap", id}
+	defaultArgs = []string{"exec"}
+	// on 1709, need non-admin user for networking tests
+	if h.windowsBuild == 16299 {
+		defaultArgs = append(defaultArgs, "-u", "vcap")
 	}
+
+	if detach {
+		defaultArgs = append(defaultArgs, "-d")
+	}
+
+	defaultArgs = append(defaultArgs, id)
 
 	return h.Execute(h.ExecCommand(h.wincBin, append(defaultArgs, args...)...))
 }
