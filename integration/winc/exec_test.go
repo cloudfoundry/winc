@@ -134,11 +134,18 @@ var _ = Describe("Exec", func() {
 		})
 
 		Context("when the '--user' flag is provided", func() {
+			BeforeEach(func() {
+				args := []string{"exec", containerId, "cmd.exe", "/C", "net user alice /ADD /passwordreq:no && runas /user:alice whoami"}
+				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
+				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
+			})
+
 			It("runs the process as the specified user", func() {
-				stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "echo %USERNAME%"}, false)
+				args := []string{"--debug", "exec", "--user", "alice", containerId, "cmd.exe", "/C", "echo %USERNAME%"}
+				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
-				Expect(stdOut.String()).To(ContainSubstring("vcap"))
+				Expect(stdOut.String()).To(ContainSubstring("alice"))
 			})
 
 			Context("when the specified user does not exist or cannot be used", func() {
