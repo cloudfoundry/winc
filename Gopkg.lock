@@ -23,10 +23,22 @@
   version = "v0.4.5"
 
 [[projects]]
-  branch = "extra-endpoint-info"
+  branch = "extra-endpoint-info-merge-from-master"
   name = "github.com/Microsoft/hcsshim"
-  packages = ["."]
-  revision = "966f1fad50a385c86d1a8b6fe4e9ddaa543db429"
+  packages = [
+    ".",
+    "internal/guid",
+    "internal/hcs",
+    "internal/hcserror",
+    "internal/hns",
+    "internal/interop",
+    "internal/longpath",
+    "internal/mergemaps",
+    "internal/safefile",
+    "internal/schema1",
+    "internal/wclayer"
+  ]
+  revision = "29592e6cf23bb1bf098df7100f6ae81988fb9382"
   source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]
@@ -212,6 +224,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "45c436957400e48f273dc918a121d1ee8039db13f1e1ff6e11356089c3f21a6d"
+  inputs-digest = "fd03299e07449f294ce4803be4ab14800ba8dcc7aaf79cd5f4cbf5675b06fd74"
   solver-name = "gps-cdcl"
   solver-version = 1
