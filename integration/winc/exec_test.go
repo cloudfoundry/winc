@@ -37,7 +37,7 @@ var _ = Describe("Exec", func() {
 			containerId = filepath.Base(bundlePath)
 
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
-			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\tmp"}}
+			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(sleepBin), Destination: "C:\\somedir"}}
 			Expect(acl.Apply(filepath.Dir(sleepBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 		})
@@ -49,8 +49,8 @@ var _ = Describe("Exec", func() {
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
-		It("the process runs in the container", func() {
-			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\tmp\\sleep.exe"}, true)
+		FIt("the process runs in the container", func() {
+			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\somedir\\sleep.exe"}, true)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
 			pl := helpers.ContainerProcesses(containerId, "sleep.exe")
