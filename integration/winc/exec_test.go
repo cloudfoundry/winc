@@ -54,7 +54,7 @@ var _ = Describe("Exec", func() {
 			//stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\somedir\\sleep.exe"}, true)
 			//Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "C:\\somedir\\sentinel")}, false)
+			stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "C:\\somedir\\sentinel"}, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("hello"))
 			// pl := helpers.ContainerProcesses(containerId, "sleep.exe")
