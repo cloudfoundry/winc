@@ -34,6 +34,7 @@ var _ = Describe("Exec", func() {
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).To(Succeed())
 
+			Expect(ioutil.WriteFile(filepath.Join(filepath.dir(sleepBin), "sentinel"), []byte("hello"), 0644)).To(Succeed())
 			containerId = filepath.Base(bundlePath)
 
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
@@ -50,11 +51,14 @@ var _ = Describe("Exec", func() {
 		})
 
 		FIt("the process runs in the container", func() {
-			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\somedir\\sleep.exe"}, true)
-			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+			//stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\somedir\\sleep.exe"}, true)
+			//Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			pl := helpers.ContainerProcesses(containerId, "sleep.exe")
-			Expect(len(pl)).To(Equal(1))
+			stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "C:\\somedir\\sentinel")}, false)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stdOut.String()).To(ContainSubstring("hello"))
+			// pl := helpers.ContainerProcesses(containerId, "sleep.exe")
+			// Expect(len(pl)).To(Equal(1))
 		})
 
 		It("runs an executible given a unix path in the container", func() {
