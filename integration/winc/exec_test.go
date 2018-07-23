@@ -49,7 +49,7 @@ var _ = Describe("Exec", func() {
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
-		FIt("the process runs in the container", func() {
+		It("the process runs in the container", func() {
 			stdOut, stdErr, err := helpers.ExecInContainer(containerId, []string{"C:\\tmp\\sleep.exe"}, true)
 			Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
 
