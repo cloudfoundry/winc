@@ -123,16 +123,16 @@ func (m *Manager) Create(spec *specs.Spec) error {
 			logrus.WithField("mount", d.Source).Error("mount is not a directory, ignoring")
 			continue
 		}
-
-		readOnly, err := m.parseMountOptions(d.Options)
-		if err != nil {
-			return err
-		}
-
+		/*
+			readOnly, err := m.parseMountOptions(d.Options)
+			if err != nil {
+				return err
+			}
+		*/
 		mappedDirs = append(mappedDirs, hcsshim.MappedDir{
 			HostPath:      d.Source,
 			ContainerPath: destToWindowsPath(d.Destination),
-			ReadOnly:      readOnly,
+			ReadOnly:      false,
 		})
 	}
 
