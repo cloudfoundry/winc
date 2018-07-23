@@ -48,7 +48,7 @@ var _ = Describe("Exec", func() {
 			fmt.Printf("ContainerID: %s\n", containerId)
 			//helpers.DeleteContainer(containerId)
 			//helpers.DeleteVolume(containerId)
-			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+			//Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
 		FIt("the process runs in the container", func() {
