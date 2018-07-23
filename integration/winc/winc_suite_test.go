@@ -97,7 +97,7 @@ var _ = AfterSuite(func() {
 	if failed && debug {
 		fmt.Println(string(helpers.Logs()))
 	}
-	gexec.CleanupBuildArtifacts()
+	//gexec.CleanupBuildArtifacts()
 })
 
 func processSpecGenerator() specs.Process {
