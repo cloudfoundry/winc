@@ -128,7 +128,7 @@ var _ = Describe("Create", func() {
 				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
 				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(stdOut.String()).To(ContainSubstring("hello"))
+				Expect(stdOut.String()).To(ContainSubstring("hello1"))
 			})
 
 			Context("no mount options are specified", func() {
