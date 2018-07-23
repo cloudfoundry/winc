@@ -117,7 +117,7 @@ var _ = Describe("Events", func() {
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
 			Expect(stdErr.String()).To(ContainSubstring("container doesntexist encountered an error during OpenContainer"))
-			Expect(stdErr.String()).To(ContainSubstring("A Compute System with the specified identifier does not exist"))
+			Expect(stdErr.String()).To(ContainSubstring("the specified identifier does not exist"))
 		})
 	})
 })
