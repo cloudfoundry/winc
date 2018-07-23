@@ -34,7 +34,7 @@ var _ = Describe("Exec", func() {
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).To(Succeed())
 
-			Expect(ioutil.WriteFile(filepath.Join(filepath.Dir(sleepBin), "sentinel"), []byte("hello"), 0644)).To(Succeed())
+			Expect(ioutil.WriteFile(filepath.Join(filepath.dir(sleepBin), "sentinel"), []byte("hello"), 0644)).To(Succeed())
 			containerId = filepath.Base(bundlePath)
 
 			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
@@ -45,8 +45,8 @@ var _ = Describe("Exec", func() {
 
 		AfterEach(func() {
 			failed = failed || CurrentGinkgoTestDescription().Failed
-			helpers.DeleteContainer(containerId)
-			helpers.DeleteVolume(containerId)
+			//helpers.DeleteContainer(containerId)
+			//helpers.DeleteVolume(containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})
 
