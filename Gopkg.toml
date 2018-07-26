@@ -33,7 +33,7 @@ required = ["github.com/onsi/ginkgo/ginkgo"]
 [[constraint]]
   name = "github.com/Microsoft/hcsshim"
   source = "github.com/greenhouse-org/hcsshim"
-  branch = "extra-endpoint-info"
+  branch = "extra-endpoint-info-merge-from-master"
 
 [[constraint]]
   branch = "master"
