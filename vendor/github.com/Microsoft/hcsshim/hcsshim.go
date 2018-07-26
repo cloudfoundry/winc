@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/Microsoft/hcsshim/internal/hcserror"
+	"github.com/Microsoft/hcsshim/internal/hns"
 )
 
 const (
@@ -22,3 +23,10 @@ const (
 )
 
 type HcsError = hcserror.HcsError
+
+var SetCurrentThreadCompartmentId = hns.SetCurrentThreadCompartmentId
+
+const (
+	EndpointPortType = 2
+	NATPolicyType    = 4
+)
