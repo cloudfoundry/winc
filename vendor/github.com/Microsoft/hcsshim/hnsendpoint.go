@@ -6,6 +6,8 @@ import (
 
 // HNSEndpoint represents a network endpoint in HNS
 type HNSEndpoint = hns.HNSEndpoint
+type Resources = hns.Resources
+type Allocator = hns.Allocator
 
 const (
 	EndpointPortType = 2

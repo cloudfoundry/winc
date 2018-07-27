@@ -38,7 +38,7 @@
     "internal/schema1",
     "internal/wclayer"
   ]
-  revision = "d83ee73a116d1a861822c7096ad28978b8603a60"
+  revision = "20ab0fecb3313513c799157d2f87ca6e598a81d9"
   source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]
