@@ -69,7 +69,6 @@ var (
 	filename       = flag.String("output", "", "output file name (standard output if omitted)")
 	printTraceFlag = flag.Bool("trace", false, "generate print statement after every syscall")
 	systemDLL      = flag.Bool("systemdll", true, "whether all DLLs should be loaded from the Windows system directory")
-	winio          = flag.Bool("winio", false, "import go-winio")
 )
 
 func trim(s string) string {
@@ -300,7 +299,7 @@ func (r *Rets) SetErrorCode() string {
 		%s = %sErrno(r0)
 	}`
 	const hrCode = `if int32(r0) < 0 {
-		%s = interop.Win32FromHresult(r0)
+		%s = %sErrno(win32FromHresult(r0))
 	}`
 	if r.Name == "" && !r.ReturnsError {
 		return ""
@@ -310,7 +309,7 @@ func (r *Rets) SetErrorCode() string {
 	}
 	if r.Type == "error" {
 		if r.Name == "hr" {
-			return fmt.Sprintf(hrCode, r.Name)
+			return fmt.Sprintf(hrCode, r.Name, syscalldot())
 		} else {
 			return fmt.Sprintf(code, r.Name, syscalldot())
 		}
@@ -773,10 +772,7 @@ func (src *Source) Generate(w io.Writer) error {
 			src.ExternalImport("golang.org/x/sys/windows")
 		}
 	}
-	src.ExternalImport("github.com/Microsoft/hcsshim/internal/interop")
-	if *winio {
-		src.ExternalImport("github.com/Microsoft/go-winio")
-	}
+	src.ExternalImport("github.com/Microsoft/go-winio")
 	if packageName != "syscall" {
 		src.Import("syscall")
 	}
