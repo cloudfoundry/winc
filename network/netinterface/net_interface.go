@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
 )
@@ -31,10 +32,9 @@ func (e *InterfaceForIPNotFoundError) Error() string {
 }
 
 var (
-	iphlpapi                      = windows.NewLazySystemDLL("iphlpapi.dll")
-	getIpInterfaceEntry           = iphlpapi.NewProc("GetIpInterfaceEntry")
-	setIpInterfaceEntry           = iphlpapi.NewProc("SetIpInterfaceEntry")
-	setCurrentThreadCompartmentId = iphlpapi.NewProc("SetCurrentThreadCompartmentId")
+	iphlpapi            = windows.NewLazySystemDLL("iphlpapi.dll")
+	getIpInterfaceEntry = iphlpapi.NewProc("GetIpInterfaceEntry")
+	setIpInterfaceEntry = iphlpapi.NewProc("SetIpInterfaceEntry")
 )
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa365915(v=vs.85).aspx
@@ -161,14 +161,10 @@ func (n *NetInterface) SetMTU(alias string, mtu int) error {
 
 	runtime.LockOSThread()
 	defer func() {
-		compartmentID := uintptr(0)
-		syscall.Syscall(setCurrentThreadCompartmentId.Addr(), 1, compartmentID, 0, 0)
+		hcsshim.SetCurrentThreadCompartmentId(0)
 		runtime.UnlockOSThread()
 	}()
-
-	r0, _, _ := syscall.Syscall(setCurrentThreadCompartmentId.Addr(), 1, uintptr(compartmentID), 0, 0)
-	if int32(r0) != 0 {
-		err := fmt.Errorf("SetCurrentThreadCompartmentId: 0x%x", r0)
+	if err := hcsshim.SetCurrentThreadCompartmentId(compartmentID); err != nil {
 		logrus.Error(err)
 		return err
 	}
@@ -177,7 +173,7 @@ func (n *NetInterface) SetMTU(alias string, mtu int) error {
 	row.InterfaceLuid = luid
 	row.Family = windows.AF_INET
 
-	r0, _, _ = syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	r0, _, err := syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
 	if int32(r0) != 0 {
 		err := fmt.Errorf("GetIpInterfaceEntry: 0x%x", r0)
 		logrus.Error(err)
@@ -190,7 +186,7 @@ func (n *NetInterface) SetMTU(alias string, mtu int) error {
 	// SitePrefixLength must be 0 for IPv4 interfaces
 	row.SitePrefixLength = 0
 
-	r0, _, _ = syscall.Syscall(setIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	r0, _, err = syscall.Syscall(setIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
 	if int32(r0) != 0 {
 		err := fmt.Errorf("SetIpInterfaceEntry: 0x%x", r0)
 		logrus.Error(err)
@@ -208,14 +204,10 @@ func (n *NetInterface) GetMTU(alias string) (uint32, error) {
 
 	runtime.LockOSThread()
 	defer func() {
-		compartmentID := uintptr(0)
-		syscall.Syscall(setCurrentThreadCompartmentId.Addr(), 1, compartmentID, 0, 0)
+		hcsshim.SetCurrentThreadCompartmentId(0)
 		runtime.UnlockOSThread()
 	}()
-
-	r0, _, _ := syscall.Syscall(setCurrentThreadCompartmentId.Addr(), 1, uintptr(compartmentID), 0, 0)
-	if int32(r0) != 0 {
-		err := fmt.Errorf("SetCurrentThreadCompartmentId: 0x%x", r0)
+	if err := hcsshim.SetCurrentThreadCompartmentId(compartmentID); err != nil {
 		logrus.Error(err)
 		return 0, err
 	}
@@ -224,7 +216,7 @@ func (n *NetInterface) GetMTU(alias string) (uint32, error) {
 	row.InterfaceLuid = luid
 	row.Family = windows.AF_INET
 
-	r0, _, _ = syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	r0, _, err := syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
 	if int32(r0) != 0 {
 		err := fmt.Errorf("GetIpInterfaceEntry: 0x%x", r0)
 		logrus.Error(err)
