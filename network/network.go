@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
+	"github.com/sirupsen/logrus"
 )
 
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
@@ -132,11 +133,13 @@ func (n *NetworkManager) DeleteHostNATNetwork() error {
 }
 
 func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
+	logrus.Debugf("start networkmanager up %d", inputs.Pid)
 	outputs, err := n.up(inputs)
 	if err != nil {
 		n.applier.Cleanup()
 		n.endpointManager.Delete()
 	}
+	logrus.Debugf("finished networkmanager up %d", inputs.Pid)
 	return outputs, err
 }
 
@@ -147,6 +150,7 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	if err != nil {
 		return outputs, err
 	}
+	logrus.Debugf("created endpoint %s", createdEndpoint.Name)
 
 	mappedPorts := []netrules.PortMapping{}
 	for _, rule := range inputs.NetIn {
@@ -183,10 +187,12 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	if _, err := n.endpointManager.ApplyMappings(createdEndpoint, mappedPorts); err != nil {
 		return outputs, err
 	}
+	logrus.Debugf("applied network mappings %s", createdEndpoint.Name)
 
 	if err := n.applier.ContainerMTU(n.config.MTU); err != nil {
 		return outputs, err
 	}
+	logrus.Debugf("applied container MTU %d", n.config.MTU)
 
 	portBytes, err := json.Marshal(mappedPorts)
 	if err != nil {
