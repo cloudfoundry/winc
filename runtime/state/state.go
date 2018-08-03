@@ -117,6 +117,7 @@ func (m *Manager) SetSuccess(proc hcs.Process) error {
 }
 
 func (m *Manager) State() (*specs.State, error) {
+	logrus.Debugf("state manager")
 	cp, err := m.hcsClient.GetContainerProperties(m.containerId)
 	if err != nil {
 		return nil, err
@@ -202,6 +203,7 @@ func (m *Manager) stateDir() string {
 }
 
 func (m *Manager) loadState() (State, error) {
+	logrus.Debugf("load state")
 	contents, err := ioutil.ReadFile(filepath.Join(m.stateDir(), stateFile))
 	if err != nil {
 		return State{}, err
@@ -210,7 +212,7 @@ func (m *Manager) loadState() (State, error) {
 	if err := json.Unmarshal(contents, &state); err != nil {
 		return State{}, err
 	}
-
+	logrus.Debugf("state for bundle: %s", state.Bundle)
 	return state, nil
 }
 
