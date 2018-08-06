@@ -102,8 +102,10 @@ func (h *Helpers) RunContainer(bundleSpec specs.Spec, bundlePath, containerId st
 }
 
 func (h *Helpers) StartContainer(containerId string) {
-	_, _, err := h.Execute(h.ExecCommand(h.wincBin, "start", containerId))
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	Eventually(func() error {
+		_, _, err := h.Execute(h.ExecCommand(h.wincBin, "start", containerId))
+		return err
+	}).Should(Succeed())
 }
 
 func (h *Helpers) DeleteContainer(id string) {
@@ -174,10 +176,14 @@ func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile 
 
 func (h *Helpers) NetworkUp(id, input, networkConfigFile string) network.UpOutputs {
 	args := []string{"--action", "up", "--configFile", networkConfigFile, "--handle", id}
-	cmd := h.ExecCommand(h.wincNetworkBin, args...)
-	cmd.Stdin = strings.NewReader(input)
-	stdOut, _, err := h.Execute(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	var stdOut *bytes.Buffer
+	Eventually(func() error {
+		cmd := h.ExecCommand(h.wincNetworkBin, args...)
+		cmd.Stdin = strings.NewReader(input)
+		var err error
+		stdOut, _, err = h.Execute(cmd)
+		return err
+	}).Should(Succeed())
 
 	var upOutput network.UpOutputs
 	ExpectWithOffset(1, json.Unmarshal(stdOut.Bytes(), &upOutput)).To(Succeed())
