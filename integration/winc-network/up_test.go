@@ -462,7 +462,8 @@ var _ = Describe("Up", func() {
 					stdout, _, err = helpers.ExecInContainer(containerId, []string{"c:\\netout.exe", "--protocol", "icmp", "--addr", "8.8.8.8"}, false)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(stdout.String()).To(ContainSubstring("Ping statistics for 8.8.8.8"))
-					Expect(stdout.String()).To(ContainSubstring("Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"))
+					Expect(stdout.String()).To(ContainSubstring("Reply from 8.8.8.8: bytes=32"))
+					Expect(stdout.String()).NotTo(ContainSubstring("Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)"))
 				})
 
 				It("blocks access over all protocols to prohibited remote hosts", func() {
