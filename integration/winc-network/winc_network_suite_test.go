@@ -98,7 +98,7 @@ var _ = BeforeSuite(func() {
 			"-lole32", "-loleaut32").Run()
 		Expect(err).NotTo(HaveOccurred())
 	} else {
-		// 1803
+		// 1803 & 2019
 		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network", "-tags", "1803")
 		Expect(err).ToNot(HaveOccurred())
 	}
