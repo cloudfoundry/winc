@@ -368,7 +368,7 @@ var _ = Describe("Create", func() {
 			helpers.GenerateBundle(bundleSpec, bundlePath)
 			stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, containerId))
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
-			Expect(stdErr.String()).To(ContainSubstring(`CreateFile C:\not\a\directory\mountsource: The system cannot find the path specified`))
+			Expect(stdErr.String()).To(ContainSubstring(`C:\not\a\directory\mountsource: The system cannot find the path specified`))
 
 			Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 		})

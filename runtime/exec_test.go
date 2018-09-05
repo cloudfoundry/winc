@@ -35,7 +35,6 @@ var _ = Describe("Exec", func() {
 		unwrappedProcess *hcsfakes.Process
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
-		spec             *specs.Spec
 		processSpecDir   string
 		processSpecFile  string
 		io               runtime.IO
@@ -53,7 +52,6 @@ var _ = Describe("Exec", func() {
 		cm = &fakes.ContainerManager{}
 		processWrapper = &fakes.ProcessWrapper{}
 		wrappedProcess = &fakes.WrappedProcess{}
-		spec = &specs.Spec{}
 
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)

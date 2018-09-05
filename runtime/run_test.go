@@ -36,7 +36,6 @@ var _ = Describe("Run", func() {
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
 		spec             *specs.Spec
-		output           *gbytes.Buffer
 		io               runtime.IO
 		stdin            *gbytes.Buffer
 		stdout           *gbytes.Buffer
@@ -65,8 +64,6 @@ var _ = Describe("Run", func() {
 
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
-
-		output = gbytes.NewBuffer()
 
 		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
 

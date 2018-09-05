@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var _ = Describe("Events", func() {
@@ -26,10 +25,8 @@ var _ = Describe("Events", func() {
 		containerFactory *fakes.ContainerFactory
 		cm               *fakes.ContainerManager
 		processWrapper   *fakes.ProcessWrapper
-		p                *fakes.WrappedProcess
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
-		spec             *specs.Spec
 		output           *gbytes.Buffer
 	)
 
@@ -41,8 +38,6 @@ var _ = Describe("Events", func() {
 		containerFactory = &fakes.ContainerFactory{}
 		cm = &fakes.ContainerManager{}
 		processWrapper = &fakes.ProcessWrapper{}
-		p = &fakes.WrappedProcess{}
-		spec = &specs.Spec{}
 
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)

@@ -25,7 +25,6 @@ var _ = Describe("Create", func() {
 		containerFactory *fakes.ContainerFactory
 		cm               *fakes.ContainerManager
 		processWrapper   *fakes.ProcessWrapper
-		p                *fakes.WrappedProcess
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
 		spec             *specs.Spec
@@ -39,7 +38,6 @@ var _ = Describe("Create", func() {
 		containerFactory = &fakes.ContainerFactory{}
 		cm = &fakes.ContainerManager{}
 		processWrapper = &fakes.ProcessWrapper{}
-		p = &fakes.WrappedProcess{}
 		spec = &specs.Spec{}
 
 		stateFactory.NewManagerReturns(sm)

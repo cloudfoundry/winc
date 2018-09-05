@@ -26,10 +26,8 @@ var _ = Describe("State", func() {
 		containerFactory *fakes.ContainerFactory
 		cm               *fakes.ContainerManager
 		processWrapper   *fakes.ProcessWrapper
-		p                *fakes.WrappedProcess
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
-		spec             *specs.Spec
 		output           *gbytes.Buffer
 	)
 
@@ -41,8 +39,6 @@ var _ = Describe("State", func() {
 		containerFactory = &fakes.ContainerFactory{}
 		cm = &fakes.ContainerManager{}
 		processWrapper = &fakes.ProcessWrapper{}
-		p = &fakes.WrappedProcess{}
-		spec = &specs.Spec{}
 
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)

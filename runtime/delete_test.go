@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"code.cloudfoundry.org/winc/hcs"
-	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"code.cloudfoundry.org/winc/runtime"
 	"code.cloudfoundry.org/winc/runtime/fakes"
 	"code.cloudfoundry.org/winc/runtime/winsyscall"
@@ -30,11 +29,8 @@ var _ = Describe("Delete", func() {
 		containerFactory *fakes.ContainerFactory
 		cm               *fakes.ContainerManager
 		processWrapper   *fakes.ProcessWrapper
-		wrappedProcess   *fakes.WrappedProcess
-		unwrappedProcess *hcsfakes.Process
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
-		spec             *specs.Spec
 	)
 
 	BeforeEach(func() {
@@ -45,9 +41,6 @@ var _ = Describe("Delete", func() {
 		containerFactory = &fakes.ContainerFactory{}
 		cm = &fakes.ContainerManager{}
 		processWrapper = &fakes.ProcessWrapper{}
-		wrappedProcess = &fakes.WrappedProcess{}
-		unwrappedProcess = &hcsfakes.Process{}
-		spec = &specs.Spec{}
 
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
