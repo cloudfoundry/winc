@@ -134,10 +134,12 @@ var _ = Describe("Flags", func() {
 
 			Context("when the log handle is not valid", func() {
 				It("writes a useful error to stderr", func() {
-					args := []string{"--log-handle", "1234", "create", containerId, "-b", bundlePath}
+					/* We hope that a sufficiently large file handle would be invalid */
+					invalidFileHandle := "123456789"
+					args := []string{"--log-handle", invalidFileHandle, "create", containerId, "-b", bundlePath}
 					_, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
 					Expect(err).To(HaveOccurred())
-					Expect(stdErr.String()).To(ContainSubstring("log handle 1234 invalid: The handle is invalid."))
+					Expect(stdErr.String()).To(ContainSubstring(fmt.Sprintf("log handle %s invalid: The handle is invalid.", invalidFileHandle)))
 				})
 			})
 
