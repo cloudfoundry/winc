@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	acl "github.com/hectane/go-acl"
 	. "github.com/onsi/ginkgo"
@@ -96,6 +97,9 @@ var _ = Describe("Events", func() {
 				})
 
 				It("prints the number of running processes stats to stdout", func() {
+					// Wait for the number of processes to settle on 2019...ugh...
+					time.Sleep(1 * time.Second)
+
 					pidCountBefore := getStats(containerId).Data.Pids.Current
 					Expect(pidCountBefore).To(BeNumerically(">", 0))
 
