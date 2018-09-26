@@ -78,3 +78,7 @@ required = ["github.com/onsi/ginkgo/ginkgo"]
 [[constraint]]
   branch = "master"
   name = "code.cloudfoundry.org/filelock"
+
+[[constraint]]
+  branch = "master"
+  name = "code.cloudfoundry.org/silk"

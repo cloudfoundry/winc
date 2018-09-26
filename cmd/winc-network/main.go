@@ -115,6 +115,7 @@ func main() {
 				return fmt.Errorf("networkUp: %s", err.Error())
 			}
 
+			logrus.Debugf("networkUp inputs: %+v", inputs)
 			outputs, err := networkManager.Up(inputs)
 			if err != nil {
 				return fmt.Errorf("networkUp: %s", err.Error())

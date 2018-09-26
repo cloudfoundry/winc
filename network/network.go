@@ -5,12 +5,19 @@ import (
 	"fmt"
 	"net"
 
+	"code.cloudfoundry.org/filelock"
+	"code.cloudfoundry.org/silk/lib/datastore"
+	sserial "code.cloudfoundry.org/silk/lib/serial"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
 
 	"github.com/Microsoft/hcsshim"
 	"github.com/sirupsen/logrus"
 )
+
+const metadataFile = "C:\\container-metadata.txt"
+
+// TODO: where does this get created?
 
 //go:generate counterfeiter -o fakes/net_rule_applier.go --fake-name NetRuleApplier . NetRuleApplier
 type NetRuleApplier interface {
@@ -229,6 +236,20 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	outputs.Properties.ContainerIP = createdEndpoint.IPAddress.String()
 	outputs.Properties.DeprecatedHostIP = "255.255.255.255"
 
+	// Add container metadata info
+	store := &datastore.Store{
+		Serializer: &sserial.Serial{},
+		LockerNew:  filelock.NewLocker,
+	}
+
+	if err := store.Add(metadataFile, n.containerId, outputs.Properties.ContainerIP, inputs.Properties); err != nil {
+		storeErr := fmt.Errorf("store add: %s", err)
+		logrus.Error(storeErr)
+		// TODO: what kind of cleanup needs to happen?
+
+		return outputs, storeErr
+	}
+
 	return outputs, nil
 }
 
@@ -246,5 +267,19 @@ func (n *NetworkManager) Down() error {
 	if cleanupErr != nil {
 		return cleanupErr
 	}
+
+	// Delete container metadata info
+	store := &datastore.Store{
+		Serializer: &sserial.Serial{},
+		LockerNew:  filelock.NewLocker,
+	}
+
+	if _, err := store.Delete(metadataFile, n.containerId); err != nil {
+		storeErr := fmt.Errorf("store delete: %s", err)
+		logrus.Error(storeErr)
+		// TODO: confirm we don't need to do any cleanup here
+	}
+	logrus.Debugf("Deleted data from store...")
+
 	return nil
 }
