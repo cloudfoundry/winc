@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
 )
 
@@ -20,7 +21,13 @@ var (
 
 type Mounter struct{}
 
-func (m *Mounter) Mount(pid int, volumePath string) error {
+func (m *Mounter) Mount(pid int, volumePath string, logger *logrus.Entry) error {
+	if _, err := os.Stat(mountPath(pid)); !os.IsNotExist(err) {
+		err := fmt.Errorf("mountdir exists: %s", mountPath(pid))
+		logger.Error(err.Error())
+		return err
+	}
+
 	if err := os.MkdirAll(rootPath(pid), 0755); err != nil {
 		return err
 	}
@@ -29,6 +36,7 @@ func (m *Mounter) Mount(pid int, volumePath string) error {
 }
 
 func (m *Mounter) Unmount(pid int) error {
+	defer os.RemoveAll(mountPath(pid))
 	if err := m.deletePoint(rootPath(pid)); err != nil {
 		return err
 	}

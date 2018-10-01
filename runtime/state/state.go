@@ -120,11 +120,13 @@ func (m *Manager) State() (*specs.State, error) {
 	logrus.Debugf("state manager")
 	cp, err := m.hcsClient.GetContainerProperties(m.containerId)
 	if err != nil {
+		logrus.Debugf("state failed to retrieve GetContainerProperties for %s: %s\n", m.containerId, err.Error())
 		return nil, err
 	}
 
 	state, err := m.loadState()
 	if err != nil {
+		logrus.Debugf("state failed to retrieve loadState for %s: %s\n", m.containerId, err.Error())
 		return nil, err
 	}
 
@@ -134,6 +136,7 @@ func (m *Manager) State() (*specs.State, error) {
 	} else {
 		status, err = m.userProgramStatus(state)
 		if err != nil {
+			logrus.Debugf("state failed to retrieve userProgramStatus for %s: %s\n", m.containerId, err.Error())
 			return nil, err
 		}
 	}

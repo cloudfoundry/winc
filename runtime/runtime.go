@@ -20,7 +20,7 @@ import (
 
 //go:generate counterfeiter -o fakes/mounter.go --fake-name Mounter . Mounter
 type Mounter interface {
-	Mount(pid int, volumePath string) error
+	Mount(pid int, volumePath string, logger *logrus.Entry) error
 	Unmount(pid int) error
 }
 
@@ -420,7 +420,7 @@ func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs
 		return nil, err
 	}
 
-	if err := r.mounter.Mount(process.Pid(), spec.Root.Path); err != nil {
+	if err := r.mounter.Mount(process.Pid(), spec.Root.Path, logger); err != nil {
 		return nil, err
 	}
 

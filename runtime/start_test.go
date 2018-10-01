@@ -99,7 +99,7 @@ var _ = Describe("Start", func() {
 
 			Expect(sm.SetSuccessArgsForCall(0)).To(Equal(unwrappedProcess))
 
-			pid, path := mounter.MountArgsForCall(0)
+			pid, path, _ := mounter.MountArgsForCall(0)
 			Expect(pid).To(Equal(99))
 			Expect(path).To(Equal("/some/path"))
 

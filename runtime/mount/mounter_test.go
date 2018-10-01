@@ -2,8 +2,10 @@ package mount_test
 
 import (
 	"crypto/rand"
+	"io/ioutil"
 	"math"
 	"math/big"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -12,6 +14,7 @@ import (
 	"code.cloudfoundry.org/winc/runtime/mount"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Mounter", func() {
@@ -19,6 +22,7 @@ var _ = Describe("Mounter", func() {
 		volumeGuid string
 		pid        int
 		mountPath  string
+		logger     *logrus.Entry
 	)
 
 	BeforeEach(func() {
@@ -32,6 +36,10 @@ var _ = Describe("Mounter", func() {
 		// negate so we don't collide with any 'real' pids created by winc
 		pid = -int(p.Int64())
 
+		logger = (&logrus.Logger{
+			Out: ioutil.Discard,
+		}).WithField("test", "state")
+
 		mountPath = filepath.Join("C:\\", "proc", strconv.Itoa(pid), "root")
 	})
 
@@ -44,11 +52,21 @@ var _ = Describe("Mounter", func() {
 	It("mounts and unmounts a volume", func() {
 		mounter := &mount.Mounter{}
 
-		Expect(mounter.Mount(pid, volumeGuid)).To(Succeed())
+		Expect(mounter.Mount(pid, volumeGuid, logger)).To(Succeed())
 		outBytes, err := exec.Command("mountvol", mountPath, "/L").CombinedOutput()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(outBytes)).To(ContainSubstring(volumeGuid))
 
 		Expect(mounter.Unmount(pid)).To(Succeed())
+	})
+
+	It("mount a volume for a pid that already exist", func() {
+		mounter := &mount.Mounter{}
+
+		Expect(os.MkdirAll(mountPath, 0755)).To(Succeed())
+
+		err := mounter.Mount(pid, volumeGuid, logger)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(MatchRegexp("^mountdir exists"))
 	})
 })

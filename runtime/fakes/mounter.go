@@ -5,14 +5,16 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/winc/runtime"
+	"github.com/sirupsen/logrus"
 )
 
 type Mounter struct {
-	MountStub        func(pid int, volumePath string) error
+	MountStub        func(pid int, volumePath string, logger *logrus.Entry) error
 	mountMutex       sync.RWMutex
 	mountArgsForCall []struct {
 		pid        int
 		volumePath string
+		logger     *logrus.Entry
 	}
 	mountReturns struct {
 		result1 error
@@ -35,17 +37,18 @@ type Mounter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Mounter) Mount(pid int, volumePath string) error {
+func (fake *Mounter) Mount(pid int, volumePath string, logger *logrus.Entry) error {
 	fake.mountMutex.Lock()
 	ret, specificReturn := fake.mountReturnsOnCall[len(fake.mountArgsForCall)]
 	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
 		pid        int
 		volumePath string
-	}{pid, volumePath})
-	fake.recordInvocation("Mount", []interface{}{pid, volumePath})
+		logger     *logrus.Entry
+	}{pid, volumePath, logger})
+	fake.recordInvocation("Mount", []interface{}{pid, volumePath, logger})
 	fake.mountMutex.Unlock()
 	if fake.MountStub != nil {
-		return fake.MountStub(pid, volumePath)
+		return fake.MountStub(pid, volumePath, logger)
 	}
 	if specificReturn {
 		return ret.result1
@@ -59,10 +62,10 @@ func (fake *Mounter) MountCallCount() int {
 	return len(fake.mountArgsForCall)
 }
 
-func (fake *Mounter) MountArgsForCall(i int) (int, string) {
+func (fake *Mounter) MountArgsForCall(i int) (int, string, *logrus.Entry) {
 	fake.mountMutex.RLock()
 	defer fake.mountMutex.RUnlock()
-	return fake.mountArgsForCall[i].pid, fake.mountArgsForCall[i].volumePath
+	return fake.mountArgsForCall[i].pid, fake.mountArgsForCall[i].volumePath, fake.mountArgsForCall[i].logger
 }
 
 func (fake *Mounter) MountReturns(result1 error) {
