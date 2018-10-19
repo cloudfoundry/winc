@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
+	"golang.org/x/sys/windows"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -55,13 +56,16 @@ var _ = Describe("Up", func() {
 		It("sets the host MTU in the container", func() {
 			helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
-			containerMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", containerId))
+			containerMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", containerId), windows.AF_INET)
 			Expect(err).ToNot(HaveOccurred())
 
 			hostAdapter, err := n.ByIP(localIp)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(containerMtu).To(Equal(uint32(hostAdapter.MTU)))
+			hostMtu, err := n.GetMTU(hostAdapter.Name, windows.AF_INET)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(containerMtu).To(Equal(hostMtu))
 		})
 
 		Context("stdin contains a net in rule", func() {
@@ -509,7 +513,7 @@ var _ = Describe("Up", func() {
 		It("sets the network MTU on the internal container NIC", func() {
 			helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} ,"netin": []}`, networkConfigFile)
 
-			containerMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", containerId))
+			containerMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", containerId), windows.AF_INET)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(containerMtu).To(Equal(uint32(1405)))
