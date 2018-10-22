@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/winc/network/netinterface"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sys/windows"
 )
 
 var _ = Describe("Create", func() {
@@ -35,7 +36,7 @@ var _ = Describe("Create", func() {
 	It("creates the network with the correct name", func() {
 		helpers.CreateNetwork(networkConfig, networkConfigFile)
 
-		natAdapter, err := n.ByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
+		natAdapter, err := net.InterfaceByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(natAdapter.Name).To(Equal(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName)))
 	})
@@ -43,7 +44,7 @@ var _ = Describe("Create", func() {
 	It("creates the network with the correct subnet range", func() {
 		helpers.CreateNetwork(networkConfig, networkConfigFile)
 
-		natAdapter, err := n.ByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
+		natAdapter, err := net.InterfaceByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
 		Expect(err).ToNot(HaveOccurred())
 
 		addrs, err := natAdapter.Addrs()
@@ -64,7 +65,7 @@ var _ = Describe("Create", func() {
 	It("creates the network with the correct gateway address", func() {
 		helpers.CreateNetwork(networkConfig, networkConfigFile)
 
-		natAdapter, err := n.ByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
+		natAdapter, err := net.InterfaceByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
 		Expect(err).ToNot(HaveOccurred())
 
 		addrs, err := natAdapter.Addrs()
@@ -82,16 +83,19 @@ var _ = Describe("Create", func() {
 		Expect(ipV4addrs[0].String()).To(Equal(networkConfig.GatewayAddress))
 	})
 
-	It("creates the network with mtu matching that of the host", func() {
+	It("creates the network with mtu matching that of the host IPv4 interface", func() {
 		hostAdapter, err := n.ByIP(localIp)
+		Expect(err).ToNot(HaveOccurred())
+
+		hostMtu, err := n.GetMTU(hostAdapter.Name, windows.AF_INET)
 		Expect(err).ToNot(HaveOccurred())
 
 		helpers.CreateNetwork(networkConfig, networkConfigFile)
 
-		virtualMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
+		natMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName), windows.AF_INET)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(virtualMtu).To(Equal(uint32(hostAdapter.MTU)))
+		Expect(natMtu).To(Equal(hostMtu))
 	})
 
 	Context("mtu is set in the config", func() {
@@ -102,10 +106,10 @@ var _ = Describe("Create", func() {
 		It("creates the network with the configured mtu", func() {
 			helpers.CreateNetwork(networkConfig, networkConfigFile)
 
-			virtualMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
+			natMtu, err := n.GetMTU(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName), windows.AF_INET)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(virtualMtu).To(Equal(uint32(networkConfig.MTU)))
+			Expect(natMtu).To(Equal(uint32(networkConfig.MTU)))
 		})
 	})
 })

@@ -2,16 +2,18 @@ package mtu
 
 import (
 	"fmt"
-	"net"
 
 	"code.cloudfoundry.org/localip"
+	"code.cloudfoundry.org/winc/network/netinterface"
+	"golang.org/x/sys/windows"
 )
 
 //go:generate counterfeiter -o fakes/netinterface.go --fake-name NetInterface . NetInterface
 type NetInterface interface {
-	ByName(string) (*net.Interface, error)
-	ByIP(string) (*net.Interface, error)
-	SetMTU(string, int) error
+	ByName(string) (netinterface.AdapterInfo, error)
+	ByIP(string) (netinterface.AdapterInfo, error)
+	SetMTU(string, uint32, uint32) error
+	GetMTU(string, uint32) (uint32, error)
 }
 
 type Mtu struct {
@@ -30,15 +32,19 @@ func New(containerId string, networkName string, netInterface NetInterface) *Mtu
 
 func (m *Mtu) SetContainer(mtu int) error {
 	if mtu == 0 {
-		iface, err := m.netInterface.ByName(fmt.Sprintf("vEthernet (%s)", m.networkName))
+		adapterInfo, err := m.netInterface.ByName(fmt.Sprintf("vEthernet (%s)", m.networkName))
 		if err != nil {
 			return err
 		}
-		mtu = iface.MTU
+		retMtu, err := m.netInterface.GetMTU(adapterInfo.Name, windows.AF_INET)
+		if err != nil {
+			return err
+		}
+		mtu = int(retMtu)
 	}
 
 	interfaceAlias := fmt.Sprintf("vEthernet (%s)", m.containerId)
-	return m.netInterface.SetMTU(interfaceAlias, mtu)
+	return m.netInterface.SetMTU(interfaceAlias, uint32(mtu), windows.AF_INET)
 }
 
 func (m *Mtu) SetNat(mtu int) error {
@@ -47,13 +53,17 @@ func (m *Mtu) SetNat(mtu int) error {
 		if err != nil {
 			return err
 		}
-		iface, err := m.netInterface.ByIP(hostIP)
+		adapterInfo, err := m.netInterface.ByIP(hostIP)
 		if err != nil {
 			return err
 		}
-		mtu = iface.MTU
+		retMtu, err := m.netInterface.GetMTU(adapterInfo.Name, windows.AF_INET)
+		if err != nil {
+			return err
+		}
+		mtu = int(retMtu)
 	}
 
 	interfaceId := fmt.Sprintf("vEthernet (%s)", m.networkName)
-	return m.netInterface.SetMTU(interfaceId, mtu)
+	return m.netInterface.SetMTU(interfaceId, uint32(mtu), windows.AF_INET)
 }

@@ -2,13 +2,14 @@ package mtu_test
 
 import (
 	"fmt"
-	"net"
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/mtu"
 	"code.cloudfoundry.org/winc/network/mtu/fakes"
+	"code.cloudfoundry.org/winc/network/netinterface"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sys/windows"
 )
 
 var _ = Describe("Mtu", func() {
@@ -30,26 +31,37 @@ var _ = Describe("Mtu", func() {
 			Expect(m.SetContainer(1405)).To(Succeed())
 
 			Expect(netInterface.SetMTUCallCount()).To(Equal(1))
-			alias, mtu := netInterface.SetMTUArgsForCall(0)
+			alias, mtu, family := netInterface.SetMTUArgsForCall(0)
 			Expect(alias).To(Equal("vEthernet (containerabc)"))
-			Expect(mtu).To(Equal(1405))
+			Expect(mtu).To(Equal(uint32(1405)))
+			Expect(family).To(Equal(uint32(windows.AF_INET)))
 		})
 
 		Context("the specified mtu is 0", func() {
+			var natNetworkName string
+
 			BeforeEach(func() {
-				netInterface.ByNameReturns(&net.Interface{MTU: 1302}, nil)
+				natNetworkName = fmt.Sprintf(`vEthernet (%s)`, networkName)
+				netInterface.ByNameReturns(netinterface.AdapterInfo{Name: natNetworkName}, nil)
+				netInterface.GetMTUReturns(1302, nil)
 			})
 
 			It("sets the container MTU to the NAT network MTU", func() {
 				Expect(m.SetContainer(0)).To(Succeed())
 
 				Expect(netInterface.ByNameCallCount()).To(Equal(1))
-				Expect(netInterface.ByNameArgsForCall(0)).To(Equal(fmt.Sprintf(`vEthernet (%s)`, networkName)))
+				Expect(netInterface.ByNameArgsForCall(0)).To(Equal(natNetworkName))
+
+				Expect(netInterface.GetMTUCallCount()).To(Equal(1))
+				alias, family := netInterface.GetMTUArgsForCall(0)
+				Expect(alias).To(Equal(natNetworkName))
+				Expect(family).To(Equal(uint32(windows.AF_INET)))
 
 				Expect(netInterface.SetMTUCallCount()).To(Equal(1))
-				alias, mtu := netInterface.SetMTUArgsForCall(0)
+				alias, mtu, family := netInterface.SetMTUArgsForCall(0)
 				Expect(alias).To(Equal("vEthernet (containerabc)"))
-				Expect(mtu).To(Equal(1302))
+				Expect(mtu).To(Equal(uint32(1302)))
+				Expect(family).To(Equal(uint32(windows.AF_INET)))
 			})
 		})
 	})
@@ -59,14 +71,16 @@ var _ = Describe("Mtu", func() {
 			Expect(m.SetNat(1405)).To(Succeed())
 
 			Expect(netInterface.SetMTUCallCount()).To(Equal(1))
-			alias, mtu := netInterface.SetMTUArgsForCall(0)
+			alias, mtu, family := netInterface.SetMTUArgsForCall(0)
 			Expect(alias).To(Equal("vEthernet (my-network)"))
-			Expect(mtu).To(Equal(1405))
+			Expect(mtu).To(Equal(uint32(1405)))
+			Expect(family).To(Equal(uint32(windows.AF_INET)))
 		})
 
 		Context("the specified mtu is 0", func() {
 			BeforeEach(func() {
-				netInterface.ByIPReturns(&net.Interface{MTU: 1302}, nil)
+				netInterface.ByIPReturns(netinterface.AdapterInfo{Name: networkName}, nil)
+				netInterface.GetMTUReturns(1302, nil)
 			})
 
 			It("sets the NAT network MTU to the host interface MTU", func() {
@@ -78,10 +92,16 @@ var _ = Describe("Mtu", func() {
 				Expect(netInterface.ByIPCallCount()).To(Equal(1))
 				Expect(netInterface.ByIPArgsForCall(0)).To(Equal(hostIP))
 
+				Expect(netInterface.GetMTUCallCount()).To(Equal(1))
+				alias, family := netInterface.GetMTUArgsForCall(0)
+				Expect(alias).To(Equal(networkName))
+				Expect(family).To(Equal(uint32(windows.AF_INET)))
+
 				Expect(netInterface.SetMTUCallCount()).To(Equal(1))
-				alias, mtu := netInterface.SetMTUArgsForCall(0)
+				alias, mtu, family := netInterface.SetMTUArgsForCall(0)
 				Expect(alias).To(Equal("vEthernet (my-network)"))
-				Expect(mtu).To(Equal(1302))
+				Expect(mtu).To(Equal(uint32(1302)))
+				Expect(family).To(Equal(uint32(windows.AF_INET)))
 			})
 		})
 	})
