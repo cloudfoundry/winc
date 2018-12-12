@@ -73,8 +73,11 @@ var _ = BeforeSuite(func() {
 	debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
 
 	var err error
-	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
-	Expect(err).ToNot(HaveOccurred())
+	//wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
+	//Expect(err).ToNot(HaveOccurred())
+
+	wincBin, present = os.LookupEnv("RUNHCS_BINARY")
+	Expect(present).To(BeTrue(), "RUNHCS_BINARY not set")
 
 	output, err := exec.Command("powershell", "-command", "[System.Environment]::OSVersion.Version.Build").CombinedOutput()
 	Expect(err).NotTo(HaveOccurred())

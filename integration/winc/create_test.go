@@ -60,7 +60,7 @@ var _ = Describe("Create", func() {
 				helpers.GenerateBundle(bundleSpec, bundlePath)
 				createCmd := exec.Command(wincBin, "create", containerId)
 				createCmd.Dir = bundlePath
-				stdOut, stdErr, err := helpers.Execute(createCmd)
+				stdOut, stdErr, err := helpers.ExecuteNoOutput(createCmd)
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
@@ -77,7 +77,7 @@ var _ = Describe("Create", func() {
 		Context("when the '--no-new-keyring' flag is provided", func() {
 			It("ignores it and creates and starts a container", func() {
 				helpers.GenerateBundle(bundleSpec, bundlePath)
-				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId))
+				stdOut, stdErr, err := helpers.ExecuteNoOutput(exec.Command(wincBin, "create", "-b", bundlePath, "--no-new-keyring", containerId))
 				Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
 				Expect(helpers.ContainerExists(containerId)).To(BeTrue())
@@ -125,7 +125,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates a container with the specified directories as mounts", func() {
-				helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+				helpers.CreateAndStartContainer(bundleSpec, bundlePath, containerId)
 				stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", filepath.Join(mountDest, "sentinel")}, false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(stdOut.String()).To(ContainSubstring("hello"))

@@ -82,8 +82,11 @@ var _ = BeforeSuite(func() {
 
 	debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
 
-	wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
-	Expect(err).ToNot(HaveOccurred())
+	wincBin, present = os.LookupEnv("RUNHCS_BINARY")
+	Expect(present).To(BeTrue(), "RUNHCS_BINARY not set")
+
+	//wincBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc")
+	//Expect(err).ToNot(HaveOccurred())
 
 	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/consume")
 	Expect(err).ToNot(HaveOccurred())

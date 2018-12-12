@@ -91,13 +91,13 @@ func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
 
 func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
 	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(h.ExecCommand(h.wincBin, "create", "-b", bundlePath, containerId))
+	_, _, err := h.ExecuteNoOutput(h.ExecCommand(h.wincBin, "create", "-b", bundlePath, containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) RunContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
 	h.GenerateBundle(bundleSpec, bundlePath)
-	_, _, err := h.Execute(h.ExecCommand(h.wincBin, "run", "--detach", "-b", bundlePath, containerId))
+	_, _, err := h.ExecuteNoOutput(h.ExecCommand(h.wincBin, "run", "--detach", "-b", bundlePath, containerId))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
@@ -108,10 +108,21 @@ func (h *Helpers) StartContainer(containerId string) {
 	}).Should(Succeed())
 }
 
+func (h *Helpers) CreateAndStartContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
+	h.GenerateBundle(bundleSpec, bundlePath)
+	_, _, err := h.ExecuteNoOutput(h.ExecCommand(h.wincBin, "create", "-b", bundlePath, containerId))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	Eventually(func() error {
+		_, _, err := h.Execute(h.ExecCommand(h.wincBin, "start", containerId))
+		return err
+	}).Should(Succeed())
+}
+
 func (h *Helpers) DeleteContainer(id string) {
 	if h.ContainerExists(id) {
-		output, err := h.ExecCommand(h.wincBin, "delete", id).CombinedOutput()
-		ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
+		_, _, err := h.Execute(h.ExecCommand(h.wincBin, "delete", "-f", id))
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	}
 }
 
@@ -246,6 +257,9 @@ func (h *Helpers) ExecInContainer(id string, args []string, detach bool) (*bytes
 
 	defaultArgs = append(defaultArgs, id)
 
+	if detach {
+		return h.ExecuteNoOutput(h.ExecCommand(h.wincBin, append(defaultArgs, args...)...))
+	}
 	return h.Execute(h.ExecCommand(h.wincBin, append(defaultArgs, args...)...))
 }
 
@@ -256,9 +270,9 @@ func (h *Helpers) GenerateRuntimeSpec(baseSpec specs.Spec) specs.Spec {
 			Args: []string{"waitfor", "ever", "/t", "9999"},
 			Cwd:  "C:\\",
 		},
-		Root: &specs.Root{
-			Path: baseSpec.Root.Path,
-		},
+		//Root: &specs.Root{
+		//	Path: baseSpec.Root.Path,
+		//},
 		Windows: &specs.Windows{
 			LayerFolders: baseSpec.Windows.LayerFolders,
 		},
@@ -289,11 +303,17 @@ func (h *Helpers) CopyFile(dst, src string) {
 func (h *Helpers) Execute(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
 	stdOut := new(bytes.Buffer)
 	stdErr := new(bytes.Buffer)
-	c.Stdout = io.MultiWriter(stdOut, GinkgoWriter)
-	c.Stderr = io.MultiWriter(stdErr, GinkgoWriter)
+	c.Stdout = io.MultiWriter(stdOut, os.Stdout, GinkgoWriter)
+	c.Stderr = io.MultiWriter(stdErr, os.Stderr, GinkgoWriter)
 	err := c.Run()
 
 	return stdOut, stdErr, err
+}
+
+func (h *Helpers) ExecuteNoOutput(c *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
+	err := c.Run()
+
+	return nil, nil, err
 }
 
 func (h *Helpers) ExitCode(err error) (int, error) {

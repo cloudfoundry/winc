@@ -17,6 +17,7 @@ import (
 	"code.cloudfoundry.org/winc/network/netrules"
 	"golang.org/x/sys/windows"
 
+	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -737,27 +738,34 @@ var _ = Describe("Up", func() {
 			})
 		})
 
-		Context("when the containers share a network namespace", func() {
+		FContext("when the containers share a network namespace", func() {
 			BeforeEach(func() {
 				bundleSpec2.Windows.Network = &specs.WindowsNetwork{NetworkSharedContainerName: containerId}
 				containerPort = "23456"
 			})
 
-			It("allows traffic between the containers", func() {
+			FIt("allows traffic between the containers", func() {
 				helpers.RunContainer(bundleSpec, bundlePath, containerId)
 				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %s}]}`, 0, containerPort), networkConfigFile)
+				mp, err := hcsshim.GetLayerMountPath(hcsshim.DriverInfo{
+					HomeDir: filepath.Join(os.Getenv("GROOT_IMAGE_STORE"), "volumes"),
+					Flavour: 1,
+				}, containerId)
+				Expect(err).NotTo(HaveOccurred())
+				helpers.CopyFile(filepath.Join(mp, "server.exe"), serverBin)
 
-				pid := helpers.GetContainerState(containerId).Pid
-				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "server.exe"), serverBin)
-
-				_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
+				_, _, err = helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 				Expect(err).NotTo(HaveOccurred())
 
 				helpers.RunContainer(bundleSpec2, bundlePath2, containerId2)
 				helpers.NetworkUp(containerId2, `{"Pid": 123, "Properties": {}}`, networkConfigFile)
 
-				pid = helpers.GetContainerState(containerId2).Pid
-				helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
+				mp2, err := hcsshim.GetLayerMountPath(hcsshim.DriverInfo{
+					HomeDir: filepath.Join(os.Getenv("GROOT_IMAGE_STORE"), "volumes"),
+					Flavour: 1,
+				}, containerId2)
+				Expect(err).NotTo(HaveOccurred())
+				helpers.CopyFile(filepath.Join(mp2, "netout.exe"), netoutBin)
 
 				stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", "127.0.0.1", "--port", containerPort}, false)
 				Expect(err).NotTo(HaveOccurred())

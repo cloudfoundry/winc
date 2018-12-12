@@ -20,7 +20,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-var _ = Describe("Run", func() {
+var _ = FDescribe("Run", func() {
 	var (
 		containerId string
 		bundlePath  string
@@ -46,7 +46,7 @@ var _ = Describe("Run", func() {
 
 	It("creates a container and runs the init process", func() {
 		helpers.GenerateBundle(bundleSpec, bundlePath)
-		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+		_, _, err := helpers.ExecuteNoOutput(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(helpers.ContainerExists(containerId)).To(BeTrue())
@@ -60,7 +60,7 @@ var _ = Describe("Run", func() {
 
 	It("mounts the sandbox.vhdx at C:\\proc\\<pid>\\root", func() {
 		helpers.GenerateBundle(bundleSpec, bundlePath)
-		_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+		_, _, err := helpers.ExecuteNoOutput(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 		Expect(err).ToNot(HaveOccurred())
 
 		pid := helpers.GetContainerState(containerId).Pid
@@ -125,7 +125,7 @@ var _ = Describe("Run", func() {
 
 		It("creates and starts the container and writes the container pid to the specified file", func() {
 			helpers.GenerateBundle(bundleSpec, bundlePath)
-			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--pid-file", pidFile, "--detach", containerId))
+			_, _, err := helpers.ExecuteNoOutput(exec.Command(wincBin, "run", "-b", bundlePath, "--pid-file", pidFile, "--detach", containerId))
 			Expect(err).ToNot(HaveOccurred())
 
 			containerPid := helpers.GetContainerState(containerId).Pid
@@ -142,7 +142,7 @@ var _ = Describe("Run", func() {
 		It("the process runs in the container and returns immediately", func() {
 			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor fivesec /T 5 >NULL & exit /B 0"}
 			helpers.GenerateBundle(bundleSpec, bundlePath)
-			_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
+			_, _, err := helpers.ExecuteNoOutput(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", containerId))
 			Expect(err).ToNot(HaveOccurred())
 
 			pl := helpers.ContainerProcesses(containerId, "cmd.exe")
@@ -227,10 +227,10 @@ var _ = Describe("Run", func() {
 				Expect(os.RemoveAll(pidFile)).To(Succeed())
 			})
 
-			It("places the container pid in the specified file", func() {
+			FIt("places the container pid in the specified file", func() {
 				bundleSpec.Process.Args = []string{"cmd.exe", "/C", "waitfor ever /T 9999"}
 				helpers.GenerateBundle(bundleSpec, bundlePath)
-				_, _, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--pid-file", pidFile, containerId))
+				_, _, err := helpers.ExecuteNoOutput(exec.Command(wincBin, "run", "-b", bundlePath, "--detach", "--pid-file", pidFile, containerId))
 				Expect(err).ToNot(HaveOccurred())
 
 				containerPid := helpers.GetContainerState(containerId).Pid
