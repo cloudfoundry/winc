@@ -93,7 +93,7 @@ var _ = Describe("Start", func() {
 
 			p, attach := cm.ExecArgsForCall(0)
 			Expect(p).To(Equal(spec.Process))
-			Expect(attach).To(BeFalse())
+			Expect(attach).To(BeTrue())
 
 			Expect(unwrappedProcess.CloseCallCount()).To(Equal(1))
 

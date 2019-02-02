@@ -93,6 +93,11 @@ func (m *Manager) SetSuccess(proc hcs.Process) error {
 	// https://blogs.msdn.microsoft.com/oldnewthing/20110107-00/?p=11803
 
 	state.PID = proc.Pid()
+	/* Uncomment the following line under test conditions to make sure hcsshim/Windows
+	* is not closing the handle to the already finished process.
+	 */
+	// time.Sleep(10 * time.Second)
+
 	h, err := m.sc.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(state.PID))
 	if err != nil {
 		retErr := fmt.Errorf("OpenProcess: %s", err.Error())

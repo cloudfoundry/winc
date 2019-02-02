@@ -304,7 +304,13 @@ func (r *Runtime) Start(containerId, pidFile string) error {
 		return err
 	}
 
-	process, err := r.startProcess(cm, sm, spec, pidFile, true, logger)
+	/*
+	* When IO is attached to the process (detach=false), it is seen that
+	* hcsshim will keep a handle to the process open, and therefore the
+	* statemanager can do OpenProcess() to collect information about the process.
+	 */
+	bDetach := false
+	process, err := r.startProcess(cm, sm, spec, pidFile, bDetach, logger)
 	if err != nil {
 		return err
 	}
