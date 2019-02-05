@@ -50,7 +50,7 @@
     "internal/wclayer",
   ]
   pruneopts = "UT"
-  revision = "01076d222ed66fc10381428a5fc3d247ec023d93"
+  revision = "d3cfe7c848cd05f76295a6a5c7be83c8b0683a06"
   source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]
