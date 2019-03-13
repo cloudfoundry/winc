@@ -66,9 +66,22 @@ func (c *Client) DeleteEndpoint(endpoint *hcsshim.HNSEndpoint) (*hcsshim.HNSEndp
 }
 
 func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork, networkReady func() (bool, error)) (*hcsshim.HNSNetwork, error) {
-	net, err := network.Create()
-	if err != nil {
-		return nil, err
+	var net *hcsshim.HNSNetwork
+	var err error
+	/*
+	* This @errElmNotFound error is notorious for being thrown sometimes without any real reason
+	* (at least we believe so) -- possibly a bug in the Windows container networking stack.
+	* Let's give it a 2nd chance (and a 3rd) to get it right!
+	 */
+	const errElmNotFound = "network create: HNS failed with error : Element not found. "
+
+	for i := 0; i < 3 && net == nil; i++ {
+		net, err = network.Create()
+		if err != nil {
+			if err.Error() != errElmNotFound {
+				return nil, err
+			}
+		}
 	}
 
 	networkUp := false
