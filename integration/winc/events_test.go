@@ -103,12 +103,27 @@ var _ = Describe("Events", func() {
 					pidCountBefore := getStats(containerId).Data.Pids.Current
 					Expect(pidCountBefore).To(BeNumerically(">", 0))
 
-					args := []string{"waitfor", "somethingelse", "/T", "9999"}
-					stdOut, stdErr, err := helpers.ExecInContainer(containerId, args, true)
-					Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+					var numberOfProcesses uint64 = 15
+					var tolerance uint64 = 2
+					var i uint64
+
+					/*
+					* There are many auxiliary processes that's run inside the container
+					* by Windows which may spawn or die in between our measurements of
+					* @pidCountBefore and @pidCountAfter. To compensate for this uncertainity,
+					* we create a sufficiently large number of new processes and allow a
+					* tolerance in our expection of (pidCountAfter - pidCountBefore).
+					 */
+					for i = 0; i < numberOfProcesses; i++ {
+						signal := fmt.Sprintf("randomsignal%d", i)
+						args := []string{"waitfor", signal, "/T", "9999"}
+						stdOut, stdErr, err := helpers.ExecInContainer(containerId, args, true)
+						Expect(err).ToNot(HaveOccurred(), stdOut.String(), stdErr.String())
+					}
 
 					pidCountAfter := getStats(containerId).Data.Pids.Current
-					Expect(pidCountAfter).To(Equal(pidCountBefore + 1))
+					Expect(pidCountAfter).To(BeNumerically(">", pidCountBefore+numberOfProcesses-tolerance))
+					Expect(pidCountAfter).To(BeNumerically("<", pidCountBefore+numberOfProcesses+tolerance))
 				})
 			})
 		})
