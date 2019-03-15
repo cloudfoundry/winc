@@ -104,7 +104,7 @@ var _ = Describe("Events", func() {
 					Expect(pidCountBefore).To(BeNumerically(">", 0))
 
 					var numberOfProcesses uint64 = 15
-					var tolerance uint64 = 2
+					var tolerance uint64 = 4
 					var i uint64
 
 					/*
