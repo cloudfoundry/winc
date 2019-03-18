@@ -62,7 +62,7 @@ var _ = Describe("Events", func() {
 					stats := getStats(containerId)
 					Expect(stats.Data.Memory.Stats.TotalRss).To(BeNumerically(">", 0))
 
-					memConsumedBytes := 200 * 1024 * 1024
+					memConsumedBytes := 600 * 1024 * 1024
 
 					cmd := exec.Command(wincBin, "exec", containerId, "c:\\consume.exe", strconv.Itoa(memConsumedBytes), "10")
 					stdOut, err := cmd.StdoutPipe()
@@ -79,7 +79,7 @@ var _ = Describe("Events", func() {
 					statsAfter := getStats(containerId)
 					goRuntimeOverhead := uint64(25 * 1024 * 1024)
 					expectedMemConsumedBytes := stats.Data.Memory.Stats.TotalRss + uint64(memConsumedBytes) + goRuntimeOverhead
-					threshold := 30 * 1024 * 1024
+					threshold := 60 * 1024 * 1024
 					Expect(statsAfter.Data.Memory.Stats.TotalRss).To(BeNumerically("~", expectedMemConsumedBytes, threshold))
 					Expect(cmd.Wait()).To(Succeed())
 				})
