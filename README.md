@@ -23,9 +23,12 @@ go build ./cmd/winc
 
 ### Testing
 
-Set the `WINC_TEST_ROOTFS` environment variable to the path to a container image, e.g. in `powershell` to test with the `microsoft/windowsservercore` Docker image:
+Set the following environment variables first:
 
-`$env:WINC_TEST_ROOTFS = "docker:///microsoft/windowsservercore)`
+`WINDOWS_VERSION` to your version of Windows (e.g. "2019").
+`WINC_TEST_ROOTFS` to the path to a container image (e.g. to test with the `microsoft/windowsservercore` Docker image - `"docker:///microsoft/windowsservercore"`).
+`GROOT_BINARY` to the path of the groot executable to use while running integration test.
+`GROOT_IMAGE_STORE` to the path of the directory that groot uses for layers and the volume (e.g. "C:\ProgramData\groot").
 
 To install [Ginkgo](https://onsi.github.io/ginkgo/
 ) and run the tests:
