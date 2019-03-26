@@ -77,11 +77,12 @@ func (c *Client) CreateNetwork(network *hcsshim.HNSNetwork, networkReady func() 
 
 	for i := 0; i < 3 && net == nil; i++ {
 		net, err = network.Create()
-		if err != nil {
-			if err.Error() != errElmNotFound {
-				return nil, err
-			}
+		if err != nil && err.Error() != errElmNotFound {
+			return nil, err
 		}
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	networkUp := false
