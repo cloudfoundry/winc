@@ -244,7 +244,9 @@ func findExternalPort(portMappings, containerPort string) int {
 func httpGetInto(address string, resp *http.Response) func() error {
 	return func() error {
 		r, err := http.Get(address)
-		*resp = *r
+		if r != nil {
+			*resp = *r
+		}
 		return err
 	}
 }
