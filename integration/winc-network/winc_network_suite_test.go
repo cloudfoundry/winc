@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -238,4 +239,12 @@ func findExternalPort(portMappings, containerPort string) int {
 	}
 	ExpectWithOffset(1, externalPort).ToNot(Equal(0))
 	return externalPort
+}
+
+func httpGetInto(address string, resp *http.Response) func() error {
+	return func() error {
+		r, err := http.Get(address)
+		*resp = *r
+		return err
+	}
 }

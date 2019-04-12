@@ -634,12 +634,8 @@ var _ = Describe("Up", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			address := fmt.Sprintf("http://%s:%d", hostIP, hostPort1)
-			var resp *http.Response
-			Eventually(func() error {
-				var err error
-				resp, err = http.Get(address)
-				return err
-			}, "30s").Should(Succeed())
+			var resp http.Response
+			Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 			defer resp.Body.Close()
 
 			data, err := ioutil.ReadAll(resp.Body)
@@ -666,11 +662,7 @@ var _ = Describe("Up", func() {
 			helpers.DeleteVolume(containerId)
 
 			address = fmt.Sprintf("http://%s:%d", hostIP, hostPort2)
-			Eventually(func() error {
-				var err error
-				resp, err = http.Get(address)
-				return err
-			}, "30s").Should(Succeed())
+			Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 			defer resp.Body.Close()
 
 			data, err = ioutil.ReadAll(resp.Body)
@@ -716,11 +708,7 @@ var _ = Describe("Up", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				var resp *http.Response
-				Eventually(func() error {
-					var err error
-					resp, err = http.Get(serverURL)
-					return err
-				}, "30s").Should(Succeed())
+				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
 				data, err := ioutil.ReadAll(resp.Body)
