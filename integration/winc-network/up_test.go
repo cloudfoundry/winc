@@ -113,22 +113,23 @@ var _ = Describe("Up", func() {
 
 				hostPort1 = mappedPorts[0].HostPort
 
-				hostIp, err := localip.LocalIP()
+				hostIP, err := localip.LocalIP()
 				Expect(err).NotTo(HaveOccurred())
 
-				resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort1))
-				Expect(err).NotTo(HaveOccurred())
+				address := fmt.Sprintf("http://%s:%d", hostIP, hostPort1)
+				var resp http.Response
+				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
 				data, err := ioutil.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
-				resp2, err := client.Get(fmt.Sprintf("http://%s:%d", hostIp, hostPort2))
-				Expect(err).NotTo(HaveOccurred())
-				defer resp2.Body.Close()
+				address = fmt.Sprintf("http://%s:%d", hostIP, hostPort2)
+				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
+				defer resp.Body.Close()
 
-				data, err = ioutil.ReadAll(resp2.Body)
+				data, err = ioutil.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
 			})
@@ -136,19 +137,20 @@ var _ = Describe("Up", func() {
 			It("can hit a port on the container directly", func() {
 				helpers.NetworkUp(containerId, fmt.Sprintf(`{"Pid": 123, "Properties": {} ,"netin": [{"host_port": %d, "container_port": %d},{"host_port": %d, "container_port": %d}]}`, hostPort1, containerPort1, hostPort2, containerPort2), networkConfigFile)
 
-				resp, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
-				Expect(err).NotTo(HaveOccurred())
+				address := fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1)
+				var resp http.Response
+				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
 				data, err := ioutil.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
-				resp2, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort2))
-				Expect(err).NotTo(HaveOccurred())
-				defer resp2.Body.Close()
+				address = fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort2)
+				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
+				defer resp.Body.Close()
 
-				data, err = ioutil.ReadAll(resp2.Body)
+				data, err = ioutil.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
 			})
@@ -707,8 +709,8 @@ var _ = Describe("Up", func() {
 				clientNetOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
 				Expect(err).NotTo(HaveOccurred())
 
-				var resp *http.Response
-				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
+				var resp http.Response
+				Eventually(httpGetInto(serverURL, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
 				data, err := ioutil.ReadAll(resp.Body)
