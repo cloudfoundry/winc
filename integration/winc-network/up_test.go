@@ -92,6 +92,7 @@ var _ = Describe("Up", func() {
 
 				_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", strconv.Itoa(int(containerPort1))}, true)
 				Expect(err).NotTo(HaveOccurred())
+
 				_, _, err = helpers.ExecInContainer(containerId, []string{"c:\\server.exe", strconv.Itoa(int(containerPort2))}, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -632,8 +633,13 @@ var _ = Describe("Up", func() {
 			_, _, err := helpers.ExecInContainer(containerId, []string{"c:\\server.exe", containerPort}, true)
 			Expect(err).NotTo(HaveOccurred())
 
-			resp, err := client.Get(fmt.Sprintf("http://%s:%d", hostIP, hostPort1))
-			Expect(err).NotTo(HaveOccurred())
+			address := fmt.Sprintf("http://%s:%d", hostIP, hostPort1)
+			var resp *http.Response
+			Eventually(func() error {
+				var err error
+				resp, err = http.Get(address)
+				return err
+			}, "30s").Should(Succeed())
 			defer resp.Body.Close()
 
 			data, err := ioutil.ReadAll(resp.Body)
@@ -659,8 +665,12 @@ var _ = Describe("Up", func() {
 			helpers.NetworkDown(containerId, networkConfigFile)
 			helpers.DeleteVolume(containerId)
 
-			resp, err = client.Get(fmt.Sprintf("http://%s:%d", hostIP, hostPort2))
-			Expect(err).NotTo(HaveOccurred())
+			address = fmt.Sprintf("http://%s:%d", hostIP, hostPort2)
+			Eventually(func() error {
+				var err error
+				resp, err = http.Get(address)
+				return err
+			}, "30s").Should(Succeed())
 			defer resp.Body.Close()
 
 			data, err = ioutil.ReadAll(resp.Body)
@@ -705,9 +715,14 @@ var _ = Describe("Up", func() {
 				clientNetOutRules, err = json.Marshal([]netrules.NetOut{netOutRule})
 				Expect(err).NotTo(HaveOccurred())
 
-				resp, err := http.Get(serverURL)
-				Expect(err).NotTo(HaveOccurred())
+				var resp *http.Response
+				Eventually(func() error {
+					var err error
+					resp, err = http.Get(serverURL)
+					return err
+				}, "30s").Should(Succeed())
 				defer resp.Body.Close()
+
 				data, err := ioutil.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
