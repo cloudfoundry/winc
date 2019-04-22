@@ -11,13 +11,15 @@ func main() {
 	mem, err := strconv.Atoi(os.Args[1])
 	if err != nil {
 		fmt.Println("bad memory arg: " + err.Error())
+		os.Exit(1)
 	}
 
-	var sleepTime int
+	sleepTime := 1
 	if len(os.Args) > 2 {
 		sleepTime, err = strconv.Atoi(os.Args[2])
 		if err != nil {
 			fmt.Println("bad sleep time arg: " + err.Error())
+			os.Exit(1)
 		}
 	}
 
