@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/runtime/config"
 	"code.cloudfoundry.org/winc/runtime/container"
+	"code.cloudfoundry.org/winc/runtime/state"
 	"code.cloudfoundry.org/winc/runtime/winsyscall"
 	"github.com/Microsoft/hcsshim"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -35,7 +36,7 @@ type StateManager interface {
 	Delete() error
 	SetFailure() error
 	SetSuccess(hcs.Process) error
-	State() (*specs.State, error)
+	State() (*state.OciState, error)
 }
 
 //go:generate counterfeiter -o fakes/container_factory.go --fake-name ContainerFactory . ContainerFactory

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
@@ -30,6 +31,23 @@ type State struct {
 	PID        int              `json:"pid"`
 	StartTime  syscall.Filetime `json:"start_time"`
 	ExecFailed bool             `json:"exec_failed"`
+}
+
+// State holds information about the runtime state of the container.
+type OciState struct {
+	// Version is the version of the specification that is supported.
+	Version string `json:"ociVersion"`
+	// ID is the container ID
+	ID string `json:"id"`
+	// Status is the runtime status of the container.
+	Status string `json:"status"`
+	// Pid is the process ID for the container process.
+	Pid int `json:"pid,omitempty"`
+	// Bundle is the path to the container's bundle directory.
+	Bundle string `json:"bundle"`
+	// Annotations are key values associated with the container.
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Created time.Time `json:"created"`
 }
 
 //go:generate counterfeiter -o fakes/hcsclient.go --fake-name HCSClient . HCSClient
@@ -121,7 +139,7 @@ func (m *Manager) SetSuccess(proc hcs.Process) error {
 	return m.writeState(state)
 }
 
-func (m *Manager) State() (*specs.State, error) {
+func (m *Manager) State() (*OciState, error) {
 	logrus.Debugf("state manager")
 	cp, err := m.hcsClient.GetContainerProperties(m.containerId)
 	if err != nil {
@@ -146,12 +164,14 @@ func (m *Manager) State() (*specs.State, error) {
 		}
 	}
 
-	return &specs.State{
+	return &OciState{
 		Version: specs.Version,
 		ID:      m.containerId,
 		Status:  status,
 		Bundle:  state.Bundle,
 		Pid:     state.PID,
+		Created: cp.Statistics.ContainerStartTime,
+		//Created: state.StartTime,
 	}, nil
 }
 

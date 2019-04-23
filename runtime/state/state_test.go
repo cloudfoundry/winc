@@ -228,6 +228,7 @@ var _ = Describe("State", func() {
 			Expect(ociState.Pid).To(Equal(1234))
 			Expect(ociState.ID).To(Equal(containerId))
 			Expect(ociState.Version).To(Equal(specs.Version))
+			Expect(ociState.Created).NotTo(BeNil())
 		})
 
 		Context("hcsshim reports the container as stopped", func() {
