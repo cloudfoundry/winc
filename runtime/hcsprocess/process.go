@@ -1,6 +1,7 @@
 package hcsprocess
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -72,8 +73,10 @@ func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.
 		_ = stderr.Close()
 	}
 
+	fmt.Println("before Wait() in AttachIO")
 	err = p.process.Wait()
-	waitWithTimeout(&wg, 1*time.Second)
+	fmt.Println("after Wait() in AttachIO")
+	waitWithTimeout(&wg, 5*time.Second)
 	if err != nil {
 		return -1, err
 	}
@@ -90,6 +93,7 @@ func (p *Process) SetInterrupt(s chan os.Signal) {
 }
 
 func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
+	fmt.Println("In waitWithTimeout")
 	wgEmpty := make(chan interface{}, 1)
 	go func() {
 		wg.Wait()

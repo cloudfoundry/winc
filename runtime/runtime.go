@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -48,7 +49,7 @@ type ContainerFactory interface {
 type ContainerManager interface {
 	Spec(string) (*specs.Spec, error)
 	Create(*specs.Spec) error
-	Exec(*specs.Process, bool) (hcs.Process, error)
+	Exec(*specs.Process, bool) (hcs.Process, error, []int)
 	Stats() (container.Statistics, error)
 	Delete(bool) error
 }
@@ -185,6 +186,24 @@ func (r *Runtime) Events(containerId string, output io.Writer, showStats bool) e
 	return nil
 }
 
+func ishwcrunning() bool {
+	_, err := exec.Command("powershell", "ps", "-Name", "hwc").CombinedOutput()
+	//fmt.Printf("%s\n", o)
+	if err != nil {
+		//fmt.Println("hwc does not exist")
+		return false
+	}
+	return true
+}
+
+func isRunning(pid int) bool {
+	_, err := exec.Command("powershell", "ps", "-Id", fmt.Sprintf("%d", pid)).CombinedOutput()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOverrides *specs.Process, io IO, detach bool) (int, error) {
 	/*
 	* This is the time period allowed for a process running inside a container
@@ -212,12 +231,22 @@ func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOv
 	client := hcs.Client{}
 	cm := r.containerFactory.NewManager(logger, &client, containerId)
 
-	p, err := cm.Exec(processSpec, !detach)
+	p, err, _ := cm.Exec(processSpec, !detach)
 	if err != nil {
 		return 1, err
 	}
 
-	defer (func() { time.Sleep(GRACEFUL_SHUTDOWN_PERIOD); p.Close() })()
+	//pid := p.Pid()
+	// cmdchildrenofP := fmt.Sprintf("(Get-WmiObject win32_process | where {$_.ParentProcessId -eq %d}).ProcessId", pid)
+	// childpidsbytearr, _ := exec.Command(cmdchildrenofP).CombinedOutput()
+	// fmt.Printf("Get-wmi op: %s\n", childpidsbytearr)
+	// childpids := strings.Split(fmt.Sprintf("%s", childpidsbytearr), " ")
+
+	// fmt.Printf("DDDD: %s\n", kk)
+
+	// defer func() {
+	// 	p.Close()
+	// }()
 
 	wrappedProcess := r.processWrapper.Wrap(p)
 	if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
@@ -227,7 +256,16 @@ func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOv
 	if !detach {
 		s := make(chan os.Signal, 1)
 		wrappedProcess.SetInterrupt(s)
-		return wrappedProcess.AttachIO(io.Stdin, io.Stdout, io.Stderr)
+		a, b := wrappedProcess.AttachIO(io.Stdin, io.Stdout, io.Stderr)
+		// fmt.Printf("p.pid: %d\n", pid)
+		// for _, cp := range containerprocpids {
+		// 	cpproc, _ := os.FindProcess(cp)
+		// 	if cpproc != nil && cpproc.Ppid() == pid {
+		// 		cpproc.Wait()
+		// 	}
+		// }
+
+		return a, b
 	}
 
 	return 0, nil
@@ -418,7 +456,7 @@ func (r *Runtime) deleteContainer(cm ContainerManager, sm StateManager, force bo
 }
 
 func (r *Runtime) startProcess(cm ContainerManager, sm StateManager, spec *specs.Spec, pidFile string, detach bool, logger *logrus.Entry) (hcs.Process, error) {
-	process, err := cm.Exec(spec.Process, !detach)
+	process, err, _ := cm.Exec(spec.Process, !detach)
 	if err != nil {
 		if cErr, ok := errors.Cause(err).(*container.CouldNotCreateProcessError); ok {
 			if sErr := sm.SetFailure(); sErr != nil {

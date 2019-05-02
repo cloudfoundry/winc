@@ -1,6 +1,7 @@
 package container
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -40,7 +41,7 @@ type Statistics struct {
 		} `json:"memory,omitempty"`
 		Pids struct {
 			Current uint64 `json:"current,omitempty"`
-			Limit uint64 `json:"limit,omitempty"`
+			Limit   uint64 `json:"limit,omitempty"`
 		} `json:"pids"`
 	} `json:"data,omitempty"`
 }
@@ -211,11 +212,22 @@ func (m *Manager) parseMountOptions(options []string) (bool, error) {
 	return readOnly, nil
 }
 
-func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcs.Process, error) {
+func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcs.Process, error, []int) {
 	container, err := m.hcsClient.OpenContainer(m.id)
 	if err != nil {
-		return nil, err
+		return nil, err, []int{}
 	}
+	props, err := container.ProcessList()
+	if err != nil {
+		return nil, err, []int{}
+	}
+
+	var containerprocpids []int
+	for _, p := range props {
+		containerprocpids = append(containerprocpids, int(p.ProcessId))
+	}
+
+	fmt.Printf("XXXXXXXXXXXXX: %v\n", containerprocpids)
 
 	env := map[string]string{}
 	for _, e := range processSpec.Env {
@@ -241,10 +253,14 @@ func (m *Manager) Exec(processSpec *specs.Process, createIOPipes bool) (hcs.Proc
 		finalErr := &CouldNotCreateProcessError{Id: m.id, Command: command}
 
 		cleanedError := hcs.CleanError(err)
-		return nil, errors.Wrap(finalErr, cleanedError.Error())
+		return nil, errors.Wrap(finalErr, cleanedError.Error()), []int{}
 	}
 
-	return p, nil
+	//childrenOfP := fmt.Sprintf("(Get-WmiObject win32_process | where {$_.ParentProcessId -eq %d}).ProcessId", p.Pid())
+
+	//kk, err := exec.Command(childrenOfP).CombinedOutput()
+	//fmt.Printf("DDDD: %s\n", kk)
+	return p, nil, containerprocpids
 }
 
 func (m *Manager) Stats() (Statistics, error) {
