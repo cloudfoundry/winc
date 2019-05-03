@@ -38,12 +38,17 @@ func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.
 	var wg sync.WaitGroup
 
 	if attachStdin != nil {
-		wg.Add(1)
+		// FOR GRACEFUL_SHUTDOWN:
+		// Using a wg here would cause the wg to wait the full timeout
+		// because io.Copy would block for ever because the process assoc
+		// with the dst is dead
+		// See runc code, they do the same. No waitgroup for stdin
+		//		wg.Add(1)
 		go func() {
 			_, _ = io.Copy(stdin, attachStdin)
 			_ = stdin.Close()
 			p.process.CloseStdin()
-			wg.Done()
+			//			wg.Done()
 		}()
 	} else {
 		_ = stdin.Close()
@@ -73,7 +78,9 @@ func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.
 	}
 
 	err = p.process.Wait()
-	waitWithTimeout(&wg, 1*time.Second)
+	// this is the fallback if processes don't die within this time
+	MAX_GRACEFUL_SHUTDOWN_TIME := 5 * time.Second
+	waitWithTimeout(&wg, MAX_GRACEFUL_SHUTDOWN_TIME)
 	if err != nil {
 		return -1, err
 	}

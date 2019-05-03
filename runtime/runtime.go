@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -187,10 +186,11 @@ func (r *Runtime) Events(containerId string, output io.Writer, showStats bool) e
 
 func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOverrides *specs.Process, io IO, detach bool) (int, error) {
 	/*
+	* ABANDONED IDEA!
 	* This is the time period allowed for a process running inside a container
 	* to do cleanup after the container is stopped. For 2019, it's around 5s.
 	 */
-	const GRACEFUL_SHUTDOWN_PERIOD = 5 * time.Second
+	//const GRACEFUL_SHUTDOWN_PERIOD = 5 * time.Second
 	logger := logrus.WithField("containerId", containerId)
 
 	processSpec, err := config.ValidateProcess(logger, processConfigFile, processOverrides)
@@ -217,7 +217,8 @@ func (r *Runtime) Exec(containerId, processConfigFile, pidFile string, processOv
 		return 1, err
 	}
 
-	defer (func() { time.Sleep(GRACEFUL_SHUTDOWN_PERIOD); p.Close() })()
+	//defer (func() { time.Sleep(GRACEFUL_SHUTDOWN_PERIOD); p.Close() })()
+	defer p.Close()
 
 	wrappedProcess := r.processWrapper.Wrap(p)
 	if err := wrappedProcess.WritePIDFile(pidFile); err != nil {
