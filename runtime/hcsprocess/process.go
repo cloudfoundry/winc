@@ -12,6 +12,8 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
+const MAX_GRACEFUL_SHUTDOWN_ALLOWED = 5 * time.Second
+
 type Process struct {
 	process hcsshim.Process
 }
@@ -38,12 +40,13 @@ func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.
 	var wg sync.WaitGroup
 
 	if attachStdin != nil {
-		wg.Add(1)
+		// We do not add this goroutine to a waitgroup because
+		// stdin could be blocking even if stdout and stderr
+		// have finished below the graceful shutdown time.
 		go func() {
 			_, _ = io.Copy(stdin, attachStdin)
 			_ = stdin.Close()
 			p.process.CloseStdin()
-			wg.Done()
 		}()
 	} else {
 		_ = stdin.Close()
@@ -73,7 +76,7 @@ func (p *Process) AttachIO(attachStdin io.Reader, attachStdout, attachStderr io.
 	}
 
 	err = p.process.Wait()
-	waitWithTimeout(&wg, 1*time.Second)
+	waitWithTimeout(&wg, MAX_GRACEFUL_SHUTDOWN_ALLOWED)
 	if err != nil {
 		return -1, err
 	}
