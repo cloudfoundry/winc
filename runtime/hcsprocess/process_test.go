@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
+	"code.cloudfoundry.org/winc/runtime/fakes"
 	"code.cloudfoundry.org/winc/runtime/hcsprocess"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -90,6 +91,28 @@ var _ = Describe("Process", func() {
 			Expect(exitCode).To(Equal(0))
 			Eventually(processStdin).Should(gbytes.Say("something-on-stdin"))
 			Expect(fakeProcess.CloseStdinCallCount()).To(Equal(1))
+		})
+
+		Context("when stdin runs longer than stdout and stderr", func() {
+			var neverendingAttachedStdin *fakes.Reader
+
+			BeforeEach(func() {
+				neverendingAttachedStdin = &fakes.Reader{}
+			})
+
+			It("should exit before the graceful shutdown timeout", func() {
+				code := make(chan int)
+				go func() {
+					exitCode, err := wrappedProcess.AttachIO(neverendingAttachedStdin, attachedStdout, attachedStderr)
+					Expect(err).NotTo(HaveOccurred())
+					code <- exitCode
+				}()
+
+				Eventually(code).Should(Receive(Equal(0), "AttachIO didn't exit."))
+
+				Expect(attachedStdout).To(gbytes.Say("something-on-stdout"))
+				Expect(attachedStderr).To(gbytes.Say("something-on-stderr"))
+			})
 		})
 
 		Context("when getting the stdio streams fails", func() {
