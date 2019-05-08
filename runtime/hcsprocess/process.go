@@ -12,7 +12,12 @@ import (
 	"github.com/Microsoft/hcsshim"
 )
 
-const MAX_GRACEFUL_SHUTDOWN_ALLOWED = 5 * time.Second
+/*
+* Windows's standard graceful shutdown timeout is 5s.
+* In the worst case, we wait for one more second before cutting off
+* the process
+ */
+const MAX_GRACEFUL_SHUTDOWN_ALLOWED = 6 * time.Second
 
 type Process struct {
 	process hcsshim.Process
