@@ -209,7 +209,7 @@ var _ = Describe("Run", func() {
 			Expect(len(pl)).To(Equal(1))
 
 			sendCtrlBreak(session)
-			Eventually(session).Should(gexec.Exit(1067))
+			Eventually(session, "12s").Should(gexec.Exit(1067))
 			Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 		})
 

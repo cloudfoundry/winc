@@ -245,7 +245,7 @@ var _ = Describe("Exec", func() {
 				Expect(len(pl)).To(Equal(1))
 
 				sendCtrlBreak(session)
-				Eventually(session).Should(gexec.Exit(1067))
+				Eventually(session, "12s").Should(gexec.Exit(1067))
 				pl = helpers.ContainerProcesses(containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(0))
 			})
