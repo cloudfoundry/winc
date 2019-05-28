@@ -29,7 +29,7 @@ func eventHandler(controlType uint) uint {
 }
 
 func main() {
-	fmt.Println("Starting gosht")
+	fmt.Println("Starting goshut")
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 
 	setConsoleCtrlHandler := kernel32.NewProc("SetConsoleCtrlHandler")

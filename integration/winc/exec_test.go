@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Microsoft/hcsshim"
 	acl "github.com/hectane/go-acl"
@@ -302,7 +303,7 @@ var _ = Describe("Exec", func() {
 		})
 	})
 
-	Context("handles graceful shutdown", func() {
+	Context("handles graceful shutdown when 2019 cf rootfs is used", func() {
 		var (
 			containerId string
 			bundlePath  string
@@ -311,6 +312,9 @@ var _ = Describe("Exec", func() {
 
 		BeforeEach(func() {
 			var err error
+			if os.Getenv("WINC_TEST_ROOTFS") != "docker:///cloudfoundry/windows2016fs:2019" {
+				Skip("This test is relevant only for cloudfoundry/windows2016fs:2019 rootfs")
+			}
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).To(Succeed())
 
@@ -334,7 +338,7 @@ var _ = Describe("Exec", func() {
 				cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "C:\\tmp\\goshut.exe")
 				wincExecSession, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(wincExecSession.Out).Should(gbytes.Say("Starting gosht"))
+				Eventually(wincExecSession.Out).Should(gbytes.Say("Starting goshut"))
 
 				cmd2 := exec.Command(wincBin, "delete", containerId)
 				_, err = gexec.Start(cmd2, GinkgoWriter, GinkgoWriter)
@@ -342,13 +346,23 @@ var _ = Describe("Exec", func() {
 				// Assert something is logged from the 9th second of the container process.
 				// e.g. IN LOOP: Elapsed time=9.5301979s
 				Eventually(wincExecSession.Out).Should(gbytes.Say("IN LOOP: Elapsed time=9"))
+				Eventually(wincExecSession.Out).ShouldNot(gbytes.Say("IN LOOP: Elapsed time=12"))
 			})
 		})
-		/*
-			Context("when the container process does NOT have a CTRL_SHUTDOWN_EVENT handler", func() {
-				It("", func() {
-				})
+
+		Context("when the container process does NOT have a CTRL_SHUTDOWN_EVENT handler", func() {
+			It("should exit without waiting for graceful shutdown time, on winc delete", func() {
+				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "/C", "start-sleep 1000")
+				wincExecSession, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				//to make sure that prev command is exec'd before we attempt a delete
+				time.Sleep(200 * time.Millisecond)
+				cmd2 := exec.Command(wincBin, "delete", containerId)
+				wincDeleteSession, err := gexec.Start(cmd2, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				wincDeleteSession.Wait("4s")
+				Eventually(wincExecSession.Out).ShouldNot(gbytes.Say("IN LOOP: Elapsed time"))
 			})
-		*/
+		})
 	})
 })
