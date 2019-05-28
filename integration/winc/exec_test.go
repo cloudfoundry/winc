@@ -301,4 +301,54 @@ var _ = Describe("Exec", func() {
 			Expect(stdErr.String()).To(ContainSubstring("the specified identifier does not exist"))
 		})
 	})
+
+	Context("handles graceful shutdown", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
+
+		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
+			containerId = filepath.Base(bundlePath)
+
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+			bundleSpec.Mounts = []specs.Mount{{Source: filepath.Dir(goshutBin), Destination: "C:\\tmp"}}
+			Expect(acl.Apply(filepath.Dir(goshutBin), false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
+		})
+
+		AfterEach(func() {
+			failed = failed || CurrentGinkgoTestDescription().Failed
+			helpers.DeleteVolume(containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		})
+
+		Context("when the container process has a CTRL_SHUTDOWN_EVENT handler that prints output forever", func() {
+			It("should run for 10s after winc delete", func() {
+				// goshut.exe will print a line forever roughly every 500ms once it receives CTRL_SHUTDOWN_EVENT
+				cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "C:\\tmp\\goshut.exe")
+				wincExecSession, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(wincExecSession.Out).Should(gbytes.Say("Starting gosht"))
+
+				cmd2 := exec.Command(wincBin, "delete", containerId)
+				_, err = gexec.Start(cmd2, GinkgoWriter, GinkgoWriter)
+				Expect(err).ToNot(HaveOccurred())
+				// Assert something is logged from the 9th second of the container process.
+				// e.g. IN LOOP: Elapsed time=9.5301979s
+				Eventually(wincExecSession.Out).Should(gbytes.Say("IN LOOP: Elapsed time=9"))
+			})
+		})
+		/*
+			Context("when the container process does NOT have a CTRL_SHUTDOWN_EVENT handler", func() {
+				It("", func() {
+				})
+			})
+		*/
+	})
 })

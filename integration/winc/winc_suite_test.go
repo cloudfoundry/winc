@@ -31,6 +31,7 @@ var (
 	rootfsURI       string
 	consumeBin      string
 	sleepBin        string
+	goshutBin       string
 	helpers         *testhelpers.Helpers
 	debug           bool
 	failed          bool
@@ -88,6 +89,7 @@ var _ = BeforeSuite(func() {
 	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/consume")
 	Expect(err).ToNot(HaveOccurred())
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/sleep")
+	goshutBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/goshut")
 	Expect(err).ToNot(HaveOccurred())
 
 	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, "", debug)
