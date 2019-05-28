@@ -312,8 +312,8 @@ var _ = Describe("Exec", func() {
 
 		BeforeEach(func() {
 			var err error
-			if os.Getenv("WINC_TEST_ROOTFS") != "docker:///cloudfoundry/windows2016fs:2019" {
-				Skip("This test is relevant only for cloudfoundry/windows2016fs:2019 rootfs")
+			if !strings.HasPrefix(os.Getenv("WINC_TEST_ROOTFS"), "docker:///cloudfoundry/windows2016fs:2019") {
+				Skip("This test is relevant only for cloudfoundry/windows2016fs:2019* rootfs")
 			}
 			bundlePath, err = ioutil.TempDir("", "winccontainer")
 			Expect(err).To(Succeed())
