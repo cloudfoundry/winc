@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/Microsoft/hcsshim"
 	acl "github.com/hectane/go-acl"
@@ -352,16 +352,36 @@ var _ = Describe("Exec", func() {
 
 		Context("when the container process does NOT have a CTRL_SHUTDOWN_EVENT handler", func() {
 			It("should exit without waiting for graceful shutdown time, on winc delete", func() {
-				cmd := exec.Command(wincBin, "exec", containerId, "powershell.exe", "/C", "start-sleep 1000")
+				cmdstr := fmt.Sprintf("echo hey-winc; %s exec %s powershell start-sleep 100000; Get-Date -UFormat %%s", wincBin, containerId)
+				cmd := exec.Command("powershell", "-c", cmdstr)
 				wincExecSession, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				//to make sure that prev command is exec'd before we attempt a delete
-				time.Sleep(200 * time.Millisecond)
-				cmd2 := exec.Command(wincBin, "delete", containerId)
+				Eventually(wincExecSession.Out).Should(gbytes.Say("hey-winc"))
+
+				cmdstr2 := fmt.Sprintf("Get-Date -UFormat %%s; %s delete %s", wincBin, containerId)
+				cmd2 := exec.Command("powershell", "-c", cmdstr2)
 				wincDeleteSession, err := gexec.Start(cmd2, GinkgoWriter, GinkgoWriter)
 				Expect(err).ToNot(HaveOccurred())
-				wincDeleteSession.Wait("4s")
-				Eventually(wincExecSession.Out).ShouldNot(gbytes.Say("IN LOOP: Elapsed time"))
+
+				/*
+				* You'd think why didn't these folks use ginkgo's regular `session.Wait()`
+				* and measure the time difference between a `winc delete` and when `winc exec`
+				* exits. But this does not give us the kind of precision (time) required
+				* in this test
+				 */
+				Eventually(func() float64 {
+					floatRegex := regexp.MustCompile(`\d+\.\d+`)
+
+					wincDeleteTime := floatRegex.Find(wincDeleteSession.Out.Contents())
+					t1, _ := strconv.ParseFloat(string(wincDeleteTime), 64)
+
+					wincExecTime := floatRegex.Find(wincExecSession.Out.Contents())
+					t2, _ := strconv.ParseFloat(string(wincExecTime), 64)
+
+					return t2 - t1
+				}).Should(SatisfyAll(
+					BeNumerically(">", 0.0),
+					BeNumerically("<", 1.0)))
 			})
 		})
 	})
