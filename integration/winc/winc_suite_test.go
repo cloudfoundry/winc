@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"syscall"
 	"time"
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
@@ -110,6 +109,11 @@ func processSpecGenerator() specs.Process {
 	}
 }
 
+/*
+* This test was required to test CTRL+C behavior
+* Might require this function very soon when it's
+* re-implemented
+
 func sendCtrlBreak(s *gexec.Session) {
 	d, err := syscall.LoadDLL("kernel32.dll")
 	Expect(err).ToNot(HaveOccurred())
@@ -118,6 +122,7 @@ func sendCtrlBreak(s *gexec.Session) {
 	r, _, err := p.Call(syscall.CTRL_BREAK_EVENT, uintptr(s.Command.Process.Pid))
 	Expect(r).ToNot(Equal(0), fmt.Sprintf("GenerateConsoleCtrlEvent: %v\n", err))
 }
+*/
 
 func getStats(containerId string) wincStats {
 	var stats wincStats

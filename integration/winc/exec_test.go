@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/Microsoft/hcsshim"
 	acl "github.com/hectane/go-acl"
@@ -233,23 +232,6 @@ var _ = Describe("Exec", func() {
 				Expect(stdErr.String()).To(ContainSubstring("hey-winc"))
 			})
 
-			It("captures the CTRL+C", func() {
-				cmd := exec.Command(wincBin, "exec", containerId, "cmd.exe", "/C", "echo hey-winc & C:\\tmp\\sleep.exe 9999")
-				cmd.SysProcAttr = &syscall.SysProcAttr{
-					CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
-				}
-				session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-				Expect(err).ToNot(HaveOccurred())
-				Consistently(session).ShouldNot(gexec.Exit(0))
-				Eventually(session.Out).Should(gbytes.Say("hey-winc"))
-				pl := helpers.ContainerProcesses(containerId, "cmd.exe")
-				Expect(len(pl)).To(Equal(1))
-
-				sendCtrlBreak(session)
-				Eventually(session, "12s").Should(gexec.Exit(1067))
-				pl = helpers.ContainerProcesses(containerId, "cmd.exe")
-				Expect(len(pl)).To(Equal(0))
-			})
 		})
 
 		Context("when the '--pid-file' flag is provided", func() {

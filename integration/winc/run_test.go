@@ -10,12 +10,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -192,25 +190,6 @@ var _ = Describe("Run", func() {
 			_, stdErr, err := helpers.Execute(exec.Command(wincBin, "run", "-b", bundlePath, containerId))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdErr.String()).To(ContainSubstring("hey-winc"))
-		})
-
-		It("captures the CTRL+C", func() {
-			bundleSpec.Process.Args = []string{"cmd.exe", "/C", "echo hey-winc & waitfor ever /T 9999"}
-			helpers.GenerateBundle(bundleSpec, bundlePath)
-			cmd := exec.Command(wincBin, "run", "-b", bundlePath, containerId)
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
-			}
-			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-			Expect(err).ToNot(HaveOccurred())
-			Consistently(session).ShouldNot(gexec.Exit(0))
-			Eventually(session.Out).Should(gbytes.Say("hey-winc"))
-			pl := helpers.ContainerProcesses(containerId, "cmd.exe")
-			Expect(len(pl)).To(Equal(1))
-
-			sendCtrlBreak(session)
-			Eventually(session, "12s").Should(gexec.Exit(1067))
-			Expect(helpers.ContainerExists(containerId)).To(BeFalse())
 		})
 
 		Context("when the '--pid-file' flag is provided", func() {
