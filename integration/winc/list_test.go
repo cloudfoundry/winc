@@ -5,10 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	acl "github.com/hectane/go-acl"
-	ps "github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
