@@ -43,7 +43,7 @@ var _ = FDescribe("List", func() {
 
 		It("prints a message that there are no containers", func() {
 			cmd := exec.Command(wincBin, "list")
-			stdOut, stdErr, err := helpers.Execute(cmd)
+			stdOut, _, err := helpers.Execute(cmd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stdOut.String()).To(Equal("No containers have been created."))
 		})
