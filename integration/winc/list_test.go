@@ -47,6 +47,23 @@ var _ = FDescribe("List", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stdOut.String()).To(Equal("No containers have been created."))
 		})
+
+
+	})
+
+	Context("when list contains only one container", func() {
+		BeforeEach(func() {
+			helpers.CreateContainer(bundleSpec, bundlePath, containerId)
+		})
+
+		It("display the relevant information for the container", func() {
+			cmd := exec.Command(wincBin, "list")
+			stdOut, _, err := helpers.Execute(cmd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdOut.String()).To(ContainSubstring(containerId))
+		})
+
+
 	})
 
 	// Context("the init process has already been started and is still running", func() {
