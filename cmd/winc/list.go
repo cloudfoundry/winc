@@ -12,7 +12,7 @@ var listCommand = cli.Command{
 	Usage: "output the list of containers",
 	Description: `The list command outputs state information for the list of running containers.`,
 	Action: func(context *cli.Context) error {
-		if err != nil {
+		if err := checkArgs(context, 0, exactArgs); err != nil {
 			return err
 		}
 
