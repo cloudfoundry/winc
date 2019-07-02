@@ -2,7 +2,7 @@ package main
 
 import (
 	"os"
-	"fmt"
+
 	"github.com/urfave/cli"
 )
 
@@ -17,7 +17,7 @@ var listCommand = cli.Command{
 			return err
 		}
 
-		_, err = os.Stdout.Write(fmt.Println([]byte("No containers have been created.")))
+		_, err = os.Stdout.Write([]byte("No containers have been created."))
 		return err
 	},
 }
