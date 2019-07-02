@@ -81,6 +81,13 @@ func (h *Helpers) GetContainerState(containerId string) specs.State {
 	return state
 }
 
+func (h *Helpers) GetContainerList() *bytes.Buffer {
+	stdOut, _, err := h.Execute(h.ExecCommand(h.wincBin, "list"))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return stdOut
+}
+
+
 func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
 	ExpectWithOffset(1, os.MkdirAll(bundlePath, 0666)).To(Succeed())
 	config, err := json.Marshal(&bundleSpec)
