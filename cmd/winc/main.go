@@ -109,6 +109,7 @@ func main() {
 		startCommand,
 		execCommand,
 		eventsCommand,
+		listCommand,
 	}
 
 	app.Before = func(context *cli.Context) error {
