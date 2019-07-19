@@ -1,3 +1,5 @@
+![clippy](https://media.giphy.com/media/13V60VgE2ED7oc/giphy.gif)
+
 # winc
 
 `winc` is a CLI tool for spawning and running containers on Windows according to the OCI specification.
