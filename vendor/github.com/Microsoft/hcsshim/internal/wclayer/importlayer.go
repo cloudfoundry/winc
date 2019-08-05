@@ -15,21 +15,9 @@ import (
 // that into a layer with the id layerId.  Note that in order to correctly populate
 // the layer and interperet the transport format, all parent layers must already
 // be present on the system at the paths provided in parentLayerPaths.
-func ImportLayer(path string, importFolderPath string, parentLayerPaths []string) (err error) {
-	title := "hcsshim::ImportLayer"
-	fields := logrus.Fields{
-		"path":             path,
-		"importFolderPath": importFolderPath,
-	}
-	logrus.WithFields(fields).Debug(title)
-	defer func() {
-		if err != nil {
-			fields[logrus.ErrorKey] = err
-			logrus.WithFields(fields).Error(err)
-		} else {
-			logrus.WithFields(fields).Debug(title + " - succeeded")
-		}
-	}()
+func ImportLayer(path string, importFolderPath string, parentLayerPaths []string) error {
+	title := "hcsshim::ImportLayer "
+	logrus.Debugf(title+"path %s folder %s", path, importFolderPath)
 
 	// Generate layer descriptors
 	layers, err := layerPathsToDescriptors(parentLayerPaths)
@@ -39,8 +27,12 @@ func ImportLayer(path string, importFolderPath string, parentLayerPaths []string
 
 	err = importLayer(&stdDriverInfo, path, importFolderPath, layers)
 	if err != nil {
-		return hcserror.New(err, title+" - failed", "")
+		err = hcserror.Errorf(err, title, "path=%s folder=%s", path, importFolderPath)
+		logrus.Error(err)
+		return err
 	}
+
+	logrus.Debugf(title+"succeeded path=%s folder=%s", path, importFolderPath)
 	return nil
 }
 

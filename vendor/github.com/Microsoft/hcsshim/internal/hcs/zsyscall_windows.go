@@ -6,6 +6,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/Microsoft/hcsshim/internal/interop"
 	"golang.org/x/sys/windows"
 )
 
@@ -80,10 +81,7 @@ func _hcsEnumerateComputeSystems(query *uint16, computeSystems **uint16, result 
 	}
 	r0, _, _ := syscall.Syscall(procHcsEnumerateComputeSystems.Addr(), 3, uintptr(unsafe.Pointer(query)), uintptr(unsafe.Pointer(computeSystems)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -108,10 +106,7 @@ func _hcsCreateComputeSystem(id *uint16, configuration *uint16, identity syscall
 	}
 	r0, _, _ := syscall.Syscall6(procHcsCreateComputeSystem.Addr(), 5, uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(configuration)), uintptr(identity), uintptr(unsafe.Pointer(computeSystem)), uintptr(unsafe.Pointer(result)), 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -131,10 +126,7 @@ func _hcsOpenComputeSystem(id *uint16, computeSystem *hcsSystem, result **uint16
 	}
 	r0, _, _ := syscall.Syscall(procHcsOpenComputeSystem.Addr(), 3, uintptr(unsafe.Pointer(id)), uintptr(unsafe.Pointer(computeSystem)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -145,10 +137,7 @@ func hcsCloseComputeSystem(computeSystem hcsSystem) (hr error) {
 	}
 	r0, _, _ := syscall.Syscall(procHcsCloseComputeSystem.Addr(), 1, uintptr(computeSystem), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -168,10 +157,7 @@ func _hcsStartComputeSystem(computeSystem hcsSystem, options *uint16, result **u
 	}
 	r0, _, _ := syscall.Syscall(procHcsStartComputeSystem.Addr(), 3, uintptr(computeSystem), uintptr(unsafe.Pointer(options)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -191,10 +177,7 @@ func _hcsShutdownComputeSystem(computeSystem hcsSystem, options *uint16, result 
 	}
 	r0, _, _ := syscall.Syscall(procHcsShutdownComputeSystem.Addr(), 3, uintptr(computeSystem), uintptr(unsafe.Pointer(options)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -214,10 +197,7 @@ func _hcsTerminateComputeSystem(computeSystem hcsSystem, options *uint16, result
 	}
 	r0, _, _ := syscall.Syscall(procHcsTerminateComputeSystem.Addr(), 3, uintptr(computeSystem), uintptr(unsafe.Pointer(options)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -237,10 +217,7 @@ func _hcsPauseComputeSystem(computeSystem hcsSystem, options *uint16, result **u
 	}
 	r0, _, _ := syscall.Syscall(procHcsPauseComputeSystem.Addr(), 3, uintptr(computeSystem), uintptr(unsafe.Pointer(options)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -260,10 +237,7 @@ func _hcsResumeComputeSystem(computeSystem hcsSystem, options *uint16, result **
 	}
 	r0, _, _ := syscall.Syscall(procHcsResumeComputeSystem.Addr(), 3, uintptr(computeSystem), uintptr(unsafe.Pointer(options)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -283,10 +257,7 @@ func _hcsGetComputeSystemProperties(computeSystem hcsSystem, propertyQuery *uint
 	}
 	r0, _, _ := syscall.Syscall6(procHcsGetComputeSystemProperties.Addr(), 4, uintptr(computeSystem), uintptr(unsafe.Pointer(propertyQuery)), uintptr(unsafe.Pointer(properties)), uintptr(unsafe.Pointer(result)), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -306,10 +277,7 @@ func _hcsModifyComputeSystem(computeSystem hcsSystem, configuration *uint16, res
 	}
 	r0, _, _ := syscall.Syscall(procHcsModifyComputeSystem.Addr(), 3, uintptr(computeSystem), uintptr(unsafe.Pointer(configuration)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -320,10 +288,7 @@ func hcsRegisterComputeSystemCallback(computeSystem hcsSystem, callback uintptr,
 	}
 	r0, _, _ := syscall.Syscall6(procHcsRegisterComputeSystemCallback.Addr(), 4, uintptr(computeSystem), uintptr(callback), uintptr(context), uintptr(unsafe.Pointer(callbackHandle)), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -334,10 +299,7 @@ func hcsUnregisterComputeSystemCallback(callbackHandle hcsCallback) (hr error) {
 	}
 	r0, _, _ := syscall.Syscall(procHcsUnregisterComputeSystemCallback.Addr(), 1, uintptr(callbackHandle), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -357,10 +319,7 @@ func _hcsCreateProcess(computeSystem hcsSystem, processParameters *uint16, proce
 	}
 	r0, _, _ := syscall.Syscall6(procHcsCreateProcess.Addr(), 5, uintptr(computeSystem), uintptr(unsafe.Pointer(processParameters)), uintptr(unsafe.Pointer(processInformation)), uintptr(unsafe.Pointer(process)), uintptr(unsafe.Pointer(result)), 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -371,10 +330,7 @@ func hcsOpenProcess(computeSystem hcsSystem, pid uint32, process *hcsProcess, re
 	}
 	r0, _, _ := syscall.Syscall6(procHcsOpenProcess.Addr(), 4, uintptr(computeSystem), uintptr(pid), uintptr(unsafe.Pointer(process)), uintptr(unsafe.Pointer(result)), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -385,10 +341,7 @@ func hcsCloseProcess(process hcsProcess) (hr error) {
 	}
 	r0, _, _ := syscall.Syscall(procHcsCloseProcess.Addr(), 1, uintptr(process), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -399,10 +352,7 @@ func hcsTerminateProcess(process hcsProcess, result **uint16) (hr error) {
 	}
 	r0, _, _ := syscall.Syscall(procHcsTerminateProcess.Addr(), 2, uintptr(process), uintptr(unsafe.Pointer(result)), 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -422,10 +372,7 @@ func _hcsSignalProcess(process hcsProcess, options *uint16, result **uint16) (hr
 	}
 	r0, _, _ := syscall.Syscall(procHcsTerminateProcess.Addr(), 3, uintptr(process), uintptr(unsafe.Pointer(options)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -436,10 +383,7 @@ func hcsGetProcessInfo(process hcsProcess, processInformation *hcsProcessInforma
 	}
 	r0, _, _ := syscall.Syscall(procHcsGetProcessInfo.Addr(), 3, uintptr(process), uintptr(unsafe.Pointer(processInformation)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -450,10 +394,7 @@ func hcsGetProcessProperties(process hcsProcess, processProperties **uint16, res
 	}
 	r0, _, _ := syscall.Syscall(procHcsGetProcessProperties.Addr(), 3, uintptr(process), uintptr(unsafe.Pointer(processProperties)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -473,10 +414,7 @@ func _hcsModifyProcess(process hcsProcess, settings *uint16, result **uint16) (h
 	}
 	r0, _, _ := syscall.Syscall(procHcsModifyProcess.Addr(), 3, uintptr(process), uintptr(unsafe.Pointer(settings)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -496,10 +434,7 @@ func _hcsGetServiceProperties(propertyQuery *uint16, properties **uint16, result
 	}
 	r0, _, _ := syscall.Syscall(procHcsGetServiceProperties.Addr(), 3, uintptr(unsafe.Pointer(propertyQuery)), uintptr(unsafe.Pointer(properties)), uintptr(unsafe.Pointer(result)))
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -510,10 +445,7 @@ func hcsRegisterProcessCallback(process hcsProcess, callback uintptr, context ui
 	}
 	r0, _, _ := syscall.Syscall6(procHcsRegisterProcessCallback.Addr(), 4, uintptr(process), uintptr(callback), uintptr(context), uintptr(unsafe.Pointer(callbackHandle)), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
@@ -524,10 +456,7 @@ func hcsUnregisterProcessCallback(callbackHandle hcsCallback) (hr error) {
 	}
 	r0, _, _ := syscall.Syscall(procHcsUnregisterProcessCallback.Addr(), 1, uintptr(callbackHandle), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }

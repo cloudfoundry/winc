@@ -11,9 +11,6 @@ package hcsschema
 
 type VirtualMachine struct {
 
-	// StopOnReset is private in the schema. If regenerated need to put back.
-	StopOnReset bool `json:"StopOnReset,omitempty"`
-
 	Chipset *Chipset `json:"Chipset,omitempty"`
 
 	ComputeTopology *Topology `json:"ComputeTopology,omitempty"`

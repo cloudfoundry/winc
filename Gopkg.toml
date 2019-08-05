@@ -33,7 +33,7 @@ required = ["github.com/onsi/ginkgo/ginkgo"]
 [[constraint]]
   name = "github.com/Microsoft/hcsshim"
   source = "github.com/greenhouse-org/hcsshim"
-  branch = "upstream-v0.8.5-mod"
+  branch = "v0.8.3-mod"
 
 [[constraint]]
   branch = "master"

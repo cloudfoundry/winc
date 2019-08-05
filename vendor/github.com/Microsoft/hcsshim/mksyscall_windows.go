@@ -300,10 +300,7 @@ func (r *Rets) SetErrorCode() string {
 		%s = %sErrno(r0)
 	}`
 	const hrCode = `if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		%s = %sErrno(r0)
+		%s = interop.Win32FromHresult(r0)
 	}`
 	if r.Name == "" && !r.ReturnsError {
 		return ""
@@ -313,7 +310,7 @@ func (r *Rets) SetErrorCode() string {
 	}
 	if r.Type == "error" {
 		if r.Name == "hr" {
-			return fmt.Sprintf(hrCode, r.Name, syscalldot())
+			return fmt.Sprintf(hrCode, r.Name)
 		} else {
 			return fmt.Sprintf(code, r.Name, syscalldot())
 		}
@@ -776,6 +773,7 @@ func (src *Source) Generate(w io.Writer) error {
 			src.ExternalImport("golang.org/x/sys/windows")
 		}
 	}
+	src.ExternalImport("github.com/Microsoft/hcsshim/internal/interop")
 	if *winio {
 		src.ExternalImport("github.com/Microsoft/go-winio")
 	}
@@ -789,9 +787,6 @@ func (src *Source) Generate(w io.Writer) error {
 			arg := "\"" + dll + ".dll\""
 			if !*systemDLL {
 				return syscalldot() + "NewLazyDLL(" + arg + ")"
-			}
-			if strings.HasPrefix(dll, "api_") || strings.HasPrefix(dll, "ext_") {
-				arg = strings.Replace(arg, "_", "-", -1)
 			}
 			switch pkgtype {
 			case pkgStd:

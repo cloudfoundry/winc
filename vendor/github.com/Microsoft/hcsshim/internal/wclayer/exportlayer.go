@@ -14,21 +14,9 @@ import (
 // format includes any metadata required for later importing the layer (using
 // ImportLayer), and requires the full list of parent layer paths in order to
 // perform the export.
-func ExportLayer(path string, exportFolderPath string, parentLayerPaths []string) (err error) {
-	title := "hcsshim::ExportLayer"
-	fields := logrus.Fields{
-		"path":             path,
-		"exportFolderPath": exportFolderPath,
-	}
-	logrus.WithFields(fields).Debug(title)
-	defer func() {
-		if err != nil {
-			fields[logrus.ErrorKey] = err
-			logrus.WithFields(fields).Error(err)
-		} else {
-			logrus.WithFields(fields).Debug(title + " - succeeded")
-		}
-	}()
+func ExportLayer(path string, exportFolderPath string, parentLayerPaths []string) error {
+	title := "hcsshim::ExportLayer "
+	logrus.Debugf(title+"path %s folder %s", path, exportFolderPath)
 
 	// Generate layer descriptors
 	layers, err := layerPathsToDescriptors(parentLayerPaths)
@@ -38,8 +26,12 @@ func ExportLayer(path string, exportFolderPath string, parentLayerPaths []string
 
 	err = exportLayer(&stdDriverInfo, path, exportFolderPath, layers)
 	if err != nil {
-		return hcserror.New(err, title+" - failed", "")
+		err = hcserror.Errorf(err, title, "path=%s folder=%s", path, exportFolderPath)
+		logrus.Error(err)
+		return err
 	}
+
+	logrus.Debugf(title+"succeeded path=%s folder=%s", path, exportFolderPath)
 	return nil
 }
 

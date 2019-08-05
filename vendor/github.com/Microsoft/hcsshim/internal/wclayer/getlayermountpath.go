@@ -11,29 +11,20 @@ import (
 // the path at which that layer can be accessed.  This path may be a volume path
 // if the layer is a mounted read-write layer, otherwise it is expected to be the
 // folder path at which the layer is stored.
-func GetLayerMountPath(path string) (_ string, err error) {
-	title := "hcsshim::GetLayerMountPath"
-	fields := logrus.Fields{
-		"path": path,
-	}
-	logrus.WithFields(fields).Debug(title)
-	defer func() {
-		if err != nil {
-			fields[logrus.ErrorKey] = err
-			logrus.WithFields(fields).Error(err)
-		} else {
-			logrus.WithFields(fields).Debug(title + " - succeeded")
-		}
-	}()
+func GetLayerMountPath(path string) (string, error) {
+	title := "hcsshim::GetLayerMountPath "
+	logrus.Debugf(title+"path %s", path)
 
 	var mountPathLength uintptr
 	mountPathLength = 0
 
 	// Call the procedure itself.
-	logrus.WithFields(fields).Debug("Calling proc (1)")
-	err = getLayerMountPath(&stdDriverInfo, path, &mountPathLength, nil)
+	logrus.Debugf("Calling proc (1)")
+	err := getLayerMountPath(&stdDriverInfo, path, &mountPathLength, nil)
 	if err != nil {
-		return "", hcserror.New(err, title+" - failed", "(first call)")
+		err = hcserror.Errorf(err, title, "(first call) path=%s", path)
+		logrus.Error(err)
+		return "", err
 	}
 
 	// Allocate a mount path of the returned length.
@@ -44,13 +35,15 @@ func GetLayerMountPath(path string) (_ string, err error) {
 	mountPathp[0] = 0
 
 	// Call the procedure again
-	logrus.WithFields(fields).Debug("Calling proc (2)")
+	logrus.Debugf("Calling proc (2)")
 	err = getLayerMountPath(&stdDriverInfo, path, &mountPathLength, &mountPathp[0])
 	if err != nil {
-		return "", hcserror.New(err, title+" - failed", "(second call)")
+		err = hcserror.Errorf(err, title, "(second call) path=%s", path)
+		logrus.Error(err)
+		return "", err
 	}
 
 	mountPath := syscall.UTF16ToString(mountPathp[0:])
-	fields["mountPath"] = mountPath
+	logrus.Debugf(title+"succeeded path=%s mountPath=%s", path, mountPath)
 	return mountPath, nil
 }

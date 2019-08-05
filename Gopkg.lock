@@ -29,8 +29,8 @@
   version = "v0.4.11"
 
 [[projects]]
-  branch = "upstream-v0.8.5-mod"
-  digest = "1:c30bcf2e5fd582b86442039336aebd554216fe5cd850fcec2a60534b883ee349"
+  branch = "v0.8.3-mod"
+  digest = "1:58bdb2b3a3f2d61ab797c7d8c9d75649b84673ea9d37e3fa9c79e3cc5dc21b06"
   name = "github.com/Microsoft/hcsshim"
   packages = [
     ".",
@@ -50,7 +50,7 @@
     "internal/wclayer",
   ]
   pruneopts = "UT"
-  revision = "d3cfe7c848cd05f76295a6a5c7be83c8b0683a06"
+  revision = "674530e34646adbc60f7dabec2d31eb6a2f2ae1b"
   source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]

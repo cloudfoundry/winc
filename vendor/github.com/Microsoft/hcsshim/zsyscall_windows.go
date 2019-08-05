@@ -6,6 +6,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/Microsoft/hcsshim/internal/interop"
 	"golang.org/x/sys/windows"
 )
 
@@ -45,10 +46,7 @@ var (
 func SetCurrentThreadCompartmentId(compartmentId uint32) (hr error) {
 	r0, _, _ := syscall.Syscall(procSetCurrentThreadCompartmentId.Addr(), 1, uintptr(compartmentId), 0, 0)
 	if int32(r0) < 0 {
-		if r0&0x1fff0000 == 0x00070000 {
-			r0 &= 0xffff
-		}
-		hr = syscall.Errno(r0)
+		hr = interop.Win32FromHresult(r0)
 	}
 	return
 }
