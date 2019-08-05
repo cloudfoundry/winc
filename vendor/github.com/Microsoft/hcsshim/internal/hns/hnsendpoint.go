@@ -23,6 +23,7 @@ type HNSEndpoint struct {
 	DisableICC         bool              `json:",omitempty"`
 	PrefixLength       uint8             `json:",omitempty"`
 	IsRemoteEndpoint   bool              `json:",omitempty"`
+	EnableLowMetric    bool              `json:",omitempty"`
 	Namespace          *Namespace        `json:",omitempty"`
 	EncapOverhead      uint16            `json:",omitempty"`
 	Resources          Resources         `json:",omitempty"`
