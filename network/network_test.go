@@ -207,7 +207,8 @@ var _ = Describe("NetworkManager", func() {
 			}
 
 			inputs = network.UpInputs{
-				Pid: 1234,
+				Pid:        1234,
+				Properties: map[string]interface{}{"ports": "997,998,999"},
 				NetIn: []netrules.NetIn{
 					{HostPort: 0, ContainerPort: 666},
 					{HostPort: 0, ContainerPort: 888},
@@ -287,6 +288,16 @@ var _ = Describe("NetworkManager", func() {
 			inRule, ip = netRuleApplier.InArgsForCall(1)
 			Expect(inRule).To(Equal(netrules.NetIn{HostPort: 0, ContainerPort: 888}))
 			Expect(ip).To(Equal(containerIP.String()))
+
+			Expect(netRuleApplier.OpenPortCallCount()).To(Equal(3))
+			portOne := netRuleApplier.OpenPortArgsForCall(0)
+			Expect(portOne).To(Equal(uint32(997)))
+
+			portTwo := netRuleApplier.OpenPortArgsForCall(1)
+			Expect(portTwo).To(Equal(uint32(998)))
+
+			portThree := netRuleApplier.OpenPortArgsForCall(2)
+			Expect(portThree).To(Equal(uint32(999)))
 
 			Expect(netRuleApplier.OutCallCount()).To(Equal(2))
 			outRule, ip := netRuleApplier.OutArgsForCall(0)
@@ -379,6 +390,29 @@ var _ = Describe("NetworkManager", func() {
 			It("cleans up allocated ports", func() {
 				_, err := networkManager.Up(inputs)
 				Expect(err).To(MatchError("couldn't allocate port"))
+				Expect(netRuleApplier.CleanupCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("input.Properties.ports does not exist", func() {
+			BeforeEach(func() {
+				delete(inputs.Properties, "ports")
+			})
+
+			It("network up still runs successfully", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("opening port fails", func() {
+			BeforeEach(func() {
+				netRuleApplier.OpenPortReturnsOnCall(0, errors.New("couldn't open port"))
+			})
+
+			It("cleans up allocated ports", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err.Error()).To(ContainSubstring("couldn't open port"))
 				Expect(netRuleApplier.CleanupCallCount()).To(Equal(1))
 			})
 		})

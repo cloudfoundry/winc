@@ -2,6 +2,7 @@ package netrules_test
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	"code.cloudfoundry.org/winc/network/firewall"
@@ -27,6 +28,34 @@ var _ = Describe("Applier", func() {
 		portAllocator = &fakes.PortAllocator{}
 
 		applier = netrules.NewApplier(netSh, containerId, portAllocator)
+	})
+
+	Describe("OpenPort", func() {
+
+		var port uint32
+
+		BeforeEach(func() {
+			port = 999
+		})
+		It("opens the port inside the container", func() {
+			err := applier.OpenPort(port)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(netSh.RunContainerCallCount()).To(Equal(1))
+			expectedArgs := []string{"http", "add", "urlacl", fmt.Sprintf("url=http://*:%d/", port), "user=Users"}
+			Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedArgs))
+		})
+
+		Context("opening the port fails", func() {
+			BeforeEach(func() {
+				netSh.RunContainerReturns(errors.New("couldn't exec netsh"))
+			})
+
+			It("returns an error", func() {
+				err := applier.OpenPort(port)
+				Expect(err).To(MatchError("couldn't exec netsh"))
+			})
+		})
 	})
 
 	Describe("In", func() {
@@ -60,26 +89,6 @@ var _ = Describe("Applier", func() {
 				LocalPorts:     "1000",
 			}
 			Expect(*acl).To(Equal(expectedAcl))
-		})
-
-		It("opens the port inside the container", func() {
-			_, _, err := applier.In(netInRule, containerIP)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(netSh.RunContainerCallCount()).To(Equal(1))
-			expectedArgs := []string{"http", "add", "urlacl", "url=http://*:1000/", "user=Users"}
-			Expect(netSh.RunContainerArgsForCall(0)).To(Equal(expectedArgs))
-		})
-
-		Context("opening the port fails", func() {
-			BeforeEach(func() {
-				netSh.RunContainerReturns(errors.New("couldn't exec netsh"))
-			})
-
-			It("returns an error", func() {
-				_, _, err := applier.In(netInRule, containerIP)
-				Expect(err).To(MatchError("couldn't exec netsh"))
-			})
 		})
 
 		Context("the host port is zero", func() {

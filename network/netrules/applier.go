@@ -45,10 +45,6 @@ func (a *Applier) In(rule NetIn, containerIP string) (*hcsshim.NatPolicy, *hcssh
 		externalPort = uint32(allocatedPort)
 	}
 
-	if err := a.openPort(rule.ContainerPort); err != nil {
-		return nil, nil, err
-	}
-
 	return &hcsshim.NatPolicy{
 			Type:         hcsshim.Nat,
 			Protocol:     "TCP",
@@ -109,11 +105,10 @@ func (a *Applier) Out(rule NetOut, containerIP string) (*hcsshim.ACLPolicy, erro
 	return &acl, nil
 }
 
-func (a *Applier) openPort(port uint32) error {
+func (a *Applier) OpenPort(port uint32) error {
 	args := []string{"http", "add", "urlacl", fmt.Sprintf("url=http://*:%d/", port), "user=Users"}
 	return a.netSh.RunContainer(args)
 }
-
 func (a *Applier) Cleanup() error {
 	return a.portAllocator.ReleaseAllPorts(a.containerId)
 }
