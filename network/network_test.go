@@ -394,9 +394,9 @@ var _ = Describe("NetworkManager", func() {
 			})
 		})
 
-		Context("input.Properties.ports does not exist", func() {
+		Context("when input.Properties.ports does not exist", func() {
 			BeforeEach(func() {
-				delete(inputs.Properties, "ports")
+				inputs.Properties = map[string]interface{}{}
 			})
 
 			It("network up still runs successfully", func() {
@@ -405,14 +405,36 @@ var _ = Describe("NetworkManager", func() {
 			})
 		})
 
-		Context("opening port fails", func() {
+		Context("when the ports property is invalid", func() {
 			BeforeEach(func() {
-				netRuleApplier.OpenPortReturnsOnCall(0, errors.New("couldn't open port"))
+				inputs.Properties = map[string]interface{}{"ports": 999}
+			})
+
+			It("returns a helpful error message", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).To(MatchError("Invalid type input.Properties.ports: 999"))
+			})
+		})
+
+		Context("when the port value is invalid", func() {
+			BeforeEach(func() {
+				inputs.Properties = map[string]interface{}{"ports": "banana"}
+			})
+
+			It("returns a helpful error message", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).To(MatchError(ContainSubstring("Invalid port in input.Properties.ports: banana, error")))
+			})
+		})
+
+		Context("when applier failes to open the port", func() {
+			BeforeEach(func() {
+				netRuleApplier.OpenPortReturnsOnCall(0, errors.New("banana"))
 			})
 
 			It("cleans up allocated ports", func() {
 				_, err := networkManager.Up(inputs)
-				Expect(err.Error()).To(ContainSubstring("couldn't open port"))
+				Expect(err).To(MatchError(MatchRegexp("Failed to open port: [0-9]*, error: banana")))
 				Expect(netRuleApplier.CleanupCallCount()).To(Equal(1))
 			})
 		})

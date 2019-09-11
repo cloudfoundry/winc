@@ -182,21 +182,26 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	// This is required for running .NET applications
 	// They require that URL reservations be added for ports that
 	// are used to access the HWC/IIS app
-	networkProperties := inputs.Properties
-	val, ok := networkProperties["ports"]
-	if ok {
-		applicationPorts := val.(string) // TODO: consider handling val that isn't a string (return an error instead of panic)
-		for _, port := range strings.Split(applicationPorts, ",") {
-			p, err := strconv.Atoi(port)
-			if err != nil {
-				return outputs, fmt.Errorf("Invalid port in input.Properties.ports: %d, error: %s", p, err.Error())
+	if ports, ok := inputs.Properties["ports"]; ok {
+		if applicationPorts, ok := ports.(string); ok {
+			logrus.Debugf("opening application ports: %s", applicationPorts)
+
+			for _, port := range strings.Split(applicationPorts, ",") {
+				p, err := strconv.Atoi(port)
+				if err != nil {
+					return outputs, fmt.Errorf("Invalid port in input.Properties.ports: %s, error: %s", port, err)
+				}
+
+				err = n.applier.OpenPort(uint32(p))
+				if err != nil {
+					return outputs, fmt.Errorf("Failed to open port: %d, error: %s", p, err)
+				}
 			}
-			if err := n.applier.OpenPort(uint32(p)); err != nil {
-				return outputs, fmt.Errorf("Failed to open port: %d, error: %s", p, err.Error())
-			}
+
+			logrus.Debugf("opened application ports")
+		} else {
+			return outputs, fmt.Errorf("Invalid type input.Properties.ports: %v", ports)
 		}
-	} else {
-		logrus.Debugf("Warning: Network inputs did not contain the Properties.ports property. Dot-Net apps will not run.")
 	}
 
 	for _, dnsServer := range n.config.DNSServers {
