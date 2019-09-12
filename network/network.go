@@ -202,6 +202,8 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		} else {
 			return outputs, fmt.Errorf("Invalid type input.Properties.ports: %v", ports)
 		}
+	} else {
+		logrus.Debugf("input.Properties doesn't contain ports - .Net apps aren't supported")
 	}
 
 	for _, dnsServer := range n.config.DNSServers {

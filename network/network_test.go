@@ -270,7 +270,7 @@ var _ = Describe("NetworkManager", func() {
 			endpointManager.CreateReturns(createdEndpoint, nil)
 		})
 
-		It("creates an endpoint, applies net in, applies net out, handles mtu, and returns the up outputs", func() {
+		It("creates an endpoint, applies ports, applies net out, handles mtu, and returns the up outputs", func() {
 			output, err := networkManager.Up(inputs)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -405,17 +405,6 @@ var _ = Describe("NetworkManager", func() {
 			})
 		})
 
-		Context("when the ports property is invalid", func() {
-			BeforeEach(func() {
-				inputs.Properties = map[string]interface{}{"ports": 999}
-			})
-
-			It("returns a helpful error message", func() {
-				_, err := networkManager.Up(inputs)
-				Expect(err).To(MatchError("Invalid type input.Properties.ports: 999"))
-			})
-		})
-
 		Context("when the port value is invalid", func() {
 			BeforeEach(func() {
 				inputs.Properties = map[string]interface{}{"ports": "banana"}
@@ -436,6 +425,17 @@ var _ = Describe("NetworkManager", func() {
 				_, err := networkManager.Up(inputs)
 				Expect(err).To(MatchError(MatchRegexp("Failed to open port: [0-9]*, error: banana")))
 				Expect(netRuleApplier.CleanupCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when the ports property is invalid", func() {
+			BeforeEach(func() {
+				inputs.Properties = map[string]interface{}{"ports": 999}
+			})
+
+			It("returns a helpful error message", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).To(MatchError("Invalid type input.Properties.ports: 999"))
 			})
 		})
 
