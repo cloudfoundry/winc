@@ -155,17 +155,17 @@ var _ = Describe("Up", func() {
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
 			})
 
-			FIt("creates the correct urlacl in the container", func() {
+			It("creates the correct urlacl in the container", func() {
 				helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {"ports": "8080"} ,"netin": [{"host_port": 0, "container_port": 1234}]}`, networkConfigFile)
 
-				stdout, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/ | findstr User"}, false)
+				stdout, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "netsh http show urlacl url=http://*:8080/"}, false)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(stdout.String()).To(ContainSubstring("BUILTIN\\Users"))
+				Expect(stdout.String()).To(MatchRegexp(`Reserved URL[ ]*: http://\*:8080/.*`))
 			})
 
 			Context("stdin does not contain a port mapping request", func() {
 				It("cannot listen on any ports", func() {
-					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {} }`, networkConfigFile)
+					helpers.NetworkUp(containerId, `{"Pid": 123, "Properties": {"ports": ""} }`, networkConfigFile)
 
 					_, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
 					Expect(err).To(HaveOccurred())
