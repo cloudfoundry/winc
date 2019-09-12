@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 
 	"code.cloudfoundry.org/winc/network/netinterface"
 	"code.cloudfoundry.org/winc/network/netrules"
@@ -17,6 +19,7 @@ type NetRuleApplier interface {
 	In(netrules.NetIn, string) (*hcsshim.NatPolicy, *hcsshim.ACLPolicy, error)
 	Out(netrules.NetOut, string) (*hcsshim.ACLPolicy, error)
 	Cleanup() error
+	OpenPort(port uint32) error
 }
 
 //go:generate counterfeiter -o fakes/mtu.go --fake-name Mtu . Mtu
@@ -174,6 +177,35 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 		if acl != nil {
 			hnsAcls = append(hnsAcls, acl)
 		}
+	}
+
+	// This is required for running .NET applications
+	// They require that URL reservations be added for ports that
+	// are used to access the HWC/IIS app
+	if ports, ok := inputs.Properties["ports"]; ok {
+		if appPorts, ok := ports.(string); ok {
+			logrus.Debugf("opening application ports: %s", appPorts)
+			if len(appPorts) > 0 {
+				for _, port := range strings.Split(appPorts, ",") {
+					p, err := strconv.Atoi(port)
+					if err != nil {
+						return outputs, fmt.Errorf("Invalid port in input.Properties.ports: %s, error: %s", port, err)
+					}
+
+					err = n.applier.OpenPort(uint32(p))
+					if err != nil {
+						return outputs, fmt.Errorf("Failed to open port: %d, error: %s", p, err)
+					}
+				}
+			} else {
+				logrus.Debugf("input.Properties doesn't contain ports - .Net apps aren't supported")
+			}
+			logrus.Debugf("opened application ports")
+		} else {
+			return outputs, fmt.Errorf("Invalid type input.Properties.ports: %v", ports)
+		}
+	} else {
+		logrus.Debugf("input.Properties doesn't contain ports - .Net apps aren't supported")
 	}
 
 	for _, dnsServer := range n.config.DNSServers {
