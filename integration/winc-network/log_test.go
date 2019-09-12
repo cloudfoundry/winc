@@ -61,7 +61,7 @@ var _ = Describe("Logging", func() {
 			bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
 			helpers.RunContainer(bundleSpec, bundlePath, containerId)
 
-			netin := `{"Pid": 123, "Properties": {},"netin": [{"host_port": 0, "container_port": 8080}]}`
+			netin := `{"Pid": 123, "Properties": {"ports":"8080"},"netin": [{"host_port": 0, "container_port": 1234}]}`
 			args := []string{"--log", logFile, "--action", "up", "--configFile", networkConfigFile, "--handle", containerId}
 			cmd := exec.Command(wincNetworkBin, args...)
 			cmd.Stdin = strings.NewReader(netin)
