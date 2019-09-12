@@ -137,11 +137,7 @@ func (fake *Mtu) Invocations() map[string][][]interface{} {
 	defer fake.setNatMutex.RUnlock()
 	fake.setContainerMutex.RLock()
 	defer fake.setContainerMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *Mtu) recordInvocation(key string, args []interface{}) {

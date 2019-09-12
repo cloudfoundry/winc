@@ -179,11 +179,7 @@ func (fake *WrappedProcess) Invocations() map[string][][]interface{} {
 	defer fake.setInterruptMutex.RUnlock()
 	fake.writePIDFileMutex.RLock()
 	defer fake.writePIDFileMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *WrappedProcess) recordInvocation(key string, args []interface{}) {

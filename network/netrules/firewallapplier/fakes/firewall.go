@@ -204,11 +204,7 @@ func (fake *Firewall) Invocations() map[string][][]interface{} {
 	defer fake.deleteRuleMutex.RUnlock()
 	fake.ruleExistsMutex.RLock()
 	defer fake.ruleExistsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *Firewall) recordInvocation(key string, args []interface{}) {

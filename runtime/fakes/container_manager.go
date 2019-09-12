@@ -330,11 +330,7 @@ func (fake *ContainerManager) Invocations() map[string][][]interface{} {
 	defer fake.statsMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *ContainerManager) recordInvocation(key string, args []interface{}) {

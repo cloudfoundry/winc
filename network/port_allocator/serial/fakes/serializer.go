@@ -142,11 +142,7 @@ func (fake *Serializer) Invocations() map[string][][]interface{} {
 	defer fake.decodeAllMutex.RUnlock()
 	fake.encodeAndOverwriteMutex.RLock()
 	defer fake.encodeAndOverwriteMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *Serializer) recordInvocation(key string, args []interface{}) {

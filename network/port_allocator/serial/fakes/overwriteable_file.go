@@ -286,11 +286,7 @@ func (fake *OverwriteableFile) Invocations() map[string][][]interface{} {
 	defer fake.seekMutex.RUnlock()
 	fake.truncateMutex.RLock()
 	defer fake.truncateMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *OverwriteableFile) recordInvocation(key string, args []interface{}) {

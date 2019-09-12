@@ -297,11 +297,7 @@ func (fake *StateManager) Invocations() map[string][][]interface{} {
 	defer fake.setSuccessMutex.RUnlock()
 	fake.stateMutex.RLock()
 	defer fake.stateMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *StateManager) recordInvocation(key string, args []interface{}) {

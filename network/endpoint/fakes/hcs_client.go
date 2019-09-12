@@ -540,11 +540,7 @@ func (fake *HCSClient) Invocations() map[string][][]interface{} {
 	defer fake.hotAttachEndpointMutex.RUnlock()
 	fake.hotDetachEndpointMutex.RLock()
 	defer fake.hotDetachEndpointMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *HCSClient) recordInvocation(key string, args []interface{}) {

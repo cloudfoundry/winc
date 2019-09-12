@@ -476,11 +476,7 @@ func (fake *HCSClient) Invocations() map[string][][]interface{} {
 	defer fake.isPendingMutex.RUnlock()
 	fake.getHNSEndpointByNameMutex.RLock()
 	defer fake.getHNSEndpointByNameMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *HCSClient) recordInvocation(key string, args []interface{}) {

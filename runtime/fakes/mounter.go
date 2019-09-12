@@ -142,11 +142,7 @@ func (fake *Mounter) Invocations() map[string][][]interface{} {
 	defer fake.mountMutex.RUnlock()
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *Mounter) recordInvocation(key string, args []interface{}) {

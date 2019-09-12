@@ -207,11 +207,7 @@ func (fake *Tracker) Invocations() map[string][][]interface{} {
 	defer fake.releaseAllMutex.RUnlock()
 	fake.inRangeMutex.RLock()
 	defer fake.inRangeMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *Tracker) recordInvocation(key string, args []interface{}) {

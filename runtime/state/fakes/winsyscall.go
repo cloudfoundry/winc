@@ -279,11 +279,7 @@ func (fake *WinSyscall) Invocations() map[string][][]interface{} {
 	defer fake.closeHandleMutex.RUnlock()
 	fake.getExitCodeProcessMutex.RLock()
 	defer fake.getExitCodeProcessMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *WinSyscall) recordInvocation(key string, args []interface{}) {

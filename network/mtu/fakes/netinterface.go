@@ -281,11 +281,7 @@ func (fake *NetInterface) Invocations() map[string][][]interface{} {
 	defer fake.setMTUMutex.RUnlock()
 	fake.getMTUMutex.RLock()
 	defer fake.getMTUMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *NetInterface) recordInvocation(key string, args []interface{}) {

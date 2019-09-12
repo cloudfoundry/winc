@@ -203,11 +203,7 @@ func (fake *EndpointManager) Invocations() map[string][][]interface{} {
 	defer fake.deleteMutex.RUnlock()
 	fake.applyPoliciesMutex.RLock()
 	defer fake.applyPoliciesMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *EndpointManager) recordInvocation(key string, args []interface{}) {

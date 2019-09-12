@@ -144,11 +144,7 @@ func (fake *PortAllocator) Invocations() map[string][][]interface{} {
 	defer fake.allocatePortMutex.RUnlock()
 	fake.releaseAllPortsMutex.RLock()
 	defer fake.releaseAllPortsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	return fake.invocations
 }
 
 func (fake *PortAllocator) recordInvocation(key string, args []interface{}) {
