@@ -67,7 +67,7 @@ func (a *Applier) In(rule netrules.NetIn, containerIP string) (*hcsshim.NatPolic
 		return nil, nil, err
 	}
 
-	if err := a.openPort(rule.ContainerPort); err != nil {
+	if err := a.OpenPort(rule.ContainerPort); err != nil {
 		return nil, nil, err
 	}
 
@@ -127,7 +127,7 @@ func (a *Applier) Cleanup() error {
 	return nil
 }
 
-func (a *Applier) openPort(port uint32) error {
+func (a *Applier) OpenPort(port uint32) error {
 	args := []string{"http", "add", "urlacl", fmt.Sprintf("url=http://*:%d/", port), "user=Users"}
 	return a.netSh.RunContainer(args)
 }

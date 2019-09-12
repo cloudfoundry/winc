@@ -26,17 +26,6 @@ type NetRuleApplier struct {
 		result2 *hcsshim.ACLPolicy
 		result3 error
 	}
-	OpenPortStub        func(uint32) error
-	openPortMutex       sync.RWMutex
-	openPortArgsForCall []struct {
-		arg1 uint32
-	}
-	openPortReturns struct {
-		result1 error
-	}
-	openPortReturnsOnCall map[int]struct {
-		result1 error
-	}
 	OutStub        func(netrules.NetOut, string) (*hcsshim.ACLPolicy, error)
 	outMutex       sync.RWMutex
 	outArgsForCall []struct {
@@ -58,6 +47,17 @@ type NetRuleApplier struct {
 		result1 error
 	}
 	cleanupReturnsOnCall map[int]struct {
+		result1 error
+	}
+	OpenPortStub        func(port uint32) error
+	openPortMutex       sync.RWMutex
+	openPortArgsForCall []struct {
+		port uint32
+	}
+	openPortReturns struct {
+		result1 error
+	}
+	openPortReturnsOnCall map[int]struct {
 		result1 error
 	}
 	invocations      map[string][][]interface{}
@@ -117,66 +117,6 @@ func (fake *NetRuleApplier) InReturnsOnCall(i int, result1 *hcsshim.NatPolicy, r
 		result2 *hcsshim.ACLPolicy
 		result3 error
 	}{result1, result2, result3}
-}
-
-func (fake *NetRuleApplier) OpenPort(arg1 uint32) error {
-	fake.openPortMutex.Lock()
-	ret, specificReturn := fake.openPortReturnsOnCall[len(fake.openPortArgsForCall)]
-	fake.openPortArgsForCall = append(fake.openPortArgsForCall, struct {
-		arg1 uint32
-	}{arg1})
-	fake.recordInvocation("OpenPort", []interface{}{arg1})
-	fake.openPortMutex.Unlock()
-	if fake.OpenPortStub != nil {
-		return fake.OpenPortStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	fakeReturns := fake.openPortReturns
-	return fakeReturns.result1
-}
-
-func (fake *NetRuleApplier) OpenPortCallCount() int {
-	fake.openPortMutex.RLock()
-	defer fake.openPortMutex.RUnlock()
-	return len(fake.openPortArgsForCall)
-}
-
-func (fake *NetRuleApplier) OpenPortCalls(stub func(uint32) error) {
-	fake.openPortMutex.Lock()
-	defer fake.openPortMutex.Unlock()
-	fake.OpenPortStub = stub
-}
-
-func (fake *NetRuleApplier) OpenPortArgsForCall(i int) uint32 {
-	fake.openPortMutex.RLock()
-	defer fake.openPortMutex.RUnlock()
-	argsForCall := fake.openPortArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *NetRuleApplier) OpenPortReturns(result1 error) {
-	fake.openPortMutex.Lock()
-	defer fake.openPortMutex.Unlock()
-	fake.OpenPortStub = nil
-	fake.openPortReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *NetRuleApplier) OpenPortReturnsOnCall(i int, result1 error) {
-	fake.openPortMutex.Lock()
-	defer fake.openPortMutex.Unlock()
-	fake.OpenPortStub = nil
-	if fake.openPortReturnsOnCall == nil {
-		fake.openPortReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.openPortReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
 }
 
 func (fake *NetRuleApplier) Out(arg1 netrules.NetOut, arg2 string) (*hcsshim.ACLPolicy, error) {
@@ -271,6 +211,54 @@ func (fake *NetRuleApplier) CleanupReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *NetRuleApplier) OpenPort(port uint32) error {
+	fake.openPortMutex.Lock()
+	ret, specificReturn := fake.openPortReturnsOnCall[len(fake.openPortArgsForCall)]
+	fake.openPortArgsForCall = append(fake.openPortArgsForCall, struct {
+		port uint32
+	}{port})
+	fake.recordInvocation("OpenPort", []interface{}{port})
+	fake.openPortMutex.Unlock()
+	if fake.OpenPortStub != nil {
+		return fake.OpenPortStub(port)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.openPortReturns.result1
+}
+
+func (fake *NetRuleApplier) OpenPortCallCount() int {
+	fake.openPortMutex.RLock()
+	defer fake.openPortMutex.RUnlock()
+	return len(fake.openPortArgsForCall)
+}
+
+func (fake *NetRuleApplier) OpenPortArgsForCall(i int) uint32 {
+	fake.openPortMutex.RLock()
+	defer fake.openPortMutex.RUnlock()
+	return fake.openPortArgsForCall[i].port
+}
+
+func (fake *NetRuleApplier) OpenPortReturns(result1 error) {
+	fake.OpenPortStub = nil
+	fake.openPortReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetRuleApplier) OpenPortReturnsOnCall(i int, result1 error) {
+	fake.OpenPortStub = nil
+	if fake.openPortReturnsOnCall == nil {
+		fake.openPortReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.openPortReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetRuleApplier) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -280,11 +268,9 @@ func (fake *NetRuleApplier) Invocations() map[string][][]interface{} {
 	defer fake.outMutex.RUnlock()
 	fake.cleanupMutex.RLock()
 	defer fake.cleanupMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
-	for key, value := range fake.invocations {
-		copiedInvocations[key] = value
-	}
-	return copiedInvocations
+	fake.openPortMutex.RLock()
+	defer fake.openPortMutex.RUnlock()
+	return fake.invocations
 }
 
 func (fake *NetRuleApplier) recordInvocation(key string, args []interface{}) {
