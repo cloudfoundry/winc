@@ -24,6 +24,7 @@ var _ = Describe("NetworkManager", func() {
 		endpointManager *fakes.EndpointManager
 		mtu             *fakes.Mtu
 		hnsNetwork      *hcsshim.HNSNetwork
+		config          network.Config
 	)
 
 	BeforeEach(func() {
@@ -31,7 +32,7 @@ var _ = Describe("NetworkManager", func() {
 		netRuleApplier = &fakes.NetRuleApplier{}
 		endpointManager = &fakes.EndpointManager{}
 		mtu = &fakes.Mtu{}
-		config := network.Config{
+		config = network.Config{
 			MTU:            1434,
 			SubnetRange:    "123.45.0.0/67",
 			GatewayAddress: "123.45.0.1",
@@ -58,9 +59,36 @@ var _ = Describe("NetworkManager", func() {
 			net, _ := hcsClient.CreateNetworkArgsForCall(0)
 			Expect(net.Name).To(Equal("unit-test-name"))
 			Expect(net.Subnets).To(ConsistOf(hcsshim.Subnet{AddressPrefix: "123.45.0.0/67", GatewayAddress: "123.45.0.1"}))
+			Expect(net.DNSSuffix).To(Equal(""))
 
 			Expect(mtu.SetNatCallCount()).To(Equal(1))
 			Expect(mtu.SetNatArgsForCall(0)).To(Equal(1434))
+		})
+
+		Context("DNSSuffix is provided", func() {
+			BeforeEach(func() {
+				config.DNSSuffix = []string{"example1-dns-suffix", "example2-dns-suffix"}
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
+			})
+
+			It("creates the network with the correct DNSSuffix values", func() {
+				Expect(networkManager.CreateHostNATNetwork()).To(Succeed())
+				net, _ := hcsClient.CreateNetworkArgsForCall(0)
+				Expect(net.DNSSuffix).To(Equal("example1-dns-suffix,example2-dns-suffix"))
+			})
+		})
+
+		Context("DNSSuffix value is invalid", func() {
+			BeforeEach(func() {
+				config.DNSSuffix = []string{"example1-dns-suffix", "example2,dns-suffix"}
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
+			})
+
+			It("returns an error", func() {
+				err := networkManager.CreateHostNATNetwork()
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("Invalid DNSSuffix. First invalid DNSSuffix: example2,dns-suffix")))
+			})
 		})
 
 		Context("the network already exists with the correct values", func() {

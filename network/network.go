@@ -49,6 +49,7 @@ type Config struct {
 	GatewayAddress           string   `json:"gateway_address"`
 	DNSServers               []string `json:"dns_servers"`
 	MaximumOutgoingBandwidth uint64   `json:"maximum_outgoing_bandwidth"`
+	DNSSuffix                []string `json:"search_domains"`
 }
 
 type UpInputs struct {
@@ -105,10 +106,20 @@ func (n *NetworkManager) CreateHostNATNetwork() error {
 		return &SameNATNetworkNameError{Name: n.config.NetworkName, Subnets: existingNetwork.Subnets}
 	}
 
+	for _, suffix := range n.config.DNSSuffix {
+		// DNSSuffix passed to hcsshim is invalid if it contains a comma or a space
+		if strings.ContainsAny(suffix, ", ") {
+			return fmt.Errorf("Invalid DNSSuffix. First invalid DNSSuffix: %s", suffix)
+		}
+	}
+	// This must be a comma separated value with no spaces
+	dnsSuffix := strings.Join(n.config.DNSSuffix, ",")
+
 	network := &hcsshim.HNSNetwork{
-		Name:    n.config.NetworkName,
-		Type:    "nat",
-		Subnets: subnets,
+		Name:      n.config.NetworkName,
+		Type:      "nat",
+		Subnets:   subnets,
+		DNSSuffix: dnsSuffix,
 	}
 
 	networkReady := func() (bool, error) {
