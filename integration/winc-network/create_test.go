@@ -98,6 +98,37 @@ var _ = Describe("Create", func() {
 		Expect(natMtu).To(Equal(hostMtu))
 	})
 
+	Context("DNS Suffix Search List is set in the config", func() {
+		BeforeEach(func() {
+			networkConfig.DNSSuffix = []string{"example1.dns-suffix", "example2.dns-suffix"}
+			/*
+			* Unlike other tests here, the network needs to be attached to a running container
+			* because the DNSSuffix is only visible from within the container.
+			 */
+			bundleSpec := helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+			helpers.RunContainer(bundleSpec, bundlePath, containerId)
+		})
+
+		AfterEach(func() {
+			helpers.DeleteContainer(containerId)
+		})
+
+		It("creates the network with the configured DNS Suffix Search List", func() {
+			helpers.CreateNetwork(networkConfig, networkConfigFile)
+
+			_, err := net.InterfaceByName(fmt.Sprintf("vEthernet (%s)", networkConfig.NetworkName))
+			Expect(err).ToNot(HaveOccurred())
+
+			helpers.NetworkUp(containerId, `{"Pid": 123, "netin": []}`, networkConfigFile)
+
+			dnsSuffixCmd := fmt.Sprintf("(get-dnsclient -InterfaceAlias 'vEthernet (%s)').ConnectionSpecificSuffixSearchList", containerId)
+			stdout, _, err := helpers.ExecInContainer(containerId, []string{"powershell", "-command", dnsSuffixCmd}, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdout.String()).To(ContainSubstring("example1.dns-suffix"))
+			Expect(stdout.String()).To(ContainSubstring("example2.dns-suffix"))
+		})
+	})
+
 	Context("mtu is set in the config", func() {
 		BeforeEach(func() {
 			networkConfig.MTU = 1400
