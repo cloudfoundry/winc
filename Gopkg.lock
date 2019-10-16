@@ -29,12 +29,11 @@
   version = "v0.4.11"
 
 [[projects]]
-  branch = "upstream-v0.8.5-mod"
-  digest = "1:c30bcf2e5fd582b86442039336aebd554216fe5cd850fcec2a60534b883ee349"
+  branch = "mod-eq-docker-latest"
+  digest = "1:e49782db7e405f17cdcbf90eecf9d6e2bcacdf34f281def6b834ab5484c320a6"
   name = "github.com/Microsoft/hcsshim"
   packages = [
     ".",
-    "internal/guestrequest",
     "internal/guid",
     "internal/hcs",
     "internal/hcserror",
@@ -50,7 +49,7 @@
     "internal/wclayer",
   ]
   pruneopts = "UT"
-  revision = "d3cfe7c848cd05f76295a6a5c7be83c8b0683a06"
+  revision = "ae6836ff0e282bf2ea4a994a7be269b65ed4ce0c"
   source = "github.com/greenhouse-org/hcsshim"
 
 [[projects]]
