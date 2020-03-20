@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"code.cloudfoundry.org/filelock"
 	"code.cloudfoundry.org/winc/hcs"
@@ -85,7 +86,7 @@ func main() {
 		case "text":
 			// retain logrus's default.
 		case "json":
-			logrus.SetFormatter(new(logrus.JSONFormatter))
+			logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339Nano})
 		default:
 			return fmt.Errorf("invalid log format: %s", logFormat)
 		}
