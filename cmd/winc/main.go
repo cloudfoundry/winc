@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"code.cloudfoundry.org/winc/hcs"
@@ -159,7 +158,7 @@ func main() {
 		case "text":
 			// retain logrus's default.
 		case "json":
-			logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339})
+			logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: "2006-01-02T15:04:05.000000000Z"})
 		default:
 			return &InvalidLogFormatError{Format: logFormat}
 		}
