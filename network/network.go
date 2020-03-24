@@ -43,13 +43,14 @@ type HCSClient interface {
 }
 
 type Config struct {
-	MTU                      int      `json:"mtu"`
-	NetworkName              string   `json:"network_name"`
-	SubnetRange              string   `json:"subnet_range"`
-	GatewayAddress           string   `json:"gateway_address"`
-	DNSServers               []string `json:"dns_servers"`
-	MaximumOutgoingBandwidth uint64   `json:"maximum_outgoing_bandwidth"`
-	DNSSuffix                []string `json:"search_domains"`
+	MTU                           int      `json:"mtu"`
+	NetworkName                   string   `json:"network_name"`
+	SubnetRange                   string   `json:"subnet_range"`
+	GatewayAddress                string   `json:"gateway_address"`
+	DNSServers                    []string `json:"dns_servers"`
+	MaximumOutgoingBandwidth      uint64   `json:"maximum_outgoing_bandwidth"`
+	DNSSuffix                     []string `json:"search_domains"`
+	AllowOutboundTrafficByDefault bool     `json:"allow_outbound_traffic_by_default"`
 }
 
 type UpInputs struct {
@@ -57,6 +58,12 @@ type UpInputs struct {
 	Properties map[string]interface{}
 	NetOut     []netrules.NetOut `json:"netout_rules"`
 	NetIn      []netrules.NetIn  `json:"netin"`
+}
+
+func (u *UpInputs) IsEmpty() bool {
+	return len(u.NetIn) == 0 &&
+		len(u.NetOut) == 0 &&
+		len(u.Properties) == 0
 }
 
 type UpOutputs struct {
@@ -154,6 +161,15 @@ func (n *NetworkManager) DeleteHostNATNetwork() error {
 
 func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 	logrus.Debugf("start networkmanager up %d", inputs.Pid)
+
+	// The reason for this behavior is to allow windows containers to have
+	// the same outbound traffic functionality that linux containers have
+	// when running in a concourse deployment. It is intended to be opt-in.
+	if inputs.IsEmpty() && n.config.AllowOutboundTrafficByDefault {
+		logrus.Debugf("applying outbound traffic rules %d", inputs.Pid)
+		inputs.NetOut = []netrules.NetOut{{Protocol: netrules.ProtocolAll}}
+	}
+
 	outputs, err := n.up(inputs)
 	if err != nil {
 		n.applier.Cleanup()

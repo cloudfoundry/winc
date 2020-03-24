@@ -410,6 +410,69 @@ var _ = Describe("NetworkManager", func() {
 			})
 		})
 
+		Context("when 'default_allow_outbound_traffic' flag is set AND inputs are not empty", func() {
+			BeforeEach(func() {
+				config := network.Config{AllowOutboundTrafficByDefault: true}
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
+				inputs = network.UpInputs{
+					Pid:        1234,
+					Properties: map[string]interface{}{},
+					NetOut: []netrules.NetOut{
+						{Protocol: 6},
+						{Protocol: 17},
+					}}
+			})
+
+			It("ignores the flag and preserves the specified input rules", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(netRuleApplier.OutCallCount()).To(Equal(2))
+				outRule, ip := netRuleApplier.OutArgsForCall(0)
+				Expect(outRule).To(Equal(netrules.NetOut{Protocol: 6}))
+				Expect(ip).To(Equal(containerIP.String()))
+
+				outRule, ip = netRuleApplier.OutArgsForCall(1)
+				Expect(outRule).To(Equal(netrules.NetOut{Protocol: 17}))
+				Expect(ip).To(Equal(containerIP.String()))
+			})
+		})
+
+		Context("when 'default_allow_outbound_traffic' flag not set AND inputs are empty", func() {
+			BeforeEach(func() {
+				config := network.Config{}
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
+				inputs = network.UpInputs{Pid: 1234, Properties: map[string]interface{}{}}
+			})
+
+			It("does not create outbound traffic netout rules", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(netRuleApplier.OutCallCount()).To(BeZero())
+			})
+		})
+
+		Context("when 'default_allow_outbound_traffic' flag is set AND inputs are empty", func() {
+			BeforeEach(func() {
+				config := network.Config{AllowOutboundTrafficByDefault: true}
+				networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
+				inputs = network.UpInputs{Pid: 1234, Properties: map[string]interface{}{}}
+			})
+
+			It("creates allow all outbound traffic netout rules", func() {
+				_, err := networkManager.Up(inputs)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(netRuleApplier.OutCallCount()).To(Equal(1))
+
+				outRule, _ := netRuleApplier.OutArgsForCall(0)
+				Expect(outRule).To(Equal(netrules.NetOut{
+					Protocol: netrules.ProtocolAll,
+				}))
+			})
+		})
+
 		Context("net in fails", func() {
 			BeforeEach(func() {
 				netRuleApplier.InReturnsOnCall(0, nil, nil, errors.New("couldn't allocate port"))
