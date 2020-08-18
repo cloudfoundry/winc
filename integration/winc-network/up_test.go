@@ -169,7 +169,7 @@ var _ = Describe("Up", func() {
 
 					_, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
 					Expect(err).To(HaveOccurred())
-					errorMsg := fmt.Sprintf("Get http://%s:%d: net/http: request canceled while waiting for connection", getContainerIp(containerId), containerPort1)
+					errorMsg := fmt.Sprintf("Get http://%s:%d: context deadline exceeded (Client.Timeout exceeded while awaiting headers)", getContainerIp(containerId), containerPort1)
 					Expect(err.Error()).To(ContainSubstring(errorMsg))
 
 					_, err = client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort2))
