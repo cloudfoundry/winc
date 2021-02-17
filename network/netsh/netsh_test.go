@@ -25,7 +25,7 @@ var _ = Describe("Netsh", func() {
 
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
-		runner = netsh.NewRunner(hcsClient, containerId)
+		runner = netsh.NewRunner(hcsClient, containerId, 2)
 		logrus.SetOutput(ioutil.Discard)
 	})
 

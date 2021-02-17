@@ -10,22 +10,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const CMD_TIMEOUT = time.Second * 2
-
 //go:generate counterfeiter -o fakes/hcs_client.go --fake-name HCSClient . HCSClient
 type HCSClient interface {
 	OpenContainer(string) (hcs.Container, error)
 }
 
 type Runner struct {
-	hcsClient HCSClient
-	id        string
+	hcsClient  HCSClient
+	id         string
+	cmdTimeout time.Duration
 }
 
-func NewRunner(hcsClient HCSClient, containerId string) *Runner {
+func NewRunner(hcsClient HCSClient, containerId string, cmdTimeoutInSeconds int) *Runner {
 	return &Runner{
-		hcsClient: hcsClient,
-		id:        containerId,
+		hcsClient:  hcsClient,
+		id:         containerId,
+		cmdTimeout: time.Duration(cmdTimeoutInSeconds) * time.Second,
 	}
 }
 
@@ -46,7 +46,7 @@ func (nr *Runner) RunContainer(args []string) error {
 		return hcs.CleanError(err)
 	}
 
-	if err := p.WaitTimeout(CMD_TIMEOUT); err != nil {
+	if err := p.WaitTimeout(nr.cmdTimeout); err != nil {
 		return err
 	}
 

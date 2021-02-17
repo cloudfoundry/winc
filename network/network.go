@@ -51,6 +51,7 @@ type Config struct {
 	MaximumOutgoingBandwidth      uint64   `json:"maximum_outgoing_bandwidth"`
 	DNSSuffix                     []string `json:"search_domains"`
 	AllowOutboundTrafficByDefault bool     `json:"allow_outbound_traffic_by_default"`
+	WaitTimeoutInSeconds          int      `json:"wait_timeout_in_seconds"`
 }
 
 type UpInputs struct {
