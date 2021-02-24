@@ -216,9 +216,10 @@ func (h *Helpers) GenerateNetworkConfig() network.Config {
 	h.writeGatewaysInUse(f, gatewaysInUse)
 
 	return network.Config{
-		SubnetRange:    subnet,
-		GatewayAddress: gateway,
-		NetworkName:    gateway,
+		SubnetRange:          subnet,
+		GatewayAddress:       gateway,
+		NetworkName:          gateway,
+		WaitTimeoutInSeconds: 2,
 	}
 }
 
