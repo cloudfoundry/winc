@@ -169,13 +169,13 @@ var _ = Describe("Up", func() {
 
 					_, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
 					Expect(err).To(HaveOccurred())
-					errorMsg := fmt.Sprintf(`Get "http://%s:%d": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`, getContainerIp(containerId), containerPort1)
-					Expect(err.Error()).To(ContainSubstring(errorMsg))
+					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`Get "http://%s:%d":`, getContainerIp(containerId), containerPort1)))
+					Expect(err.Error()).To(ContainSubstring(`(Client.Timeout exceeded while awaiting headers)`))
 
 					_, err = client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort2))
 					Expect(err).To(HaveOccurred())
-					errorMsg = fmt.Sprintf(`Get "http://%s:%d": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`, getContainerIp(containerId), containerPort2)
-					Expect(err.Error()).To(ContainSubstring(errorMsg))
+					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`Get "http://%s:%d":`, getContainerIp(containerId), containerPort2)))
+					Expect(err.Error()).To(ContainSubstring(`(Client.Timeout exceeded while awaiting headers)`))
 				})
 
 				It("prints an empty list of mapped ports", func() {
