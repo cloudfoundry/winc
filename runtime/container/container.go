@@ -157,6 +157,9 @@ func (m *Manager) Create(spec *specs.Spec) error {
 				if spec.Windows.Resources.CPU.Shares != nil {
 					containerConfig.ProcessorWeight = uint64(*spec.Windows.Resources.CPU.Shares)
 				}
+				if spec.Windows.Resources.CPU.Maximum != nil {
+					containerConfig.ProcessorMaximum = int64(*spec.Windows.Resources.CPU.Maximum)
+				}
 			}
 		}
 
