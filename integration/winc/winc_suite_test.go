@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strconv"
 	"time"
+	"io/ioutil"
+	"path/filepath"
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	. "github.com/onsi/ginkgo"
@@ -92,6 +94,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	goshutBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/goshut")
+	Expect(err).ToNot(HaveOccurred())
+
+	sleepDir, err := ioutil.TempDir("", "winccontainer")
+	Expect(err).ToNot(HaveOccurred())
+
+	err = os.Rename(sleepBin, filepath.Join(sleepDir, "sleep.exe"))
 	Expect(err).ToNot(HaveOccurred())
 
 	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, "", debug)
