@@ -45,9 +45,7 @@ var _ = Describe("EndpointManager", func() {
 			hcsClient.GetHNSNetworkByNameReturns(&hcsshim.HNSNetwork{Id: networkId, Name: networkName}, nil)
 			hcsClient.CreateEndpointReturns(&hcsshim.HNSEndpoint{Id: endpointId}, nil)
 			hcsClient.GetHNSEndpointByIDReturns(&hcsshim.HNSEndpoint{
-				Id: endpointId, Resources: hcsshim.Resources{
-					Allocators: []hcsshim.Allocator{{CompartmentId: 9, EndpointPortGuid: "aaa-bbb", Type: hcsshim.EndpointPortType}, {Type: 5}},
-				},
+				Id: endpointId,
 			}, nil)
 		})
 
@@ -195,11 +193,6 @@ var _ = Describe("EndpointManager", func() {
 			updatedEndpoint = hcsshim.HNSEndpoint{
 				Id:       endpointId,
 				Policies: []json.RawMessage{[]byte("policies marshalled to json")},
-				Resources: hcsshim.Resources{
-					Allocators: []hcsshim.Allocator{
-						{Type: hcsshim.NATPolicyType},
-					},
-				},
 			}
 			hcsClient.UpdateEndpointReturns(&updatedEndpoint, nil)
 			hcsClient.GetHNSEndpointByIDReturns(&updatedEndpoint, nil)
