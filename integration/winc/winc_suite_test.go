@@ -101,6 +101,7 @@ var _ = BeforeSuite(func() {
 
 	err = os.Rename(sleepBin, filepath.Join(sleepDir, "sleep.exe"))
 	Expect(err).ToNot(HaveOccurred())
+	sleepBin = filepath.Join(sleepDir, "sleep.exe")
 
 	helpers = testhelpers.NewHelpers(wincBin, grootBin, grootImageStore, "", debug)
 })
