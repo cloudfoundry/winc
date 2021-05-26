@@ -1,5 +1,3 @@
-// untested sections: 2
-
 package gexec
 
 import (
@@ -11,7 +9,7 @@ import (
 /*
 The Exit matcher operates on a session:
 
-	Expect(session).Should(Exit(<optional status code>))
+	Ω(session).Should(Exit(<optional status code>))
 
 Exit passes if the session has already exited.
 

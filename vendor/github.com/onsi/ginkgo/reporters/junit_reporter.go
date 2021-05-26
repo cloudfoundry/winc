@@ -11,9 +11,7 @@ package reporters
 import (
 	"encoding/xml"
 	"fmt"
-	"math"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/onsi/ginkgo/config"
@@ -23,25 +21,18 @@ import (
 type JUnitTestSuite struct {
 	XMLName   xml.Name        `xml:"testsuite"`
 	TestCases []JUnitTestCase `xml:"testcase"`
-	Name      string          `xml:"name,attr"`
 	Tests     int             `xml:"tests,attr"`
 	Failures  int             `xml:"failures,attr"`
-	Errors    int             `xml:"errors,attr"`
 	Time      float64         `xml:"time,attr"`
 }
 
 type JUnitTestCase struct {
 	Name           string               `xml:"name,attr"`
 	ClassName      string               `xml:"classname,attr"`
-	PassedMessage  *JUnitPassedMessage  `xml:"passed,omitempty"`
 	FailureMessage *JUnitFailureMessage `xml:"failure,omitempty"`
 	Skipped        *JUnitSkipped        `xml:"skipped,omitempty"`
 	Time           float64              `xml:"time,attr"`
 	SystemOut      string               `xml:"system-out,omitempty"`
-}
-
-type JUnitPassedMessage struct {
-	Message string `xml:",chardata"`
 }
 
 type JUnitFailureMessage struct {
@@ -54,10 +45,9 @@ type JUnitSkipped struct {
 }
 
 type JUnitReporter struct {
-	suite          JUnitTestSuite
-	filename       string
-	testSuiteName  string
-	ReporterConfig config.DefaultReporterConfigType
+	suite         JUnitTestSuite
+	filename      string
+	testSuiteName string
 }
 
 //NewJUnitReporter creates a new JUnit XML reporter.  The XML will be stored in the passed in filename.
@@ -67,13 +57,11 @@ func NewJUnitReporter(filename string) *JUnitReporter {
 	}
 }
 
-func (reporter *JUnitReporter) SpecSuiteWillBegin(ginkgoConfig config.GinkgoConfigType, summary *types.SuiteSummary) {
+func (reporter *JUnitReporter) SpecSuiteWillBegin(config config.GinkgoConfigType, summary *types.SuiteSummary) {
 	reporter.suite = JUnitTestSuite{
-		Name:      summary.SuiteDescription,
 		TestCases: []JUnitTestCase{},
 	}
 	reporter.testSuiteName = summary.SuiteDescription
-	reporter.ReporterConfig = config.DefaultReporterConfig
 }
 
 func (reporter *JUnitReporter) SpecWillRun(specSummary *types.SpecSummary) {
@@ -113,20 +101,10 @@ func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 		Name:      strings.Join(specSummary.ComponentTexts[1:], " "),
 		ClassName: reporter.testSuiteName,
 	}
-	if reporter.ReporterConfig.ReportPassed && specSummary.State == types.SpecStatePassed {
-		testCase.PassedMessage = &JUnitPassedMessage{
-			Message: specSummary.CapturedOutput,
-		}
-	}
 	if specSummary.State == types.SpecStateFailed || specSummary.State == types.SpecStateTimedOut || specSummary.State == types.SpecStatePanicked {
 		testCase.FailureMessage = &JUnitFailureMessage{
 			Type:    reporter.failureTypeForState(specSummary.State),
 			Message: failureMessage(specSummary.Failure),
-		}
-		if specSummary.State == types.SpecStatePanicked {
-			testCase.FailureMessage.Message += fmt.Sprintf("\n\nPanic: %s\n\nFull stack:\n%s",
-				specSummary.Failure.ForwardedPanic,
-				specSummary.Failure.Location.FullStackTrace)
 		}
 		testCase.SystemOut = specSummary.CapturedOutput
 	}
@@ -139,32 +117,19 @@ func (reporter *JUnitReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 
 func (reporter *JUnitReporter) SpecSuiteDidEnd(summary *types.SuiteSummary) {
 	reporter.suite.Tests = summary.NumberOfSpecsThatWillBeRun
-	reporter.suite.Time = math.Trunc(summary.RunTime.Seconds()*1000) / 1000
+	reporter.suite.Time = summary.RunTime.Seconds()
 	reporter.suite.Failures = summary.NumberOfFailedSpecs
-	reporter.suite.Errors = 0
-	if reporter.ReporterConfig.ReportFile != "" {
-		reporter.filename = reporter.ReporterConfig.ReportFile
-		fmt.Printf("\nJUnit path was configured: %s\n", reporter.filename)
-	}
-	filePath, _ := filepath.Abs(reporter.filename)
-	dirPath := filepath.Dir(filePath)
-	err := os.MkdirAll(dirPath, os.ModePerm)
+	file, err := os.Create(reporter.filename)
 	if err != nil {
-		fmt.Printf("\nFailed to create JUnit directory: %s\n\t%s", filePath, err.Error())
-	}
-	file, err := os.Create(filePath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create JUnit report file: %s\n\t%s", filePath, err.Error())
+		fmt.Printf("Failed to create JUnit report file: %s\n\t%s", reporter.filename, err.Error())
 	}
 	defer file.Close()
 	file.WriteString(xml.Header)
 	encoder := xml.NewEncoder(file)
 	encoder.Indent("  ", "    ")
 	err = encoder.Encode(reporter.suite)
-	if err == nil {
-		fmt.Fprintf(os.Stdout, "\nJUnit report was created: %s\n", filePath)
-	} else {
-		fmt.Fprintf(os.Stderr,"\nFailed to generate JUnit report data:\n\t%s", err.Error())
+	if err != nil {
+		fmt.Printf("Failed to generate JUnit report\n\t%s", err.Error())
 	}
 }
 

@@ -6,13 +6,6 @@ import (
 
 // HNSEndpoint represents a network endpoint in HNS
 type HNSEndpoint = hns.HNSEndpoint
-type Resources = hns.Resources
-type Allocator = hns.Allocator
-
-const (
-	EndpointPortType = 2
-	NATPolicyType    = 4
-)
 
 // Namespace represents a Compartment.
 type Namespace = hns.Namespace
@@ -46,11 +39,21 @@ func HNSListEndpointRequest() ([]HNSEndpoint, error) {
 
 // HotAttachEndpoint makes a HCS Call to attach the endpoint to the container
 func HotAttachEndpoint(containerID string, endpointID string) error {
+	endpoint, err := GetHNSEndpointByID(endpointID)
+	isAttached, err := endpoint.IsAttached(containerID)
+	if isAttached {
+		return err
+	}
 	return modifyNetworkEndpoint(containerID, endpointID, Add)
 }
 
 // HotDetachEndpoint makes a HCS Call to detach the endpoint from the container
 func HotDetachEndpoint(containerID string, endpointID string) error {
+	endpoint, err := GetHNSEndpointByID(endpointID)
+	isAttached, err := endpoint.IsAttached(containerID)
+	if !isAttached {
+		return err
+	}
 	return modifyNetworkEndpoint(containerID, endpointID, Remove)
 }
 

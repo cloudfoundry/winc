@@ -56,9 +56,7 @@ func (runner *SpecRunner) Run() bool {
 	}
 
 	runner.reportSuiteWillBegin()
-	signalRegistered := make(chan struct{})
-	go runner.registerForInterrupts(signalRegistered)
-	<-signalRegistered
+	go runner.registerForInterrupts()
 
 	suitePassed := runner.runBeforeSuite()
 
@@ -215,10 +213,9 @@ func (runner *SpecRunner) CurrentSpecSummary() (*types.SpecSummary, bool) {
 	return runner.runningSpec.Summary(runner.suiteID), true
 }
 
-func (runner *SpecRunner) registerForInterrupts(signalRegistered chan struct{}) {
+func (runner *SpecRunner) registerForInterrupts() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	close(signalRegistered)
 
 	<-c
 	signal.Stop(c)
@@ -300,7 +297,7 @@ func (runner *SpecRunner) reportSpecWillRun(summary *types.SpecSummary) {
 }
 
 func (runner *SpecRunner) reportSpecDidComplete(summary *types.SpecSummary, failed bool) {
-	if len(summary.CapturedOutput) == 0 {
+	if failed && len(summary.CapturedOutput) == 0 {
 		summary.CapturedOutput = string(runner.writer.Bytes())
 	}
 	for i := len(runner.reporters) - 1; i >= 1; i-- {
