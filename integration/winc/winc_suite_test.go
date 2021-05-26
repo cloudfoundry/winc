@@ -87,7 +87,10 @@ var _ = BeforeSuite(func() {
 
 	consumeBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/consume")
 	Expect(err).ToNot(HaveOccurred())
+
 	sleepBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/sleep")
+	Expect(err).ToNot(HaveOccurred())
+
 	goshutBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/goshut")
 	Expect(err).ToNot(HaveOccurred())
 
