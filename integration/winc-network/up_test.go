@@ -169,12 +169,12 @@ var _ = Describe("Up", func() {
 
 					_, err := client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort1))
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`Get http://%s:%d:`, getContainerIp(containerId), containerPort1)))
+					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`Get "http://%s:%d":`, getContainerIp(containerId), containerPort1)))
 					Expect(err.Error()).To(ContainSubstring(`(Client.Timeout exceeded while awaiting headers)`))
 
 					_, err = client.Get(fmt.Sprintf("http://%s:%d", getContainerIp(containerId), containerPort2))
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`Get http://%s:%d:`, getContainerIp(containerId), containerPort2)))
+					Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(`Get "http://%s:%d":`, getContainerIp(containerId), containerPort2)))
 					Expect(err.Error()).To(ContainSubstring(`(Client.Timeout exceeded while awaiting headers)`))
 				})
 
