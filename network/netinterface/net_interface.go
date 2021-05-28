@@ -268,7 +268,7 @@ func getAdapterInfoByName(name string, family uint32) (AdapterInfo, error) {
 	}
 
 	for aa := (*IP_ADAPTER_ADDRESSES)(unsafe.Pointer(&b[0])); aa != nil; aa = aa.Next {
-		foundName := syscall.UTF16ToString((*(*[10000]uint16)(unsafe.Pointer(aa.FriendlyName)))[:])
+		foundName := syscall.UTF16PtrToString(aa.FriendlyName)
 		var physicalAddress net.HardwareAddr
 		if aa.PhysicalAddressLength > 0 {
 			physicalAddress = make(net.HardwareAddr, aa.PhysicalAddressLength)
