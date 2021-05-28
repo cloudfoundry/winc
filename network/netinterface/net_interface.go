@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+	"unicode/utf16"
 	"unsafe"
 
 	"github.com/Microsoft/hcsshim"
@@ -268,7 +269,7 @@ func getAdapterInfoByName(name string, family uint32) (AdapterInfo, error) {
 	}
 
 	for aa := (*IP_ADAPTER_ADDRESSES)(unsafe.Pointer(&b[0])); aa != nil; aa = aa.Next {
-		foundName := syscall.UTF16ToString((*(*[10000]uint16)(unsafe.Pointer(aa.FriendlyName)))[:])
+		foundName := utf16PtrToString(aa.FriendlyName)
 		var physicalAddress net.HardwareAddr
 		if aa.PhysicalAddressLength > 0 {
 			physicalAddress = make(net.HardwareAddr, aa.PhysicalAddressLength)
@@ -310,7 +311,7 @@ func getAdapterInfoByIndex(ifIdx uint32, family uint32) (AdapterInfo, error) {
 
 	for aa := (*IP_ADAPTER_ADDRESSES)(unsafe.Pointer(&b[0])); aa != nil; aa = aa.Next {
 		if aa.IfIndex == ifIdx {
-			name := syscall.UTF16ToString((*(*[10000]uint16)(unsafe.Pointer(aa.FriendlyName)))[:])
+			name := utf16PtrToString(aa.FriendlyName)
 			var physicalAddress net.HardwareAddr
 			if aa.PhysicalAddressLength > 0 {
 				physicalAddress = make(net.HardwareAddr, aa.PhysicalAddressLength)
@@ -327,4 +328,41 @@ func getAdapterInfoByIndex(ifIdx uint32, family uint32) (AdapterInfo, error) {
 	}
 
 	return AdapterInfo{}, &InterfaceNotFoundError{index: ifIdx}
+}
+
+// Taken from: .../go/1.16.3/libexec/src/internal/syscall/windows/syscall_windows.go
+// UTF16PtrToString is like UTF16ToString, but takes *uint16
+// as a parameter instead of []uint16.
+func utf16PtrToString(p *uint16) string {
+	if p == nil {
+		return ""
+	}
+	// Find NUL terminator.
+	end := unsafe.Pointer(p)
+	n := 0
+	for *(*uint16)(end) != 0 {
+		end = unsafe.Pointer(uintptr(end) + unsafe.Sizeof(*p))
+		n++
+	}
+	// Turn *uint16 into []uint16.
+	var s []uint16
+	hdr := (*unsafeheaderSlice)(unsafe.Pointer(&s))
+	hdr.Data = unsafe.Pointer(p)
+	hdr.Cap = n
+	hdr.Len = n
+	// Decode []uint16 into string.
+	return string(utf16.Decode(s))
+}
+
+// Taken from: .../go/1.16.3/libexec/src/internal/unsafeheader/unsafeheader.go
+// Slice is the runtime representation of a slice.
+// It cannot be used safely or portably and its representation may
+// change in a later release.
+//
+// Unlike reflect.SliceHeader, its Data field is sufficient to guarantee the
+// data it references will not be garbage collected.
+type unsafeheaderSlice struct {
+	Data unsafe.Pointer
+	Len  int
+	Cap  int
 }
