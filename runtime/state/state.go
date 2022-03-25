@@ -135,7 +135,7 @@ func (m *Manager) State() (*specs.State, error) {
 		return nil, err
 	}
 
-	var status string
+	var status specs.ContainerState
 	if cp.Stopped {
 		status = "stopped"
 	} else {
@@ -155,7 +155,7 @@ func (m *Manager) State() (*specs.State, error) {
 	}, nil
 }
 
-func (m *Manager) userProgramStatus(state State) (string, error) {
+func (m *Manager) userProgramStatus(state State) (specs.ContainerState, error) {
 	if state.ExecFailed {
 		return "stopped", nil
 	}

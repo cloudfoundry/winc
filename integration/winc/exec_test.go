@@ -280,7 +280,7 @@ var _ = Describe("Exec", func() {
 			stdOut, stdErr, err := helpers.ExecInContainer("doesntexist", []string{"cmd.exe"}, false)
 			Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
 
-			Expect(stdErr.String()).To(ContainSubstring("hcsshim::OpenComputeSystem doesntexist"))
+			Expect(stdErr.String()).To(ContainSubstring("hcs::OpenComputeSystem doesntexist"))
 			Expect(stdErr.String()).To(ContainSubstring("the specified identifier does not exist"))
 		})
 	})

@@ -238,7 +238,7 @@ var _ = Describe("State", func() {
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("stopped"))
+				Expect(ociState.Status).To(Equal(specs.StateStopped))
 			})
 		})
 
@@ -254,7 +254,7 @@ var _ = Describe("State", func() {
 			It("reports the container is created", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("created"))
+				Expect(ociState.Status).To(Equal(specs.StateCreated))
 			})
 		})
 
@@ -271,7 +271,7 @@ var _ = Describe("State", func() {
 			It("reports the container is running", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("running"))
+				Expect(ociState.Status).To(Equal(specs.StateRunning))
 
 				flags, inherit, pid := sc.OpenProcessArgsForCall(0)
 				Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
@@ -297,7 +297,7 @@ var _ = Describe("State", func() {
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("stopped"))
+				Expect(ociState.Status).To(Equal(specs.StateStopped))
 
 				flags, inherit, pid := sc.OpenProcessArgsForCall(0)
 				Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
@@ -319,7 +319,7 @@ var _ = Describe("State", func() {
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("stopped"))
+				Expect(ociState.Status).To(Equal(specs.StateStopped))
 
 				flags, inherit, pid := sc.OpenProcessArgsForCall(0)
 				Expect(flags).To(Equal(uint32(syscall.PROCESS_QUERY_INFORMATION)))
@@ -350,7 +350,7 @@ var _ = Describe("State", func() {
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("stopped"))
+				Expect(ociState.Status).To(Equal(specs.StateStopped))
 
 				handle := sc.GetExitCodeProcessArgsForCall(0)
 				Expect(handle).To(Equal(ph))
@@ -389,7 +389,7 @@ var _ = Describe("State", func() {
 			It("reports the container is stopped", func() {
 				ociState, err := sm.State()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ociState.Status).To(Equal("stopped"))
+				Expect(ociState.Status).To(Equal(specs.StateStopped))
 			})
 		})
 

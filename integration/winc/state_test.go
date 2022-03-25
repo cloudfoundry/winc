@@ -49,7 +49,7 @@ var _ = Describe("State", func() {
 		It("prints the state of the container to stdout", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("created"))
+			Expect(state.Status).To(Equal(specs.StateCreated))
 			Expect(state.Version).To(Equal(specs.Version))
 			Expect(state.ID).To(Equal(containerId))
 			Expect(state.Bundle).To(Equal(bundlePath))
@@ -70,7 +70,7 @@ var _ = Describe("State", func() {
 		It("returns the status as 'running'", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("running"))
+			Expect(state.Status).To(Equal(specs.StateRunning))
 			p, err := ps.FindProcess(state.Pid)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(p.Executable()).To(Equal("cmd.exe"))
@@ -92,7 +92,7 @@ var _ = Describe("State", func() {
 		It("returns the status as 'running'", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("running"))
+			Expect(state.Status).To(Equal(specs.StateRunning))
 			p, err := ps.FindProcess(state.Pid)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(p.Executable()).To(Equal("cmd.exe"))
@@ -114,7 +114,7 @@ var _ = Describe("State", func() {
 		It("returns the status as 'stopped'", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("stopped"))
+			Expect(state.Status).To(Equal(specs.StateStopped))
 		})
 	})
 
@@ -133,7 +133,7 @@ var _ = Describe("State", func() {
 		It("returns the status as 'stopped'", func() {
 			state := helpers.GetContainerState(containerId)
 
-			Expect(state.Status).To(Equal("stopped"))
+			Expect(state.Status).To(Equal(specs.StateStopped))
 		})
 	})
 
