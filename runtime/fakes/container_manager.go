@@ -11,28 +11,40 @@ import (
 )
 
 type ContainerManager struct {
-	SpecStub        func(string) (*specs.Spec, error)
-	specMutex       sync.RWMutex
-	specArgsForCall []struct {
-		arg1 string
-	}
-	specReturns struct {
-		result1 *specs.Spec
-		result2 error
-	}
-	specReturnsOnCall map[int]struct {
-		result1 *specs.Spec
-		result2 error
-	}
-	CreateStub        func(*specs.Spec) error
+	CreateStub        func(*specs.Spec, string) error
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
 		arg1 *specs.Spec
+		arg2 string
 	}
 	createReturns struct {
 		result1 error
 	}
 	createReturnsOnCall map[int]struct {
+		result1 error
+	}
+	CredentialSpecStub        func(string) (string, error)
+	credentialSpecMutex       sync.RWMutex
+	credentialSpecArgsForCall []struct {
+		arg1 string
+	}
+	credentialSpecReturns struct {
+		result1 string
+		result2 error
+	}
+	credentialSpecReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
+	DeleteStub        func(bool) error
+	deleteMutex       sync.RWMutex
+	deleteArgsForCall []struct {
+		arg1 bool
+	}
+	deleteReturns struct {
+		result1 error
+	}
+	deleteReturnsOnCall map[int]struct {
 		result1 error
 	}
 	ExecStub        func(*specs.Process, bool) (hcs.Process, error)
@@ -49,10 +61,24 @@ type ContainerManager struct {
 		result1 hcs.Process
 		result2 error
 	}
+	SpecStub        func(string) (*specs.Spec, error)
+	specMutex       sync.RWMutex
+	specArgsForCall []struct {
+		arg1 string
+	}
+	specReturns struct {
+		result1 *specs.Spec
+		result2 error
+	}
+	specReturnsOnCall map[int]struct {
+		result1 *specs.Spec
+		result2 error
+	}
 	StatsStub        func() (container.Statistics, error)
 	statsMutex       sync.RWMutex
-	statsArgsForCall []struct{}
-	statsReturns     struct {
+	statsArgsForCall []struct {
+	}
+	statsReturns struct {
 		result1 container.Statistics
 		result2 error
 	}
@@ -60,87 +86,28 @@ type ContainerManager struct {
 		result1 container.Statistics
 		result2 error
 	}
-	DeleteStub        func(bool) error
-	deleteMutex       sync.RWMutex
-	deleteArgsForCall []struct {
-		arg1 bool
-	}
-	deleteReturns struct {
-		result1 error
-	}
-	deleteReturnsOnCall map[int]struct {
-		result1 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ContainerManager) Spec(arg1 string) (*specs.Spec, error) {
-	fake.specMutex.Lock()
-	ret, specificReturn := fake.specReturnsOnCall[len(fake.specArgsForCall)]
-	fake.specArgsForCall = append(fake.specArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("Spec", []interface{}{arg1})
-	fake.specMutex.Unlock()
-	if fake.SpecStub != nil {
-		return fake.SpecStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.specReturns.result1, fake.specReturns.result2
-}
-
-func (fake *ContainerManager) SpecCallCount() int {
-	fake.specMutex.RLock()
-	defer fake.specMutex.RUnlock()
-	return len(fake.specArgsForCall)
-}
-
-func (fake *ContainerManager) SpecArgsForCall(i int) string {
-	fake.specMutex.RLock()
-	defer fake.specMutex.RUnlock()
-	return fake.specArgsForCall[i].arg1
-}
-
-func (fake *ContainerManager) SpecReturns(result1 *specs.Spec, result2 error) {
-	fake.SpecStub = nil
-	fake.specReturns = struct {
-		result1 *specs.Spec
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ContainerManager) SpecReturnsOnCall(i int, result1 *specs.Spec, result2 error) {
-	fake.SpecStub = nil
-	if fake.specReturnsOnCall == nil {
-		fake.specReturnsOnCall = make(map[int]struct {
-			result1 *specs.Spec
-			result2 error
-		})
-	}
-	fake.specReturnsOnCall[i] = struct {
-		result1 *specs.Spec
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ContainerManager) Create(arg1 *specs.Spec) error {
+func (fake *ContainerManager) Create(arg1 *specs.Spec, arg2 string) error {
 	fake.createMutex.Lock()
 	ret, specificReturn := fake.createReturnsOnCall[len(fake.createArgsForCall)]
 	fake.createArgsForCall = append(fake.createArgsForCall, struct {
 		arg1 *specs.Spec
-	}{arg1})
-	fake.recordInvocation("Create", []interface{}{arg1})
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.CreateStub
+	fakeReturns := fake.createReturns
+	fake.recordInvocation("Create", []interface{}{arg1, arg2})
 	fake.createMutex.Unlock()
-	if fake.CreateStub != nil {
-		return fake.CreateStub(arg1)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.createReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *ContainerManager) CreateCallCount() int {
@@ -149,13 +116,22 @@ func (fake *ContainerManager) CreateCallCount() int {
 	return len(fake.createArgsForCall)
 }
 
-func (fake *ContainerManager) CreateArgsForCall(i int) *specs.Spec {
+func (fake *ContainerManager) CreateCalls(stub func(*specs.Spec, string) error) {
+	fake.createMutex.Lock()
+	defer fake.createMutex.Unlock()
+	fake.CreateStub = stub
+}
+
+func (fake *ContainerManager) CreateArgsForCall(i int) (*specs.Spec, string) {
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
-	return fake.createArgsForCall[i].arg1
+	argsForCall := fake.createArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *ContainerManager) CreateReturns(result1 error) {
+	fake.createMutex.Lock()
+	defer fake.createMutex.Unlock()
 	fake.CreateStub = nil
 	fake.createReturns = struct {
 		result1 error
@@ -163,6 +139,8 @@ func (fake *ContainerManager) CreateReturns(result1 error) {
 }
 
 func (fake *ContainerManager) CreateReturnsOnCall(i int, result1 error) {
+	fake.createMutex.Lock()
+	defer fake.createMutex.Unlock()
 	fake.CreateStub = nil
 	if fake.createReturnsOnCall == nil {
 		fake.createReturnsOnCall = make(map[int]struct {
@@ -174,6 +152,131 @@ func (fake *ContainerManager) CreateReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *ContainerManager) CredentialSpec(arg1 string) (string, error) {
+	fake.credentialSpecMutex.Lock()
+	ret, specificReturn := fake.credentialSpecReturnsOnCall[len(fake.credentialSpecArgsForCall)]
+	fake.credentialSpecArgsForCall = append(fake.credentialSpecArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.CredentialSpecStub
+	fakeReturns := fake.credentialSpecReturns
+	fake.recordInvocation("CredentialSpec", []interface{}{arg1})
+	fake.credentialSpecMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ContainerManager) CredentialSpecCallCount() int {
+	fake.credentialSpecMutex.RLock()
+	defer fake.credentialSpecMutex.RUnlock()
+	return len(fake.credentialSpecArgsForCall)
+}
+
+func (fake *ContainerManager) CredentialSpecCalls(stub func(string) (string, error)) {
+	fake.credentialSpecMutex.Lock()
+	defer fake.credentialSpecMutex.Unlock()
+	fake.CredentialSpecStub = stub
+}
+
+func (fake *ContainerManager) CredentialSpecArgsForCall(i int) string {
+	fake.credentialSpecMutex.RLock()
+	defer fake.credentialSpecMutex.RUnlock()
+	argsForCall := fake.credentialSpecArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ContainerManager) CredentialSpecReturns(result1 string, result2 error) {
+	fake.credentialSpecMutex.Lock()
+	defer fake.credentialSpecMutex.Unlock()
+	fake.CredentialSpecStub = nil
+	fake.credentialSpecReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) CredentialSpecReturnsOnCall(i int, result1 string, result2 error) {
+	fake.credentialSpecMutex.Lock()
+	defer fake.credentialSpecMutex.Unlock()
+	fake.CredentialSpecStub = nil
+	if fake.credentialSpecReturnsOnCall == nil {
+		fake.credentialSpecReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.credentialSpecReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) Delete(arg1 bool) error {
+	fake.deleteMutex.Lock()
+	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
+	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
+		arg1 bool
+	}{arg1})
+	stub := fake.DeleteStub
+	fakeReturns := fake.deleteReturns
+	fake.recordInvocation("Delete", []interface{}{arg1})
+	fake.deleteMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ContainerManager) DeleteCallCount() int {
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
+	return len(fake.deleteArgsForCall)
+}
+
+func (fake *ContainerManager) DeleteCalls(stub func(bool) error) {
+	fake.deleteMutex.Lock()
+	defer fake.deleteMutex.Unlock()
+	fake.DeleteStub = stub
+}
+
+func (fake *ContainerManager) DeleteArgsForCall(i int) bool {
+	fake.deleteMutex.RLock()
+	defer fake.deleteMutex.RUnlock()
+	argsForCall := fake.deleteArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ContainerManager) DeleteReturns(result1 error) {
+	fake.deleteMutex.Lock()
+	defer fake.deleteMutex.Unlock()
+	fake.DeleteStub = nil
+	fake.deleteReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ContainerManager) DeleteReturnsOnCall(i int, result1 error) {
+	fake.deleteMutex.Lock()
+	defer fake.deleteMutex.Unlock()
+	fake.DeleteStub = nil
+	if fake.deleteReturnsOnCall == nil {
+		fake.deleteReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *ContainerManager) Exec(arg1 *specs.Process, arg2 bool) (hcs.Process, error) {
 	fake.execMutex.Lock()
 	ret, specificReturn := fake.execReturnsOnCall[len(fake.execArgsForCall)]
@@ -181,15 +284,17 @@ func (fake *ContainerManager) Exec(arg1 *specs.Process, arg2 bool) (hcs.Process,
 		arg1 *specs.Process
 		arg2 bool
 	}{arg1, arg2})
+	stub := fake.ExecStub
+	fakeReturns := fake.execReturns
 	fake.recordInvocation("Exec", []interface{}{arg1, arg2})
 	fake.execMutex.Unlock()
-	if fake.ExecStub != nil {
-		return fake.ExecStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.execReturns.result1, fake.execReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *ContainerManager) ExecCallCount() int {
@@ -198,13 +303,22 @@ func (fake *ContainerManager) ExecCallCount() int {
 	return len(fake.execArgsForCall)
 }
 
+func (fake *ContainerManager) ExecCalls(stub func(*specs.Process, bool) (hcs.Process, error)) {
+	fake.execMutex.Lock()
+	defer fake.execMutex.Unlock()
+	fake.ExecStub = stub
+}
+
 func (fake *ContainerManager) ExecArgsForCall(i int) (*specs.Process, bool) {
 	fake.execMutex.RLock()
 	defer fake.execMutex.RUnlock()
-	return fake.execArgsForCall[i].arg1, fake.execArgsForCall[i].arg2
+	argsForCall := fake.execArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *ContainerManager) ExecReturns(result1 hcs.Process, result2 error) {
+	fake.execMutex.Lock()
+	defer fake.execMutex.Unlock()
 	fake.ExecStub = nil
 	fake.execReturns = struct {
 		result1 hcs.Process
@@ -213,6 +327,8 @@ func (fake *ContainerManager) ExecReturns(result1 hcs.Process, result2 error) {
 }
 
 func (fake *ContainerManager) ExecReturnsOnCall(i int, result1 hcs.Process, result2 error) {
+	fake.execMutex.Lock()
+	defer fake.execMutex.Unlock()
 	fake.ExecStub = nil
 	if fake.execReturnsOnCall == nil {
 		fake.execReturnsOnCall = make(map[int]struct {
@@ -226,19 +342,86 @@ func (fake *ContainerManager) ExecReturnsOnCall(i int, result1 hcs.Process, resu
 	}{result1, result2}
 }
 
-func (fake *ContainerManager) Stats() (container.Statistics, error) {
-	fake.statsMutex.Lock()
-	ret, specificReturn := fake.statsReturnsOnCall[len(fake.statsArgsForCall)]
-	fake.statsArgsForCall = append(fake.statsArgsForCall, struct{}{})
-	fake.recordInvocation("Stats", []interface{}{})
-	fake.statsMutex.Unlock()
-	if fake.StatsStub != nil {
-		return fake.StatsStub()
+func (fake *ContainerManager) Spec(arg1 string) (*specs.Spec, error) {
+	fake.specMutex.Lock()
+	ret, specificReturn := fake.specReturnsOnCall[len(fake.specArgsForCall)]
+	fake.specArgsForCall = append(fake.specArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.SpecStub
+	fakeReturns := fake.specReturns
+	fake.recordInvocation("Spec", []interface{}{arg1})
+	fake.specMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.statsReturns.result1, fake.statsReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ContainerManager) SpecCallCount() int {
+	fake.specMutex.RLock()
+	defer fake.specMutex.RUnlock()
+	return len(fake.specArgsForCall)
+}
+
+func (fake *ContainerManager) SpecCalls(stub func(string) (*specs.Spec, error)) {
+	fake.specMutex.Lock()
+	defer fake.specMutex.Unlock()
+	fake.SpecStub = stub
+}
+
+func (fake *ContainerManager) SpecArgsForCall(i int) string {
+	fake.specMutex.RLock()
+	defer fake.specMutex.RUnlock()
+	argsForCall := fake.specArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ContainerManager) SpecReturns(result1 *specs.Spec, result2 error) {
+	fake.specMutex.Lock()
+	defer fake.specMutex.Unlock()
+	fake.SpecStub = nil
+	fake.specReturns = struct {
+		result1 *specs.Spec
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) SpecReturnsOnCall(i int, result1 *specs.Spec, result2 error) {
+	fake.specMutex.Lock()
+	defer fake.specMutex.Unlock()
+	fake.SpecStub = nil
+	if fake.specReturnsOnCall == nil {
+		fake.specReturnsOnCall = make(map[int]struct {
+			result1 *specs.Spec
+			result2 error
+		})
+	}
+	fake.specReturnsOnCall[i] = struct {
+		result1 *specs.Spec
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) Stats() (container.Statistics, error) {
+	fake.statsMutex.Lock()
+	ret, specificReturn := fake.statsReturnsOnCall[len(fake.statsArgsForCall)]
+	fake.statsArgsForCall = append(fake.statsArgsForCall, struct {
+	}{})
+	stub := fake.StatsStub
+	fakeReturns := fake.statsReturns
+	fake.recordInvocation("Stats", []interface{}{})
+	fake.statsMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *ContainerManager) StatsCallCount() int {
@@ -247,7 +430,15 @@ func (fake *ContainerManager) StatsCallCount() int {
 	return len(fake.statsArgsForCall)
 }
 
+func (fake *ContainerManager) StatsCalls(stub func() (container.Statistics, error)) {
+	fake.statsMutex.Lock()
+	defer fake.statsMutex.Unlock()
+	fake.StatsStub = stub
+}
+
 func (fake *ContainerManager) StatsReturns(result1 container.Statistics, result2 error) {
+	fake.statsMutex.Lock()
+	defer fake.statsMutex.Unlock()
 	fake.StatsStub = nil
 	fake.statsReturns = struct {
 		result1 container.Statistics
@@ -256,6 +447,8 @@ func (fake *ContainerManager) StatsReturns(result1 container.Statistics, result2
 }
 
 func (fake *ContainerManager) StatsReturnsOnCall(i int, result1 container.Statistics, result2 error) {
+	fake.statsMutex.Lock()
+	defer fake.statsMutex.Unlock()
 	fake.StatsStub = nil
 	if fake.statsReturnsOnCall == nil {
 		fake.statsReturnsOnCall = make(map[int]struct {
@@ -269,68 +462,26 @@ func (fake *ContainerManager) StatsReturnsOnCall(i int, result1 container.Statis
 	}{result1, result2}
 }
 
-func (fake *ContainerManager) Delete(arg1 bool) error {
-	fake.deleteMutex.Lock()
-	ret, specificReturn := fake.deleteReturnsOnCall[len(fake.deleteArgsForCall)]
-	fake.deleteArgsForCall = append(fake.deleteArgsForCall, struct {
-		arg1 bool
-	}{arg1})
-	fake.recordInvocation("Delete", []interface{}{arg1})
-	fake.deleteMutex.Unlock()
-	if fake.DeleteStub != nil {
-		return fake.DeleteStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.deleteReturns.result1
-}
-
-func (fake *ContainerManager) DeleteCallCount() int {
-	fake.deleteMutex.RLock()
-	defer fake.deleteMutex.RUnlock()
-	return len(fake.deleteArgsForCall)
-}
-
-func (fake *ContainerManager) DeleteArgsForCall(i int) bool {
-	fake.deleteMutex.RLock()
-	defer fake.deleteMutex.RUnlock()
-	return fake.deleteArgsForCall[i].arg1
-}
-
-func (fake *ContainerManager) DeleteReturns(result1 error) {
-	fake.DeleteStub = nil
-	fake.deleteReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *ContainerManager) DeleteReturnsOnCall(i int, result1 error) {
-	fake.DeleteStub = nil
-	if fake.deleteReturnsOnCall == nil {
-		fake.deleteReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.deleteReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
 func (fake *ContainerManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.specMutex.RLock()
-	defer fake.specMutex.RUnlock()
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
-	fake.execMutex.RLock()
-	defer fake.execMutex.RUnlock()
-	fake.statsMutex.RLock()
-	defer fake.statsMutex.RUnlock()
+	fake.credentialSpecMutex.RLock()
+	defer fake.credentialSpecMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
-	return fake.invocations
+	fake.execMutex.RLock()
+	defer fake.execMutex.RUnlock()
+	fake.specMutex.RLock()
+	defer fake.specMutex.RUnlock()
+	fake.statsMutex.RLock()
+	defer fake.statsMutex.RUnlock()
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *ContainerManager) recordInvocation(key string, args []interface{}) {

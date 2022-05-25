@@ -21,17 +21,18 @@ var _ = Describe("Start", func() {
 		pidFile     = "something.pid"
 	)
 	var (
-		mounter          *fakes.Mounter
-		stateFactory     *fakes.StateFactory
-		sm               *fakes.StateManager
-		containerFactory *fakes.ContainerFactory
-		cm               *fakes.ContainerManager
-		processWrapper   *fakes.ProcessWrapper
-		wrappedProcess   *fakes.WrappedProcess
-		unwrappedProcess *hcsfakes.Process
-		hcsQuery         *fakes.HCSQuery
-		r                *runtime.Runtime
-		spec             *specs.Spec
+		mounter            *fakes.Mounter
+		stateFactory       *fakes.StateFactory
+		sm                 *fakes.StateManager
+		containerFactory   *fakes.ContainerFactory
+		cm                 *fakes.ContainerManager
+		processWrapper     *fakes.ProcessWrapper
+		wrappedProcess     *fakes.WrappedProcess
+		unwrappedProcess   *hcsfakes.Process
+		hcsQuery           *fakes.HCSQuery
+		credentialSpecPath string
+		r                  *runtime.Runtime
+		spec               *specs.Spec
 	)
 
 	BeforeEach(func() {
@@ -57,7 +58,7 @@ var _ = Describe("Start", func() {
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 	})
 
 	Context("starting the container succeeds", func() {

@@ -23,14 +23,15 @@ var _ = Describe("Delete", func() {
 		pidFile     = "something.pid"
 	)
 	var (
-		mounter          *fakes.Mounter
-		stateFactory     *fakes.StateFactory
-		sm               *fakes.StateManager
-		containerFactory *fakes.ContainerFactory
-		cm               *fakes.ContainerManager
-		processWrapper   *fakes.ProcessWrapper
-		hcsQuery         *fakes.HCSQuery
-		r                *runtime.Runtime
+		mounter            *fakes.Mounter
+		stateFactory       *fakes.StateFactory
+		sm                 *fakes.StateManager
+		containerFactory   *fakes.ContainerFactory
+		cm                 *fakes.ContainerManager
+		processWrapper     *fakes.ProcessWrapper
+		hcsQuery           *fakes.HCSQuery
+		credentialSpecPath string
+		r                  *runtime.Runtime
 	)
 
 	BeforeEach(func() {
@@ -45,7 +46,7 @@ var _ = Describe("Delete", func() {
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 	})
 
 	BeforeEach(func() {

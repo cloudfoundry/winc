@@ -19,15 +19,16 @@ var _ = Describe("Events", func() {
 		containerId = "container-for-stats"
 	)
 	var (
-		mounter          *fakes.Mounter
-		stateFactory     *fakes.StateFactory
-		sm               *fakes.StateManager
-		containerFactory *fakes.ContainerFactory
-		cm               *fakes.ContainerManager
-		processWrapper   *fakes.ProcessWrapper
-		hcsQuery         *fakes.HCSQuery
-		r                *runtime.Runtime
-		output           *gbytes.Buffer
+		mounter            *fakes.Mounter
+		stateFactory       *fakes.StateFactory
+		sm                 *fakes.StateManager
+		containerFactory   *fakes.ContainerFactory
+		cm                 *fakes.ContainerManager
+		processWrapper     *fakes.ProcessWrapper
+		hcsQuery           *fakes.HCSQuery
+		credentialSpecPath string
+		r                  *runtime.Runtime
+		output             *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -44,7 +45,7 @@ var _ = Describe("Events", func() {
 
 		output = gbytes.NewBuffer()
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 	})
 
 	Context("show stats is true", func() {

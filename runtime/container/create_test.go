@@ -30,6 +30,7 @@ var _ = Describe("Create", func() {
 		hcsClient        *fakes.HCSClient
 		containerManager *container.Manager
 		spec             *specs.Spec
+		credentialSpec   string
 	)
 
 	BeforeEach(func() {
@@ -87,7 +88,7 @@ var _ = Describe("Create", func() {
 		})
 
 		It("creates and starts it", func() {
-			Expect(containerManager.Create(spec)).To(Succeed())
+			Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 			Expect(hcsClient.GetContainerPropertiesCallCount()).To(Equal(1))
 			Expect(hcsClient.GetContainerPropertiesArgsForCall(0)).To(Equal(containerId))
@@ -110,6 +111,20 @@ var _ = Describe("Create", func() {
 			}))
 
 			Expect(fakeContainer.StartCallCount()).To(Equal(1))
+		})
+
+		Context("when a credential spec is provided", func() {
+			BeforeEach(func() {
+				credentialSpec = "a-credential-spec"
+			})
+
+			It("creates the container with the specified credential spec", func() {
+				Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
+
+				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
+				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
+				Expect(containerConfig.Credentials).To(Equal(credentialSpec))
+			})
 		})
 
 		Context("when mounts are specified in the spec", func() {
@@ -144,7 +159,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("creates the container with the specified mounts", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -161,7 +176,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("creates the container with the specified mounts", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -178,7 +193,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("creates the container with the specified mounts", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -193,7 +208,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("errors", func() {
-					err := containerManager.Create(spec)
+					err := containerManager.Create(spec, credentialSpec)
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(BeAssignableToTypeOf(&container.InvalidMountOptionsError{}))
 				})
@@ -205,7 +220,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("errors", func() {
-					err := containerManager.Create(spec)
+					err := containerManager.Create(spec, credentialSpec)
 					Expect(os.IsNotExist(err)).To(BeTrue())
 				})
 			})
@@ -230,7 +245,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("ignores it", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					actualContainerId, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -254,7 +269,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates the container with the specified memory limits", func() {
-				Expect(containerManager.Create(spec)).To(Succeed())
+				Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -275,7 +290,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("creates the container with the specified cpu limits", func() {
-				Expect(containerManager.Create(spec)).To(Succeed())
+				Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 				Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 				_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -299,7 +314,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("creates the container with a NetworkSharedContainerName and EndpointList", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -316,7 +331,7 @@ var _ = Describe("Create", func() {
 					})
 
 					It("returns an error", func() {
-						err := containerManager.Create(spec)
+						err := containerManager.Create(spec, credentialSpec)
 						Expect(err).To(MatchError("couldn't get endpoint"))
 					})
 				})
@@ -328,7 +343,7 @@ var _ = Describe("Create", func() {
 				})
 
 				It("creates a container without a NetworkSharedContainerName or EndpointList", func() {
-					Expect(containerManager.Create(spec)).To(Succeed())
+					Expect(containerManager.Create(spec, credentialSpec)).To(Succeed())
 
 					Expect(hcsClient.CreateContainerCallCount()).To(Equal(1))
 					_, containerConfig := hcsClient.CreateContainerArgsForCall(0)
@@ -344,7 +359,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("returns an error", func() {
-				err := containerManager.Create(spec)
+				err := containerManager.Create(spec, credentialSpec)
 				Expect(err).To(MatchError("couldn't create"))
 			})
 		})
@@ -356,7 +371,7 @@ var _ = Describe("Create", func() {
 			})
 
 			It("closes but doesn't shutdown or terminate the container", func() {
-				err := containerManager.Create(spec)
+				err := containerManager.Create(spec, credentialSpec)
 				Expect(err).To(MatchError("couldn't start"))
 
 				Expect(fakeContainer.CloseCallCount()).To(Equal(1))

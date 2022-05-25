@@ -99,6 +99,14 @@ func main() {
 			Value: "C:\\ProgramData\\winc",
 			Usage: "directory for storage of container state",
 		},
+		cli.BoolFlag{
+			Name:  "ccg-enabled",
+			Usage: "when enabled, passes a credential spec during container creation",
+		},
+		cli.StringFlag{
+			Name:  "credential-spec",
+			Usage: "path to credential spec file",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -117,6 +125,8 @@ func main() {
 		log := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
+		ccgEnabled := context.Bool("ccg-enabled")
+		credentialSpecPath := context.String("credential-spec")
 
 		if debug {
 			logrus.SetLevel(logrus.DebugLevel)
@@ -163,13 +173,27 @@ func main() {
 			return &InvalidLogFormatError{Format: logFormat}
 		}
 
+		if !ccgEnabled && credentialSpecPath != "" {
+			return errors.New("You must also pass the --ccg-enabled flag in order to specify a credential spec")
+		}
+
+		if ccgEnabled && credentialSpecPath == "" {
+			return errors.New("You must pass the --credential-spec flag when --ccg-enabled is passed")
+		}
+
+		if credentialSpecPath != "" {
+			if _, err := os.Stat(credentialSpecPath); err != nil {
+				return fmt.Errorf(fmt.Sprintf("Error with provided --credential-spec %s:", credentialSpecPath), err)
+			}
+		}
+
 		containerFactory := &containerFactory{}
 		stateFactory := &stateFactory{}
 		mounter := &mount.Mounter{}
 		hcsClient := &hcs.Client{}
 		processWrapper := &processWrapper{}
 
-		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir)
+		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir, credentialSpecPath)
 		return nil
 	}
 

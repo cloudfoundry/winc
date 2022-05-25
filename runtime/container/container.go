@@ -40,7 +40,7 @@ type Statistics struct {
 		} `json:"memory,omitempty"`
 		Pids struct {
 			Current uint64 `json:"current,omitempty"`
-			Limit uint64 `json:"limit,omitempty"`
+			Limit   uint64 `json:"limit,omitempty"`
 		} `json:"pids"`
 	} `json:"data,omitempty"`
 }
@@ -90,7 +90,21 @@ func (m *Manager) Spec(bundlePath string) (*specs.Spec, error) {
 	return spec, nil
 }
 
-func (m *Manager) Create(spec *specs.Spec) error {
+func (m *Manager) CredentialSpec(credentialSpecPath string) (string, error) {
+	if credentialSpecPath == "" {
+		return "", nil
+	}
+
+	credentialSpecPath = filepath.Clean(credentialSpecPath)
+	content, err := os.ReadFile(credentialSpecPath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
+func (m *Manager) Create(spec *specs.Spec, credentialSpec string) error {
 	_, err := m.hcsClient.GetContainerProperties(m.id)
 	if err == nil {
 		return &AlreadyExistsError{Id: m.id}
@@ -143,6 +157,10 @@ func (m *Manager) Create(spec *specs.Spec) error {
 		LayerFolderPath:   "ignored",
 		Layers:            layerInfos,
 		MappedDirectories: mappedDirs,
+	}
+
+	if credentialSpec != "" {
+		containerConfig.Credentials = credentialSpec
 	}
 
 	if spec.Windows != nil {
