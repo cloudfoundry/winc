@@ -86,7 +86,11 @@ var _ = Describe("Flags", func() {
 
 		It("accepts the flag and prints the --log-handle flag usage", func() {
 			args := []string{"--log-handle", logHandle}
-			stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
+			cmd := exec.Command(wincBin, args...)
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				AdditionalInheritedHandles: []syscall.Handle{dupped},
+			}
+			stdOut, _, err := helpers.Execute(cmd)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stdOut.String()).To(MatchRegexp("GLOBAL OPTIONS:(.|\n)*--log-handle value"))
 		})
@@ -122,7 +126,11 @@ var _ = Describe("Flags", func() {
 				go streamLogs(logR, log, wg)
 
 				args := []string{"--log-handle", logHandle, "create", containerId, "-b", bundlePath}
-				stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
+				cmd := exec.Command(wincBin, args...)
+				cmd.SysProcAttr = &syscall.SysProcAttr{
+					AdditionalInheritedHandles: []syscall.Handle{dupped},
+				}
+				stdOut, _, err := helpers.Execute(cmd)
 				Expect(syscall.CloseHandle(dupped)).To(Succeed())
 				Expect(err).NotTo(HaveOccurred())
 
@@ -137,7 +145,11 @@ var _ = Describe("Flags", func() {
 					/* We hope that a sufficiently large file handle would be invalid */
 					invalidFileHandle := "123456789"
 					args := []string{"--log-handle", invalidFileHandle, "create", containerId, "-b", bundlePath}
-					_, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
+					cmd := exec.Command(wincBin, args...)
+					cmd.SysProcAttr = &syscall.SysProcAttr{
+						AdditionalInheritedHandles: []syscall.Handle{dupped},
+					}
+					_, stdErr, err := helpers.Execute(cmd)
 					Expect(err).To(HaveOccurred())
 					Expect(stdErr.String()).To(ContainSubstring(fmt.Sprintf("log handle %s invalid: The handle is invalid.", invalidFileHandle)))
 				})
@@ -151,7 +163,11 @@ var _ = Describe("Flags", func() {
 					go streamLogs(logR, log, wg)
 
 					args := []string{"--log-handle", logHandle, "--debug", "create", containerId, "-b", bundlePath}
-					stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
+					cmd := exec.Command(wincBin, args...)
+					cmd.SysProcAttr = &syscall.SysProcAttr{
+						AdditionalInheritedHandles: []syscall.Handle{dupped},
+					}
+					stdOut, _, err := helpers.Execute(cmd)
 					Expect(syscall.CloseHandle(dupped)).To(Succeed())
 					Expect(err).NotTo(HaveOccurred())
 
@@ -171,7 +187,11 @@ var _ = Describe("Flags", func() {
 				go streamLogs(logR, log, wg)
 
 				args := []string{"--log-handle", logHandle, "create", "nonexistent"}
-				_, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
+				cmd := exec.Command(wincBin, args...)
+				cmd.SysProcAttr = &syscall.SysProcAttr{
+					AdditionalInheritedHandles: []syscall.Handle{dupped},
+				}
+				_, stdErr, err := helpers.Execute(cmd)
 				Expect(err).To(HaveOccurred())
 				Expect(stdErr.String()).To(ContainSubstring("bundle config.json does not exist"))
 				Expect(syscall.CloseHandle(dupped)).To(Succeed())
