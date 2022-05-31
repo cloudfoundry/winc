@@ -28,6 +28,8 @@ var _ = Describe("Create", func() {
 		hcsQuery         *fakes.HCSQuery
 		r                *runtime.Runtime
 		spec             *specs.Spec
+
+		credentialSpecPath string
 	)
 
 	BeforeEach(func() {
@@ -43,12 +45,44 @@ var _ = Describe("Create", func() {
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		cm.SpecReturns(spec, nil)
+		cm.CredentialSpecReturns("", nil)
+
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 	})
 
-	Context("success", func() {
+	It("loads the spec, creates the container, and intializes the state", func() {
+		Expect(r.Create(containerId, bundlePath)).To(Succeed())
+
+		_, c, id := containerFactory.NewManagerArgsForCall(0)
+		Expect(*c).To(Equal(hcs.Client{}))
+		Expect(id).To(Equal(containerId))
+
+		_, c, wc, id, rd := stateFactory.NewManagerArgsForCall(0)
+		Expect(*c).To(Equal(hcs.Client{}))
+		Expect(*wc).To(Equal(winsyscall.WinSyscall{}))
+		Expect(id).To(Equal(containerId))
+		Expect(rd).To(Equal(rootDir))
+
+		Expect(cm.SpecArgsForCall(0)).To(Equal(bundlePath))
+
+		s, cs := cm.CreateArgsForCall(0)
+		Expect(s).To(Equal(spec))
+		Expect(cs).To(Equal(""))
+
+		Expect(sm.InitializeArgsForCall(0)).To(Equal(bundlePath))
+	})
+
+	Context("when a non-empty credential spec path is provided", func() {
 		BeforeEach(func() {
-			cm.SpecReturns(spec, nil)
+			credentialSpecPath = "/path/to/credential/spec"
+			r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
+
+			cm.CredentialSpecStub = func(path string) (string, error) {
+				Expect(path).To(Equal(credentialSpecPath))
+
+				return "credential-spec-contents", nil
+			}
 		})
 
 		It("loads the spec, creates the container, and intializes the state", func() {
@@ -65,8 +99,23 @@ var _ = Describe("Create", func() {
 			Expect(rd).To(Equal(rootDir))
 
 			Expect(cm.SpecArgsForCall(0)).To(Equal(bundlePath))
-			Expect(cm.CreateArgsForCall(0)).To(Equal(spec))
+
+			s, cs := cm.CreateArgsForCall(0)
+			Expect(s).To(Equal(spec))
+			Expect(cs).To(Equal("credential-spec-contents"))
+
 			Expect(sm.InitializeArgsForCall(0)).To(Equal(bundlePath))
+		})
+
+		Context("loading the credential spec fails", func() {
+			BeforeEach(func() {
+				cm.CredentialSpecReturns("", errors.New("bad credential spec"))
+			})
+
+			It("returns the error", func() {
+				err := r.Create(containerId, bundlePath)
+				Expect(err).To(MatchError("bad credential spec"))
+			})
 		})
 	})
 
@@ -94,7 +143,6 @@ var _ = Describe("Create", func() {
 
 	Context("initializing state fails", func() {
 		BeforeEach(func() {
-			cm.SpecReturns(spec, nil)
 			sm.InitializeReturns(errors.New("state init failed"))
 		})
 

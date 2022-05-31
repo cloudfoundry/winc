@@ -20,15 +20,16 @@ var _ = Describe("State", func() {
 		containerId = "container-for-state"
 	)
 	var (
-		mounter          *fakes.Mounter
-		stateFactory     *fakes.StateFactory
-		sm               *fakes.StateManager
-		containerFactory *fakes.ContainerFactory
-		cm               *fakes.ContainerManager
-		processWrapper   *fakes.ProcessWrapper
-		hcsQuery         *fakes.HCSQuery
-		r                *runtime.Runtime
-		output           *gbytes.Buffer
+		mounter            *fakes.Mounter
+		stateFactory       *fakes.StateFactory
+		sm                 *fakes.StateManager
+		containerFactory   *fakes.ContainerFactory
+		cm                 *fakes.ContainerManager
+		processWrapper     *fakes.ProcessWrapper
+		hcsQuery           *fakes.HCSQuery
+		credentialSpecPath string
+		r                  *runtime.Runtime
+		output             *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -45,7 +46,7 @@ var _ = Describe("State", func() {
 
 		output = gbytes.NewBuffer()
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 	})
 
 	Context("state succeeds", func() {

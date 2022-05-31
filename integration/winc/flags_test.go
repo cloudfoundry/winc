@@ -203,6 +203,52 @@ var _ = Describe("Flags", func() {
 		})
 	})
 
+	Context("when passed '--credential-spec'", func() {
+		var (
+			containerId string
+			bundlePath  string
+			bundleSpec  specs.Spec
+		)
+
+		BeforeEach(func() {
+			var err error
+			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			Expect(err).To(Succeed())
+
+			containerId = filepath.Base(bundlePath)
+
+			bundleSpec = helpers.GenerateRuntimeSpec(helpers.CreateVolume(rootfsURI, containerId))
+			helpers.GenerateBundle(bundleSpec, bundlePath)
+		})
+
+		AfterEach(func() {
+			helpers.DeleteContainer(containerId)
+			helpers.DeleteVolume(containerId)
+			Expect(os.RemoveAll(bundlePath)).To(Succeed())
+		})
+
+		It("creates a container and uses the credential spec path", func() {
+			file, err := os.CreateTemp(bundlePath, "credential-spec")
+			defer file.Close()
+			Expect(err).NotTo(HaveOccurred())
+
+			args := []string{"--credential-spec", file.Name(), "create", containerId, "-b", bundlePath}
+			_, _, err = helpers.Execute(exec.Command(wincBin, args...))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(helpers.ContainerExists(containerId)).To(BeTrue())
+		})
+
+		Context("when the credential file does not exist", func() {
+			It("returns a helpful error", func() {
+				args := []string{"--credential-spec", "/some/path/to/credential/spec", "create", containerId, "-b", bundlePath}
+				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
+				Expect(err).To(HaveOccurred(), stdOut.String(), stdErr.String())
+				Expect(stdErr.String()).To(ContainSubstring("Error with provided --credential-spec /some/path/to/credential/spec"))
+				Expect(helpers.ContainerExists(containerId)).To(BeFalse())
+			})
+		})
+	})
+
 	Context("when passed '--log'", func() {
 		var (
 			logFile string

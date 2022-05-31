@@ -25,21 +25,22 @@ var _ = Describe("Run", func() {
 		pidFile     = "something.pid"
 	)
 	var (
-		mounter          *fakes.Mounter
-		stateFactory     *fakes.StateFactory
-		sm               *fakes.StateManager
-		containerFactory *fakes.ContainerFactory
-		cm               *fakes.ContainerManager
-		processWrapper   *fakes.ProcessWrapper
-		wrappedProcess   *fakes.WrappedProcess
-		unwrappedProcess *hcsfakes.Process
-		hcsQuery         *fakes.HCSQuery
-		r                *runtime.Runtime
-		spec             *specs.Spec
-		io               runtime.IO
-		stdin            *gbytes.Buffer
-		stdout           *gbytes.Buffer
-		stderr           *gbytes.Buffer
+		mounter            *fakes.Mounter
+		stateFactory       *fakes.StateFactory
+		sm                 *fakes.StateManager
+		containerFactory   *fakes.ContainerFactory
+		cm                 *fakes.ContainerManager
+		processWrapper     *fakes.ProcessWrapper
+		wrappedProcess     *fakes.WrappedProcess
+		unwrappedProcess   *hcsfakes.Process
+		hcsQuery           *fakes.HCSQuery
+		credentialSpecPath string
+		r                  *runtime.Runtime
+		spec               *specs.Spec
+		io                 runtime.IO
+		stdin              *gbytes.Buffer
+		stdout             *gbytes.Buffer
+		stderr             *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -65,7 +66,7 @@ var _ = Describe("Run", func() {
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 
 		stdin = gbytes.NewBuffer()
 		stdout = gbytes.NewBuffer()

@@ -25,22 +25,23 @@ var _ = Describe("Exec", func() {
 		pidFile     = "something.pid"
 	)
 	var (
-		mounter          *fakes.Mounter
-		stateFactory     *fakes.StateFactory
-		sm               *fakes.StateManager
-		containerFactory *fakes.ContainerFactory
-		cm               *fakes.ContainerManager
-		processWrapper   *fakes.ProcessWrapper
-		wrappedProcess   *fakes.WrappedProcess
-		unwrappedProcess *hcsfakes.Process
-		hcsQuery         *fakes.HCSQuery
-		r                *runtime.Runtime
-		processSpecDir   string
-		processSpecFile  string
-		io               runtime.IO
-		stdin            *gbytes.Buffer
-		stdout           *gbytes.Buffer
-		stderr           *gbytes.Buffer
+		mounter            *fakes.Mounter
+		stateFactory       *fakes.StateFactory
+		sm                 *fakes.StateManager
+		containerFactory   *fakes.ContainerFactory
+		cm                 *fakes.ContainerManager
+		processWrapper     *fakes.ProcessWrapper
+		wrappedProcess     *fakes.WrappedProcess
+		unwrappedProcess   *hcsfakes.Process
+		hcsQuery           *fakes.HCSQuery
+		credentialSpecPath string
+		r                  *runtime.Runtime
+		processSpecDir     string
+		processSpecFile    string
+		io                 runtime.IO
+		stdin              *gbytes.Buffer
+		stdout             *gbytes.Buffer
+		stderr             *gbytes.Buffer
 	)
 
 	BeforeEach(func() {
@@ -61,7 +62,7 @@ var _ = Describe("Exec", func() {
 		Expect(err).NotTo(HaveOccurred())
 		processSpecFile = filepath.Join(processSpecDir, "process.json")
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
 
 		processSpec := specs.Process{
 			User: specs.User{Username: "some-user"},

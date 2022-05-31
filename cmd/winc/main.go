@@ -99,6 +99,10 @@ func main() {
 			Value: "C:\\ProgramData\\winc",
 			Usage: "directory for storage of container state",
 		},
+		cli.StringFlag{
+			Name:  "credential-spec",
+			Usage: "path to credential spec file",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -117,6 +121,7 @@ func main() {
 		log := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
+		credentialSpecPath := context.String("credential-spec")
 
 		if debug {
 			logrus.SetLevel(logrus.DebugLevel)
@@ -163,13 +168,19 @@ func main() {
 			return &InvalidLogFormatError{Format: logFormat}
 		}
 
+		if credentialSpecPath != "" {
+			if _, err := os.Stat(credentialSpecPath); err != nil {
+				return fmt.Errorf(fmt.Sprintf("Error with provided --credential-spec %s:", credentialSpecPath), err)
+			}
+		}
+
 		containerFactory := &containerFactory{}
 		stateFactory := &stateFactory{}
 		mounter := &mount.Mounter{}
 		hcsClient := &hcs.Client{}
 		processWrapper := &processWrapper{}
 
-		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir)
+		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir, credentialSpecPath)
 		return nil
 	}
 

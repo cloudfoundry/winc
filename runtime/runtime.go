@@ -46,7 +46,8 @@ type ContainerFactory interface {
 //go:generate counterfeiter -o fakes/container_manager.go --fake-name ContainerManager . ContainerManager
 type ContainerManager interface {
 	Spec(string) (*specs.Spec, error)
-	Create(*specs.Spec) error
+	CredentialSpec(string) (string, error)
+	Create(*specs.Spec, string) error
 	Exec(*specs.Process, bool) (hcs.Process, error)
 	Stats() (container.Statistics, error)
 	Delete(bool) error
@@ -76,22 +77,24 @@ type IO struct {
 }
 
 type Runtime struct {
-	stateFactory     StateFactory
-	containerFactory ContainerFactory
-	mounter          Mounter
-	hcsQuery         HCSQuery
-	processWrapper   ProcessWrapper
-	rootDir          string
+	stateFactory       StateFactory
+	containerFactory   ContainerFactory
+	mounter            Mounter
+	hcsQuery           HCSQuery
+	processWrapper     ProcessWrapper
+	rootDir            string
+	credentialSpecPath string
 }
 
-func New(s StateFactory, c ContainerFactory, m Mounter, h HCSQuery, p ProcessWrapper, rootDir string) *Runtime {
+func New(s StateFactory, c ContainerFactory, m Mounter, h HCSQuery, p ProcessWrapper, rootDir, credentialSpecPath string) *Runtime {
 	return &Runtime{
-		stateFactory:     s,
-		containerFactory: c,
-		mounter:          m,
-		hcsQuery:         h,
-		processWrapper:   p,
-		rootDir:          rootDir,
+		stateFactory:       s,
+		containerFactory:   c,
+		mounter:            m,
+		hcsQuery:           h,
+		processWrapper:     p,
+		rootDir:            rootDir,
+		credentialSpecPath: credentialSpecPath,
 	}
 }
 
@@ -359,7 +362,12 @@ func (r *Runtime) createContainer(cm ContainerManager, sm StateManager, bundlePa
 		return nil, err
 	}
 
-	if err := cm.Create(spec); err != nil {
+	credentialSpec, err := cm.CredentialSpec(r.credentialSpecPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cm.Create(spec, credentialSpec); err != nil {
 		return nil, err
 	}
 
