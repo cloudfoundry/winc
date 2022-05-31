@@ -99,10 +99,6 @@ func main() {
 			Value: "C:\\ProgramData\\winc",
 			Usage: "directory for storage of container state",
 		},
-		cli.BoolFlag{
-			Name:  "ccg-enabled",
-			Usage: "when enabled, passes a credential spec during container creation",
-		},
 		cli.StringFlag{
 			Name:  "credential-spec",
 			Usage: "path to credential spec file",
@@ -125,7 +121,6 @@ func main() {
 		log := context.GlobalString("log")
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
-		ccgEnabled := context.Bool("ccg-enabled")
 		credentialSpecPath := context.String("credential-spec")
 
 		if debug {
@@ -171,14 +166,6 @@ func main() {
 			logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: "2006-01-02T15:04:05.000000000Z"})
 		default:
 			return &InvalidLogFormatError{Format: logFormat}
-		}
-
-		if !ccgEnabled && credentialSpecPath != "" {
-			return errors.New("You must also pass the --ccg-enabled flag in order to specify a credential spec")
-		}
-
-		if ccgEnabled && credentialSpecPath == "" {
-			return errors.New("You must pass the --credential-spec flag when --ccg-enabled is passed")
 		}
 
 		if credentialSpecPath != "" {
