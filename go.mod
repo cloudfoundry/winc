@@ -11,7 +11,7 @@ require (
 	github.com/hectane/go-acl v0.0.0-20190112205748-6937c4c474eb
 	github.com/miekg/dns v1.1.3
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
-	github.com/onsi/ginkgo v1.16.2
+	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.12.0
 	github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
 	github.com/opencontainers/runtime-tools v0.0.0-20181011054405-1d69bd0f9c39
