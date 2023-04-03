@@ -6,11 +6,11 @@ code.cloudfoundry.org/filelock/fakes
 ## explicit
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.5.0
-## explicit
+## explicit; go 1.12
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/Microsoft/hcsshim v0.8.7
-## explicit
+## explicit; go 1.13
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/internal/cow
 github.com/Microsoft/hcsshim/internal/hcs
@@ -33,25 +33,32 @@ github.com/Microsoft/hcsshim/osversion
 ## explicit
 github.com/blang/semver
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
+## explicit; go 1.12
 github.com/containerd/cgroups/stats/v1
 # github.com/go-logr/logr v1.2.3
+## explicit; go 1.16
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
 # github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
+## explicit; go 1.13
 github.com/go-task/slim-sprig
 # github.com/gogo/protobuf v1.2.1
+## explicit
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/google/go-cmp v0.5.9
+## explicit; go 1.13
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38
+## explicit; go 1.14
 github.com/google/pprof/profile
 # github.com/hashicorp/golang-lru v0.5.1
+## explicit
 github.com/hashicorp/golang-lru/simplelru
 # github.com/hectane/go-acl v0.0.0-20190112205748-6937c4c474eb
 ## explicit
@@ -64,9 +71,9 @@ github.com/miekg/dns
 ## explicit
 github.com/mitchellh/go-ps
 # github.com/onsi/ginkgo v1.16.5
-## explicit
+## explicit; go 1.16
 # github.com/onsi/ginkgo/v2 v2.9.2
-## explicit
+## explicit; go 1.18
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/extensions/table
@@ -89,7 +96,7 @@ github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
 # github.com/onsi/gomega v1.27.4
-## explicit
+## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/gbytes
@@ -112,7 +119,7 @@ github.com/opencontainers/runtime-tools/validate
 ## explicit
 github.com/pkg/errors
 # github.com/sirupsen/logrus v1.7.0
-## explicit
+## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 ## explicit
@@ -121,14 +128,18 @@ github.com/syndtr/gocapability/capability
 ## explicit
 github.com/urfave/cli
 # go.opencensus.io v0.22.0
+## explicit
 go.opencensus.io
 go.opencensus.io/internal
 go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
-# golang.org/x/crypto v0.1.0
+# golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+## explicit; go 1.11
 golang.org/x/crypto/ed25519
+golang.org/x/crypto/ed25519/internal/edwards25519
 # golang.org/x/net v0.8.0
+## explicit; go 1.17
 golang.org/x/net/bpf
 golang.org/x/net/context
 golang.org/x/net/html
@@ -142,12 +153,12 @@ golang.org/x/net/ipv6
 ## explicit
 golang.org/x/sync/errgroup
 # golang.org/x/sys v0.6.0
-## explicit
+## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.8.0
-## explicit
+## explicit; go 1.17
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -166,8 +177,10 @@ golang.org/x/text/language
 golang.org/x/text/runes
 golang.org/x/text/transform
 # golang.org/x/tools v0.7.0
+## explicit; go 1.18
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/internal/typeparams
 # gopkg.in/yaml.v3 v3.0.1
+## explicit
 gopkg.in/yaml.v3
 # github.com/opencontainers/runtime-tools => github.com/opencontainers/runtime-tools v0.0.0-20170728063910-e29f3ca4eb80
