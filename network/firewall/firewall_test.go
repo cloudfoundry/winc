@@ -8,7 +8,7 @@ import (
 	"os/exec"
 
 	"code.cloudfoundry.org/winc/network/firewall"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

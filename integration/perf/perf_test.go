@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"code.cloudfoundry.org/winc/network"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sync/errgroup"

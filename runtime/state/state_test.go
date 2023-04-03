@@ -12,7 +12,7 @@ import (
 	"code.cloudfoundry.org/winc/runtime/state"
 	"code.cloudfoundry.org/winc/runtime/state/fakes"
 	"github.com/Microsoft/hcsshim"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
