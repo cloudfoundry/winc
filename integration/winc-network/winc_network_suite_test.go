@@ -59,7 +59,7 @@ func TestWincNetwork(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
+	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelProcess()))
 
 	var present bool
 	rootfsURI, present = os.LookupEnv("WINC_TEST_ROOTFS")

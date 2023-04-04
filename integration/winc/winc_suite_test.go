@@ -3,13 +3,13 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"time"
-	"io/ioutil"
-	"path/filepath"
 
 	testhelpers "code.cloudfoundry.org/winc/integration/helpers"
 	. "github.com/onsi/ginkgo/v2"
@@ -67,7 +67,7 @@ func TestWinc(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	mathrand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
+	mathrand.Seed(time.Now().UnixNano() + int64(GinkgoParallelProcess()))
 	var (
 		present bool
 		err     error

@@ -50,7 +50,7 @@ var _ = BeforeSuite(func() {
 		err     error
 	)
 
-	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelNode()))
+	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelProcess()))
 
 	rootfsURI, present = os.LookupEnv("WINC_TEST_ROOTFS")
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
