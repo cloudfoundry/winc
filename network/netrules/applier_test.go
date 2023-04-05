@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/winc/network/netrules"
 	"code.cloudfoundry.org/winc/network/netrules/fakes"
 	"github.com/Microsoft/hcsshim"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

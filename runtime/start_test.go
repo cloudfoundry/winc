@@ -7,7 +7,7 @@ import (
 	"code.cloudfoundry.org/winc/runtime/container"
 	"code.cloudfoundry.org/winc/runtime/fakes"
 	"code.cloudfoundry.org/winc/runtime/winsyscall"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"

@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/localip"
 	"code.cloudfoundry.org/winc/network/netinterface"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/windows"
 )
@@ -28,7 +28,7 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 		helpers.DeleteNetwork(networkConfig, networkConfigFile)
 		Expect(os.Remove(networkConfigFile)).To(Succeed())
 	})

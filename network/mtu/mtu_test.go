@@ -7,7 +7,7 @@ import (
 	"code.cloudfoundry.org/winc/network/mtu"
 	"code.cloudfoundry.org/winc/network/mtu/fakes"
 	"code.cloudfoundry.org/winc/network/netinterface"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/sys/windows"
 )

@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -16,7 +16,7 @@ var _ = Describe("Delete", func() {
 
 	})
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 	})
 
 	It("deletes the NAT network", func() {

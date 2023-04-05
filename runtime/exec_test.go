@@ -11,7 +11,7 @@ import (
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"code.cloudfoundry.org/winc/runtime"
 	"code.cloudfoundry.org/winc/runtime/fakes"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	specs "github.com/opencontainers/runtime-spec/specs-go"

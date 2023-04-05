@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -29,7 +29,7 @@ var _ = Describe("Logging", func() {
 	})
 
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 		deleteContainerAndNetwork(containerId, networkConfig)
 		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})

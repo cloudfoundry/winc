@@ -11,7 +11,7 @@ import (
 	"time"
 
 	acl "github.com/hectane/go-acl"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/windows"
@@ -39,7 +39,7 @@ var _ = Describe("Events", func() {
 		})
 
 		AfterEach(func() {
-			failed = failed || CurrentGinkgoTestDescription().Failed
+			failed = failed || CurrentSpecReport().Failed()
 			helpers.DeleteContainer(containerId)
 			helpers.DeleteVolume(containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())

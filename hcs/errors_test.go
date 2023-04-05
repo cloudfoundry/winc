@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

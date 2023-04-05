@@ -17,7 +17,7 @@ import (
 	"code.cloudfoundry.org/winc/network/netrules"
 	"golang.org/x/sys/windows"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -39,7 +39,7 @@ var _ = Describe("Up", func() {
 	})
 
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 	})
 
 	Context("default network config", func() {

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/winc/runtime/mount"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 )

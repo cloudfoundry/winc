@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/winc/network/port_allocator"
 	"code.cloudfoundry.org/winc/network/port_allocator/fakes"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

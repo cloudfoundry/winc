@@ -13,7 +13,7 @@ import (
 
 	"github.com/Microsoft/hcsshim"
 	acl "github.com/hectane/go-acl"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -43,7 +43,7 @@ var _ = Describe("Exec", func() {
 		})
 
 		AfterEach(func() {
-			failed = failed || CurrentGinkgoTestDescription().Failed
+			failed = failed || CurrentSpecReport().Failed()
 			helpers.DeleteContainer(containerId)
 			helpers.DeleteVolume(containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
@@ -309,7 +309,7 @@ var _ = Describe("Exec", func() {
 		})
 
 		AfterEach(func() {
-			failed = failed || CurrentGinkgoTestDescription().Failed
+			failed = failed || CurrentSpecReport().Failed()
 			helpers.DeleteVolume(containerId)
 			Expect(os.RemoveAll(bundlePath)).To(Succeed())
 		})

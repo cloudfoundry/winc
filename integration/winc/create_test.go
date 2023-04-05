@@ -14,7 +14,7 @@ import (
 
 	acl "github.com/hectane/go-acl"
 	ps "github.com/mitchellh/go-ps"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -39,7 +39,7 @@ var _ = Describe("Create", func() {
 	})
 
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 		helpers.DeleteVolume(containerId)
 		Expect(os.RemoveAll(bundlePath)).To(Succeed())
 	})
