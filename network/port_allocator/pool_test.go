@@ -2,6 +2,7 @@ package port_allocator_test
 
 import (
 	"encoding/json"
+	"time"
 
 	"code.cloudfoundry.org/winc/network/port_allocator"
 
@@ -92,7 +93,7 @@ var _ = Describe("Tracker", func() {
 					})
 
 					stats := exp.GetStats("runtime")
-					Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 6), "Acquiring a port shouldn't take too long.")
+					Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 1500*time.Microsecond), "Acquiring a port shouldn't take too long.")
 
 				}, gmeasure.SamplingConfig{N: 4000})
 			})
