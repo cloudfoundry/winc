@@ -22,7 +22,7 @@ var _ = Describe("Down", func() {
 	})
 
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 		deleteContainerAndNetwork(containerId, networkConfig)
 	})
 

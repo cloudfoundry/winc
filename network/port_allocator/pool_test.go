@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
 	"github.com/onsi/gomega/types"
 )
 
@@ -78,17 +79,23 @@ var _ = Describe("Tracker", func() {
 		})
 
 		Describe("performance", func() {
-			Measure("should acquire all of the ports quickly", func(b Benchmarker) {
+			It("should acquire all of the ports quickly", Serial, func() {
+				exp := gmeasure.NewExperiment("Acquiring Ports")
+				AddReportEntry(exp.name, exp)
 				tracker.Capacity = 4000
-				runtime := b.Time("runtime", func() {
-					for i := 0; i < 4000; i++ {
+				i := 0
+				exp.Sample(func(idx int) {
+					exp.MeasureDuration("runtime", func() {
+						i++
 						_, err := tracker.AcquireOne(pool, "some-handle")
 						Expect(err).NotTo(HaveOccurred())
-					}
-				})
+					})
 
-				Expect(runtime.Seconds()).To(BeNumerically("<", 6), "Acquiring a port shouldn't take too long.")
-			}, 10)
+					stats := exp.GetStats("runtime")
+					Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 6), "Acquiring a port shouldn't take too long.")
+
+				}, gmeasure.SamplingConfig{N: 4000})
+			})
 		})
 	})
 

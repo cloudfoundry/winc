@@ -16,7 +16,7 @@ var _ = Describe("Delete", func() {
 
 	})
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 	})
 
 	It("deletes the NAT network", func() {

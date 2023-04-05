@@ -11,7 +11,7 @@ require (
 	github.com/miekg/dns v1.1.3
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
 	github.com/onsi/ginkgo/v2 v2.9.2
-	github.com/onsi/gomega v1.27.4
+	github.com/onsi/gomega v1.27.6
 	github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
 	github.com/opencontainers/runtime-tools v0.0.0-20181011054405-1d69bd0f9c39
 	github.com/pkg/errors v0.9.1

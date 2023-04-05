@@ -95,12 +95,14 @@ github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.27.4
+# github.com/onsi/gomega v1.27.6
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/gbytes
 github.com/onsi/gomega/gexec
+github.com/onsi/gomega/gmeasure
+github.com/onsi/gomega/gmeasure/table
 github.com/onsi/gomega/internal
 github.com/onsi/gomega/internal/gutil
 github.com/onsi/gomega/matchers

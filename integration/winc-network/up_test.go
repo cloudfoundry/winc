@@ -39,7 +39,7 @@ var _ = Describe("Up", func() {
 	})
 
 	AfterEach(func() {
-		failed = failed || CurrentGinkgoTestDescription().Failed
+		failed = failed || CurrentSpecReport().Failed()
 	})
 
 	Context("default network config", func() {
