@@ -81,7 +81,7 @@ var _ = Describe("Tracker", func() {
 		Describe("performance", func() {
 			It("should acquire all of the ports quickly", Serial, func() {
 				exp := gmeasure.NewExperiment("Acquiring Ports")
-				AddReportEntry(exp.name, exp)
+				AddReportEntry(exp.Name, exp)
 				tracker.Capacity = 4000
 				i := 0
 				exp.Sample(func(idx int) {
