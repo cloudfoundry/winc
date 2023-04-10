@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	code.cloudfoundry.org/filelock v0.0.0-20230410204127-470838d066c5
-	code.cloudfoundry.org/localip v0.0.0-20170223024724-b88ad0dea95c
+	code.cloudfoundry.org/localip v0.0.0-20230406154046-f137f65d303d
 	github.com/Microsoft/hcsshim v0.8.7
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20190112205748-6937c4c474eb
@@ -31,7 +31,6 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/pprof v0.0.0-20230406165453-00490a63f317 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	go.opencensus.io v0.22.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
