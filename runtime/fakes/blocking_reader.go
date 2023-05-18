@@ -18,8 +18,6 @@ func (r *Reader) Read(p []byte) (int, error) {
 	for {
 		//do stuff neverending
 	}
-
-	return r.ReadCall.Returns.NumBytes, r.ReadCall.Returns.Error
 }
 
 func (r *Reader) Close() error {

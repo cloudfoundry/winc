@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 	} else {
 		// 1803 && 2019
-		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network", "-tags", "hnsAcls")
+		wincNetworkBin, err = gexec.Build("code.cloudfoundry.org/winc/cmd/winc-network")
 		Expect(err).ToNot(HaveOccurred())
 	}
 
