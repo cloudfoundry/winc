@@ -108,7 +108,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
+# github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28 => github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/runtime-tools v0.0.0-20181011054405-1d69bd0f9c39 => github.com/opencontainers/runtime-tools v0.0.0-20170728063910-e29f3ca4eb80
@@ -182,4 +182,5 @@ golang.org/x/tools/internal/typeparams
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
 # github.com/opencontainers/runtime-tools => github.com/opencontainers/runtime-tools v0.0.0-20170728063910-e29f3ca4eb80
