@@ -105,7 +105,7 @@ func (dns *Msg) SetAxfr(z string) *Msg {
 
 // SetTsig appends a TSIG RR to the message.
 // This is only a skeleton TSIG RR that is added as the last RR in the
-// additional section. The Tsig is calculated when the message is being send.
+// additional section. The TSIG is calculated when the message is being send.
 func (dns *Msg) SetTsig(z, algo string, fudge uint16, timesigned int64) *Msg {
 	t := new(TSIG)
 	t.Hdr = RR_Header{z, TypeTSIG, ClassANY, 0, 0}
@@ -146,13 +146,27 @@ func (dns *Msg) IsTsig() *TSIG {
 // record in the additional section will do. It returns the OPT record
 // found or nil.
 func (dns *Msg) IsEdns0() *OPT {
-	// EDNS0 is at the end of the additional section, start there.
-	// We might want to change this to *only* look at the last two
-	// records. So we see TSIG and/or OPT - this a slightly bigger
-	// change though.
+	// RFC 6891, Section 6.1.1 allows the OPT record to appear
+	// anywhere in the additional record section, but it's usually at
+	// the end so start there.
 	for i := len(dns.Extra) - 1; i >= 0; i-- {
 		if dns.Extra[i].Header().Rrtype == TypeOPT {
 			return dns.Extra[i].(*OPT)
+		}
+	}
+	return nil
+}
+
+// popEdns0 is like IsEdns0, but it removes the record from the message.
+func (dns *Msg) popEdns0() *OPT {
+	// RFC 6891, Section 6.1.1 allows the OPT record to appear
+	// anywhere in the additional record section, but it's usually at
+	// the end so start there.
+	for i := len(dns.Extra) - 1; i >= 0; i-- {
+		if dns.Extra[i].Header().Rrtype == TypeOPT {
+			opt := dns.Extra[i].(*OPT)
+			dns.Extra = append(dns.Extra[:i], dns.Extra[i+1:]...)
+			return opt
 		}
 	}
 	return nil
@@ -194,7 +208,7 @@ func IsDomainName(s string) (labels int, ok bool) {
 			}
 
 			// check for \DDD
-			if i+3 < len(s) && isDigit(s[i+1]) && isDigit(s[i+2]) && isDigit(s[i+3]) {
+			if isDDD(s[i+1:]) {
 				i += 3
 				begin += 3
 			} else {
@@ -204,6 +218,11 @@ func IsDomainName(s string) (labels int, ok bool) {
 
 			wasDot = false
 		case '.':
+			if i == 0 && len(s) > 1 {
+				// leading dots are not legal except for the root zone
+				return labels, false
+			}
+
 			if wasDot {
 				// two dots back to back is not legal
 				return labels, false
@@ -253,18 +272,24 @@ func IsMsg(buf []byte) error {
 
 // IsFqdn checks if a domain name is fully qualified.
 func IsFqdn(s string) bool {
-	s2 := strings.TrimSuffix(s, ".")
-	if s == s2 {
+	// Check for (and remove) a trailing dot, returning if there isn't one.
+	if s == "" || s[len(s)-1] != '.' {
 		return false
 	}
+	s = s[:len(s)-1]
 
-	i := strings.LastIndexFunc(s2, func(r rune) bool {
+	// If we don't have an escape sequence before the final dot, we know it's
+	// fully qualified and can return here.
+	if s == "" || s[len(s)-1] != '\\' {
+		return true
+	}
+
+	// Otherwise we have to check if the dot is escaped or not by checking if
+	// there are an odd or even number of escape sequences before the dot.
+	i := strings.LastIndexFunc(s, func(r rune) bool {
 		return r != '\\'
 	})
-
-	// Test whether we have an even number of escape sequences before
-	// the dot or none.
-	return (len(s2)-i)%2 != 0
+	return (len(s)-i)%2 != 0
 }
 
 // IsRRset checks if a set of RRs is a valid RRset as defined by RFC 2181.
@@ -303,6 +328,12 @@ func Fqdn(s string) string {
 	return s + "."
 }
 
+// CanonicalName returns the domain name in canonical form. A name in canonical
+// form is lowercase and fully qualified. See Section 6.2 in RFC 4034.
+func CanonicalName(s string) string {
+	return strings.ToLower(Fqdn(s))
+}
+
 // Copied from the official Go code.
 
 // ReverseAddr returns the in-addr.arpa. or ip6.arpa. hostname of the IP
@@ -329,10 +360,7 @@ func ReverseAddr(addr string) (arpa string, err error) {
 	// Add it, in reverse, to the buffer
 	for i := len(ip) - 1; i >= 0; i-- {
 		v := ip[i]
-		buf = append(buf, hexDigit[v&0xF])
-		buf = append(buf, '.')
-		buf = append(buf, hexDigit[v>>4])
-		buf = append(buf, '.')
+		buf = append(buf, hexDigit[v&0xF], '.', hexDigit[v>>4], '.')
 	}
 	// Append "ip6.arpa." and return (buf already has the final .)
 	buf = append(buf, "ip6.arpa."...)
@@ -350,7 +378,7 @@ func (t Type) String() string {
 // String returns the string representation for the class c.
 func (c Class) String() string {
 	if s, ok := ClassToString[uint16(c)]; ok {
-		// Only emit mnemonics when they are unambiguous, specically ANY is in both.
+		// Only emit mnemonics when they are unambiguous, specially ANY is in both.
 		if _, ok := StringToType[s]; !ok {
 			return s
 		}
