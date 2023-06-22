@@ -8,16 +8,16 @@ require (
 	github.com/Microsoft/hcsshim v0.9.9
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20190112205748-6937c4c474eb
-	github.com/miekg/dns v1.1.54
+	github.com/miekg/dns v1.1.55
 	github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936
-	github.com/onsi/ginkgo/v2 v2.10.0
+	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/opencontainers/runtime-spec v1.1.0-rc.3
 	github.com/opencontainers/runtime-tools v0.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.14
-	golang.org/x/sync v0.2.0
+	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.9.0
 	golang.org/x/text v0.10.0
 )
@@ -37,7 +37,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/net v0.11.0 // indirect
-	golang.org/x/tools v0.9.3 // indirect
+	golang.org/x/tools v0.10.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
