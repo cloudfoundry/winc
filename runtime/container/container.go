@@ -1,6 +1,8 @@
 package container
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +13,7 @@ import (
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/runtime/config"
 	"github.com/Microsoft/hcsshim"
+	"github.com/PaesslerAG/jsonpath"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -159,7 +162,12 @@ func (m *Manager) Create(spec *specs.Spec, credentialSpec string) error {
 		MappedDirectories: mappedDirs,
 	}
 
-	if credentialSpec != "" {
+	credentialSpecFromEnv := getCredentialSpecFromEnv(spec.Process.Env)
+
+	if credentialSpecFromEnv != "" {
+		containerConfig.Credentials = credentialSpecFromEnv
+		m.logger.Infof("Overriding CredentialSpec from VCAP_SERVICES env")
+	} else if credentialSpec != "" {
 		containerConfig.Credentials = credentialSpec
 	}
 
@@ -387,4 +395,23 @@ func makeCmdLine(args []string) string {
 	}
 
 	return s
+}
+
+func getCredentialSpecFromEnv(envs []string) string {
+	for _, env := range envs {
+		entry := strings.SplitN(env, "=", 2)
+		if len(entry) > 1 && entry[0] == "VCAP_SERVICES" {
+			vcapServicesValue := interface{}(nil)
+			json.Unmarshal([]byte(entry[1]), &vcapServicesValue)
+			csConfig, err := jsonpath.Get("$.*[*].credentials.credential_spec_config", vcapServicesValue)
+			if err == nil {
+				values := csConfig.([]interface{})
+				if len(values) == 1 {
+					jsonValue, _ := json.Marshal(&values[0])
+					return fmt.Sprintf("%s", jsonValue)
+				}
+			}
+		}
+	}
+	return ""
 }
