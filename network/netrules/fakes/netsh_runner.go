@@ -34,15 +34,17 @@ func (fake *NetShRunner) RunContainer(arg1 []string) error {
 	fake.runContainerArgsForCall = append(fake.runContainerArgsForCall, struct {
 		arg1 []string
 	}{arg1Copy})
+	stub := fake.RunContainerStub
+	fakeReturns := fake.runContainerReturns
 	fake.recordInvocation("RunContainer", []interface{}{arg1Copy})
 	fake.runContainerMutex.Unlock()
-	if fake.RunContainerStub != nil {
-		return fake.RunContainerStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.runContainerReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *NetShRunner) RunContainerCallCount() int {
@@ -51,13 +53,22 @@ func (fake *NetShRunner) RunContainerCallCount() int {
 	return len(fake.runContainerArgsForCall)
 }
 
+func (fake *NetShRunner) RunContainerCalls(stub func([]string) error) {
+	fake.runContainerMutex.Lock()
+	defer fake.runContainerMutex.Unlock()
+	fake.RunContainerStub = stub
+}
+
 func (fake *NetShRunner) RunContainerArgsForCall(i int) []string {
 	fake.runContainerMutex.RLock()
 	defer fake.runContainerMutex.RUnlock()
-	return fake.runContainerArgsForCall[i].arg1
+	argsForCall := fake.runContainerArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *NetShRunner) RunContainerReturns(result1 error) {
+	fake.runContainerMutex.Lock()
+	defer fake.runContainerMutex.Unlock()
 	fake.RunContainerStub = nil
 	fake.runContainerReturns = struct {
 		result1 error
@@ -65,6 +76,8 @@ func (fake *NetShRunner) RunContainerReturns(result1 error) {
 }
 
 func (fake *NetShRunner) RunContainerReturnsOnCall(i int, result1 error) {
+	fake.runContainerMutex.Lock()
+	defer fake.runContainerMutex.Unlock()
 	fake.RunContainerStub = nil
 	if fake.runContainerReturnsOnCall == nil {
 		fake.runContainerReturnsOnCall = make(map[int]struct {
@@ -81,7 +94,11 @@ func (fake *NetShRunner) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.runContainerMutex.RLock()
 	defer fake.runContainerMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *NetShRunner) recordInvocation(key string, args []interface{}) {

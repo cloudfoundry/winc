@@ -1,6 +1,8 @@
 package container
 
 import (
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -88,6 +90,36 @@ func (m *Manager) Spec(bundlePath string) (*specs.Spec, error) {
 	}
 
 	return spec, nil
+}
+
+func (m *Manager) CredentialSpecMapping(credentialSpecsMappingPath string, hostName string) (string, error) {
+	if credentialSpecsMappingPath == "" {
+		return "", nil
+	}
+	credentialSpecsMappingPath = filepath.Clean(credentialSpecsMappingPath)
+	content, err := os.ReadFile(credentialSpecsMappingPath)
+	if err != nil {
+		return "", err
+	}
+	dec := json.NewDecoder(strings.NewReader(string(content)))
+	for {
+		var m map[string]interface{}
+		if err := dec.Decode(&m); err == io.EOF {
+			break
+		} else if err != nil {
+			return "", err
+		} else {
+			if m[hostName] != nil {
+				config, err := json.Marshal(m[hostName])
+				if err != nil {
+					return "", err
+				}
+				return string(config), nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 func (m *Manager) CredentialSpec(credentialSpecPath string) (string, error) {

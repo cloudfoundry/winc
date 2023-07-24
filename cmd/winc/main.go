@@ -103,6 +103,10 @@ func main() {
 			Name:  "credential-spec",
 			Usage: "path to credential spec file",
 		},
+		cli.StringFlag{
+			Name:  "credential-specs-mapping",
+			Usage: "EXPERIMENTAL: path to credential specs mapping",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -122,6 +126,7 @@ func main() {
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
 		credentialSpecPath := context.String("credential-spec")
+		credentialSpecsMappingPath := context.String("credential-specs-mapping")
 
 		if debug {
 			logrus.SetLevel(logrus.DebugLevel)
@@ -173,6 +178,11 @@ func main() {
 				return fmt.Errorf(fmt.Sprintf("Error with provided --credential-spec %s:", credentialSpecPath), err)
 			}
 		}
+		if credentialSpecsMappingPath != "" {
+			if _, err := os.Stat(credentialSpecsMappingPath); err != nil {
+				return fmt.Errorf(fmt.Sprintf("Error with provided --credential-specs-mapping %s:", credentialSpecsMappingPath), err)
+			}
+		}
 
 		containerFactory := &containerFactory{}
 		stateFactory := &stateFactory{}
@@ -180,7 +190,7 @@ func main() {
 		hcsClient := &hcs.Client{}
 		processWrapper := &processWrapper{}
 
-		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir, credentialSpecPath)
+		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir, credentialSpecPath, credentialSpecsMappingPath)
 		return nil
 	}
 

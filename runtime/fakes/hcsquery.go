@@ -5,42 +5,44 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/winc/runtime"
-	"github.com/Microsoft/hcsshim"
+	"github.com/Microsoft/hcsshim/internal/hcs/schema1"
 )
 
 type HCSQuery struct {
-	GetContainersStub        func(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)
+	GetContainersStub        func(schema1.ComputeSystemQuery) ([]schema1.ContainerProperties, error)
 	getContainersMutex       sync.RWMutex
 	getContainersArgsForCall []struct {
-		arg1 hcsshim.ComputeSystemQuery
+		arg1 schema1.ComputeSystemQuery
 	}
 	getContainersReturns struct {
-		result1 []hcsshim.ContainerProperties
+		result1 []schema1.ContainerProperties
 		result2 error
 	}
 	getContainersReturnsOnCall map[int]struct {
-		result1 []hcsshim.ContainerProperties
+		result1 []schema1.ContainerProperties
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *HCSQuery) GetContainers(arg1 hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error) {
+func (fake *HCSQuery) GetContainers(arg1 schema1.ComputeSystemQuery) ([]schema1.ContainerProperties, error) {
 	fake.getContainersMutex.Lock()
 	ret, specificReturn := fake.getContainersReturnsOnCall[len(fake.getContainersArgsForCall)]
 	fake.getContainersArgsForCall = append(fake.getContainersArgsForCall, struct {
-		arg1 hcsshim.ComputeSystemQuery
+		arg1 schema1.ComputeSystemQuery
 	}{arg1})
+	stub := fake.GetContainersStub
+	fakeReturns := fake.getContainersReturns
 	fake.recordInvocation("GetContainers", []interface{}{arg1})
 	fake.getContainersMutex.Unlock()
-	if fake.GetContainersStub != nil {
-		return fake.GetContainersStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getContainersReturns.result1, fake.getContainersReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *HCSQuery) GetContainersCallCount() int {
@@ -49,30 +51,41 @@ func (fake *HCSQuery) GetContainersCallCount() int {
 	return len(fake.getContainersArgsForCall)
 }
 
-func (fake *HCSQuery) GetContainersArgsForCall(i int) hcsshim.ComputeSystemQuery {
-	fake.getContainersMutex.RLock()
-	defer fake.getContainersMutex.RUnlock()
-	return fake.getContainersArgsForCall[i].arg1
+func (fake *HCSQuery) GetContainersCalls(stub func(schema1.ComputeSystemQuery) ([]schema1.ContainerProperties, error)) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
+	fake.GetContainersStub = stub
 }
 
-func (fake *HCSQuery) GetContainersReturns(result1 []hcsshim.ContainerProperties, result2 error) {
+func (fake *HCSQuery) GetContainersArgsForCall(i int) schema1.ComputeSystemQuery {
+	fake.getContainersMutex.RLock()
+	defer fake.getContainersMutex.RUnlock()
+	argsForCall := fake.getContainersArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *HCSQuery) GetContainersReturns(result1 []schema1.ContainerProperties, result2 error) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
 	fake.GetContainersStub = nil
 	fake.getContainersReturns = struct {
-		result1 []hcsshim.ContainerProperties
+		result1 []schema1.ContainerProperties
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *HCSQuery) GetContainersReturnsOnCall(i int, result1 []hcsshim.ContainerProperties, result2 error) {
+func (fake *HCSQuery) GetContainersReturnsOnCall(i int, result1 []schema1.ContainerProperties, result2 error) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
 	fake.GetContainersStub = nil
 	if fake.getContainersReturnsOnCall == nil {
 		fake.getContainersReturnsOnCall = make(map[int]struct {
-			result1 []hcsshim.ContainerProperties
+			result1 []schema1.ContainerProperties
 			result2 error
 		})
 	}
 	fake.getContainersReturnsOnCall[i] = struct {
-		result1 []hcsshim.ContainerProperties
+		result1 []schema1.ContainerProperties
 		result2 error
 	}{result1, result2}
 }
@@ -82,7 +95,11 @@ func (fake *HCSQuery) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.getContainersMutex.RLock()
 	defer fake.getContainersMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *HCSQuery) recordInvocation(key string, args []interface{}) {

@@ -35,15 +35,17 @@ func (fake *ContainerFactory) NewManager(arg1 *logrus.Entry, arg2 *hcs.Client, a
 		arg2 *hcs.Client
 		arg3 string
 	}{arg1, arg2, arg3})
+	stub := fake.NewManagerStub
+	fakeReturns := fake.newManagerReturns
 	fake.recordInvocation("NewManager", []interface{}{arg1, arg2, arg3})
 	fake.newManagerMutex.Unlock()
-	if fake.NewManagerStub != nil {
-		return fake.NewManagerStub(arg1, arg2, arg3)
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.newManagerReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *ContainerFactory) NewManagerCallCount() int {
@@ -52,13 +54,22 @@ func (fake *ContainerFactory) NewManagerCallCount() int {
 	return len(fake.newManagerArgsForCall)
 }
 
+func (fake *ContainerFactory) NewManagerCalls(stub func(*logrus.Entry, *hcs.Client, string) runtime.ContainerManager) {
+	fake.newManagerMutex.Lock()
+	defer fake.newManagerMutex.Unlock()
+	fake.NewManagerStub = stub
+}
+
 func (fake *ContainerFactory) NewManagerArgsForCall(i int) (*logrus.Entry, *hcs.Client, string) {
 	fake.newManagerMutex.RLock()
 	defer fake.newManagerMutex.RUnlock()
-	return fake.newManagerArgsForCall[i].arg1, fake.newManagerArgsForCall[i].arg2, fake.newManagerArgsForCall[i].arg3
+	argsForCall := fake.newManagerArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *ContainerFactory) NewManagerReturns(result1 runtime.ContainerManager) {
+	fake.newManagerMutex.Lock()
+	defer fake.newManagerMutex.Unlock()
 	fake.NewManagerStub = nil
 	fake.newManagerReturns = struct {
 		result1 runtime.ContainerManager
@@ -66,6 +77,8 @@ func (fake *ContainerFactory) NewManagerReturns(result1 runtime.ContainerManager
 }
 
 func (fake *ContainerFactory) NewManagerReturnsOnCall(i int, result1 runtime.ContainerManager) {
+	fake.newManagerMutex.Lock()
+	defer fake.newManagerMutex.Unlock()
 	fake.NewManagerStub = nil
 	if fake.newManagerReturnsOnCall == nil {
 		fake.newManagerReturnsOnCall = make(map[int]struct {
@@ -82,7 +95,11 @@ func (fake *ContainerFactory) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.newManagerMutex.RLock()
 	defer fake.newManagerMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *ContainerFactory) recordInvocation(key string, args []interface{}) {

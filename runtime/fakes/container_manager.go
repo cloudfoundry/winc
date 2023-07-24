@@ -36,6 +36,20 @@ type ContainerManager struct {
 		result1 string
 		result2 error
 	}
+	CredentialSpecMappingStub        func(string, string) (string, error)
+	credentialSpecMappingMutex       sync.RWMutex
+	credentialSpecMappingArgsForCall []struct {
+		arg1 string
+		arg2 string
+	}
+	credentialSpecMappingReturns struct {
+		result1 string
+		result2 error
+	}
+	credentialSpecMappingReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
 	DeleteStub        func(bool) error
 	deleteMutex       sync.RWMutex
 	deleteArgsForCall []struct {
@@ -211,6 +225,71 @@ func (fake *ContainerManager) CredentialSpecReturnsOnCall(i int, result1 string,
 		})
 	}
 	fake.credentialSpecReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) CredentialSpecMapping(arg1 string, arg2 string) (string, error) {
+	fake.credentialSpecMappingMutex.Lock()
+	ret, specificReturn := fake.credentialSpecMappingReturnsOnCall[len(fake.credentialSpecMappingArgsForCall)]
+	fake.credentialSpecMappingArgsForCall = append(fake.credentialSpecMappingArgsForCall, struct {
+		arg1 string
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.CredentialSpecMappingStub
+	fakeReturns := fake.credentialSpecMappingReturns
+	fake.recordInvocation("CredentialSpecMapping", []interface{}{arg1, arg2})
+	fake.credentialSpecMappingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ContainerManager) CredentialSpecMappingCallCount() int {
+	fake.credentialSpecMappingMutex.RLock()
+	defer fake.credentialSpecMappingMutex.RUnlock()
+	return len(fake.credentialSpecMappingArgsForCall)
+}
+
+func (fake *ContainerManager) CredentialSpecMappingCalls(stub func(string, string) (string, error)) {
+	fake.credentialSpecMappingMutex.Lock()
+	defer fake.credentialSpecMappingMutex.Unlock()
+	fake.CredentialSpecMappingStub = stub
+}
+
+func (fake *ContainerManager) CredentialSpecMappingArgsForCall(i int) (string, string) {
+	fake.credentialSpecMappingMutex.RLock()
+	defer fake.credentialSpecMappingMutex.RUnlock()
+	argsForCall := fake.credentialSpecMappingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *ContainerManager) CredentialSpecMappingReturns(result1 string, result2 error) {
+	fake.credentialSpecMappingMutex.Lock()
+	defer fake.credentialSpecMappingMutex.Unlock()
+	fake.CredentialSpecMappingStub = nil
+	fake.credentialSpecMappingReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) CredentialSpecMappingReturnsOnCall(i int, result1 string, result2 error) {
+	fake.credentialSpecMappingMutex.Lock()
+	defer fake.credentialSpecMappingMutex.Unlock()
+	fake.CredentialSpecMappingStub = nil
+	if fake.credentialSpecMappingReturnsOnCall == nil {
+		fake.credentialSpecMappingReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.credentialSpecMappingReturnsOnCall[i] = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
@@ -469,6 +548,8 @@ func (fake *ContainerManager) Invocations() map[string][][]interface{} {
 	defer fake.createMutex.RUnlock()
 	fake.credentialSpecMutex.RLock()
 	defer fake.credentialSpecMutex.RUnlock()
+	fake.credentialSpecMappingMutex.RLock()
+	defer fake.credentialSpecMappingMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	fake.execMutex.RLock()

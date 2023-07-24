@@ -7,31 +7,150 @@ import (
 
 	"code.cloudfoundry.org/winc/hcs"
 	"github.com/Microsoft/hcsshim"
+	"github.com/Microsoft/hcsshim/internal/hcs/schema1"
 )
 
 type Container struct {
-	StartStub        func() error
-	startMutex       sync.RWMutex
-	startArgsForCall []struct{}
-	startReturns     struct {
+	CloseStub        func() error
+	closeMutex       sync.RWMutex
+	closeArgsForCall []struct {
+	}
+	closeReturns struct {
 		result1 error
 	}
-	startReturnsOnCall map[int]struct {
+	closeReturnsOnCall map[int]struct {
+		result1 error
+	}
+	CreateProcessStub        func(*schema1.ProcessConfig) (hcsshim.Process, error)
+	createProcessMutex       sync.RWMutex
+	createProcessArgsForCall []struct {
+		arg1 *schema1.ProcessConfig
+	}
+	createProcessReturns struct {
+		result1 hcsshim.Process
+		result2 error
+	}
+	createProcessReturnsOnCall map[int]struct {
+		result1 hcsshim.Process
+		result2 error
+	}
+	HasPendingUpdatesStub        func() (bool, error)
+	hasPendingUpdatesMutex       sync.RWMutex
+	hasPendingUpdatesArgsForCall []struct {
+	}
+	hasPendingUpdatesReturns struct {
+		result1 bool
+		result2 error
+	}
+	hasPendingUpdatesReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
+	MappedVirtualDisksStub        func() (map[int]schema1.MappedVirtualDiskController, error)
+	mappedVirtualDisksMutex       sync.RWMutex
+	mappedVirtualDisksArgsForCall []struct {
+	}
+	mappedVirtualDisksReturns struct {
+		result1 map[int]schema1.MappedVirtualDiskController
+		result2 error
+	}
+	mappedVirtualDisksReturnsOnCall map[int]struct {
+		result1 map[int]schema1.MappedVirtualDiskController
+		result2 error
+	}
+	ModifyStub        func(*schema1.ResourceModificationRequestResponse) error
+	modifyMutex       sync.RWMutex
+	modifyArgsForCall []struct {
+		arg1 *schema1.ResourceModificationRequestResponse
+	}
+	modifyReturns struct {
+		result1 error
+	}
+	modifyReturnsOnCall map[int]struct {
+		result1 error
+	}
+	OpenProcessStub        func(int) (hcsshim.Process, error)
+	openProcessMutex       sync.RWMutex
+	openProcessArgsForCall []struct {
+		arg1 int
+	}
+	openProcessReturns struct {
+		result1 hcsshim.Process
+		result2 error
+	}
+	openProcessReturnsOnCall map[int]struct {
+		result1 hcsshim.Process
+		result2 error
+	}
+	PauseStub        func() error
+	pauseMutex       sync.RWMutex
+	pauseArgsForCall []struct {
+	}
+	pauseReturns struct {
+		result1 error
+	}
+	pauseReturnsOnCall map[int]struct {
+		result1 error
+	}
+	ProcessListStub        func() ([]schema1.ProcessListItem, error)
+	processListMutex       sync.RWMutex
+	processListArgsForCall []struct {
+	}
+	processListReturns struct {
+		result1 []schema1.ProcessListItem
+		result2 error
+	}
+	processListReturnsOnCall map[int]struct {
+		result1 []schema1.ProcessListItem
+		result2 error
+	}
+	ResumeStub        func() error
+	resumeMutex       sync.RWMutex
+	resumeArgsForCall []struct {
+	}
+	resumeReturns struct {
+		result1 error
+	}
+	resumeReturnsOnCall map[int]struct {
 		result1 error
 	}
 	ShutdownStub        func() error
 	shutdownMutex       sync.RWMutex
-	shutdownArgsForCall []struct{}
-	shutdownReturns     struct {
+	shutdownArgsForCall []struct {
+	}
+	shutdownReturns struct {
 		result1 error
 	}
 	shutdownReturnsOnCall map[int]struct {
 		result1 error
 	}
+	StartStub        func() error
+	startMutex       sync.RWMutex
+	startArgsForCall []struct {
+	}
+	startReturns struct {
+		result1 error
+	}
+	startReturnsOnCall map[int]struct {
+		result1 error
+	}
+	StatisticsStub        func() (schema1.Statistics, error)
+	statisticsMutex       sync.RWMutex
+	statisticsArgsForCall []struct {
+	}
+	statisticsReturns struct {
+		result1 schema1.Statistics
+		result2 error
+	}
+	statisticsReturnsOnCall map[int]struct {
+		result1 schema1.Statistics
+		result2 error
+	}
 	TerminateStub        func() error
 	terminateMutex       sync.RWMutex
-	terminateArgsForCall []struct{}
-	terminateReturns     struct {
+	terminateArgsForCall []struct {
+	}
+	terminateReturns struct {
 		result1 error
 	}
 	terminateReturnsOnCall map[int]struct {
@@ -39,8 +158,9 @@ type Container struct {
 	}
 	WaitStub        func() error
 	waitMutex       sync.RWMutex
-	waitArgsForCall []struct{}
-	waitReturns     struct {
+	waitArgsForCall []struct {
+	}
+	waitReturns struct {
 		result1 error
 	}
 	waitReturnsOnCall map[int]struct {
@@ -57,154 +177,522 @@ type Container struct {
 	waitTimeoutReturnsOnCall map[int]struct {
 		result1 error
 	}
-	PauseStub        func() error
-	pauseMutex       sync.RWMutex
-	pauseArgsForCall []struct{}
-	pauseReturns     struct {
-		result1 error
-	}
-	pauseReturnsOnCall map[int]struct {
-		result1 error
-	}
-	ResumeStub        func() error
-	resumeMutex       sync.RWMutex
-	resumeArgsForCall []struct{}
-	resumeReturns     struct {
-		result1 error
-	}
-	resumeReturnsOnCall map[int]struct {
-		result1 error
-	}
-	HasPendingUpdatesStub        func() (bool, error)
-	hasPendingUpdatesMutex       sync.RWMutex
-	hasPendingUpdatesArgsForCall []struct{}
-	hasPendingUpdatesReturns     struct {
-		result1 bool
-		result2 error
-	}
-	hasPendingUpdatesReturnsOnCall map[int]struct {
-		result1 bool
-		result2 error
-	}
-	StatisticsStub        func() (hcsshim.Statistics, error)
-	statisticsMutex       sync.RWMutex
-	statisticsArgsForCall []struct{}
-	statisticsReturns     struct {
-		result1 hcsshim.Statistics
-		result2 error
-	}
-	statisticsReturnsOnCall map[int]struct {
-		result1 hcsshim.Statistics
-		result2 error
-	}
-	ProcessListStub        func() ([]hcsshim.ProcessListItem, error)
-	processListMutex       sync.RWMutex
-	processListArgsForCall []struct{}
-	processListReturns     struct {
-		result1 []hcsshim.ProcessListItem
-		result2 error
-	}
-	processListReturnsOnCall map[int]struct {
-		result1 []hcsshim.ProcessListItem
-		result2 error
-	}
-	MappedVirtualDisksStub        func() (map[int]hcsshim.MappedVirtualDiskController, error)
-	mappedVirtualDisksMutex       sync.RWMutex
-	mappedVirtualDisksArgsForCall []struct{}
-	mappedVirtualDisksReturns     struct {
-		result1 map[int]hcsshim.MappedVirtualDiskController
-		result2 error
-	}
-	mappedVirtualDisksReturnsOnCall map[int]struct {
-		result1 map[int]hcsshim.MappedVirtualDiskController
-		result2 error
-	}
-	CreateProcessStub        func(c *hcsshim.ProcessConfig) (hcsshim.Process, error)
-	createProcessMutex       sync.RWMutex
-	createProcessArgsForCall []struct {
-		c *hcsshim.ProcessConfig
-	}
-	createProcessReturns struct {
-		result1 hcsshim.Process
-		result2 error
-	}
-	createProcessReturnsOnCall map[int]struct {
-		result1 hcsshim.Process
-		result2 error
-	}
-	OpenProcessStub        func(pid int) (hcsshim.Process, error)
-	openProcessMutex       sync.RWMutex
-	openProcessArgsForCall []struct {
-		pid int
-	}
-	openProcessReturns struct {
-		result1 hcsshim.Process
-		result2 error
-	}
-	openProcessReturnsOnCall map[int]struct {
-		result1 hcsshim.Process
-		result2 error
-	}
-	CloseStub        func() error
-	closeMutex       sync.RWMutex
-	closeArgsForCall []struct{}
-	closeReturns     struct {
-		result1 error
-	}
-	closeReturnsOnCall map[int]struct {
-		result1 error
-	}
-	ModifyStub        func(config *hcsshim.ResourceModificationRequestResponse) error
-	modifyMutex       sync.RWMutex
-	modifyArgsForCall []struct {
-		config *hcsshim.ResourceModificationRequestResponse
-	}
-	modifyReturns struct {
-		result1 error
-	}
-	modifyReturnsOnCall map[int]struct {
-		result1 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Container) Start() error {
-	fake.startMutex.Lock()
-	ret, specificReturn := fake.startReturnsOnCall[len(fake.startArgsForCall)]
-	fake.startArgsForCall = append(fake.startArgsForCall, struct{}{})
-	fake.recordInvocation("Start", []interface{}{})
-	fake.startMutex.Unlock()
-	if fake.StartStub != nil {
-		return fake.StartStub()
+func (fake *Container) Close() error {
+	fake.closeMutex.Lock()
+	ret, specificReturn := fake.closeReturnsOnCall[len(fake.closeArgsForCall)]
+	fake.closeArgsForCall = append(fake.closeArgsForCall, struct {
+	}{})
+	stub := fake.CloseStub
+	fakeReturns := fake.closeReturns
+	fake.recordInvocation("Close", []interface{}{})
+	fake.closeMutex.Unlock()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.startReturns.result1
+	return fakeReturns.result1
 }
 
-func (fake *Container) StartCallCount() int {
-	fake.startMutex.RLock()
-	defer fake.startMutex.RUnlock()
-	return len(fake.startArgsForCall)
+func (fake *Container) CloseCallCount() int {
+	fake.closeMutex.RLock()
+	defer fake.closeMutex.RUnlock()
+	return len(fake.closeArgsForCall)
 }
 
-func (fake *Container) StartReturns(result1 error) {
-	fake.StartStub = nil
-	fake.startReturns = struct {
+func (fake *Container) CloseCalls(stub func() error) {
+	fake.closeMutex.Lock()
+	defer fake.closeMutex.Unlock()
+	fake.CloseStub = stub
+}
+
+func (fake *Container) CloseReturns(result1 error) {
+	fake.closeMutex.Lock()
+	defer fake.closeMutex.Unlock()
+	fake.CloseStub = nil
+	fake.closeReturns = struct {
 		result1 error
 	}{result1}
 }
 
-func (fake *Container) StartReturnsOnCall(i int, result1 error) {
-	fake.StartStub = nil
-	if fake.startReturnsOnCall == nil {
-		fake.startReturnsOnCall = make(map[int]struct {
+func (fake *Container) CloseReturnsOnCall(i int, result1 error) {
+	fake.closeMutex.Lock()
+	defer fake.closeMutex.Unlock()
+	fake.CloseStub = nil
+	if fake.closeReturnsOnCall == nil {
+		fake.closeReturnsOnCall = make(map[int]struct {
 			result1 error
 		})
 	}
-	fake.startReturnsOnCall[i] = struct {
+	fake.closeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) CreateProcess(arg1 *schema1.ProcessConfig) (hcsshim.Process, error) {
+	fake.createProcessMutex.Lock()
+	ret, specificReturn := fake.createProcessReturnsOnCall[len(fake.createProcessArgsForCall)]
+	fake.createProcessArgsForCall = append(fake.createProcessArgsForCall, struct {
+		arg1 *schema1.ProcessConfig
+	}{arg1})
+	stub := fake.CreateProcessStub
+	fakeReturns := fake.createProcessReturns
+	fake.recordInvocation("CreateProcess", []interface{}{arg1})
+	fake.createProcessMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Container) CreateProcessCallCount() int {
+	fake.createProcessMutex.RLock()
+	defer fake.createProcessMutex.RUnlock()
+	return len(fake.createProcessArgsForCall)
+}
+
+func (fake *Container) CreateProcessCalls(stub func(*schema1.ProcessConfig) (hcsshim.Process, error)) {
+	fake.createProcessMutex.Lock()
+	defer fake.createProcessMutex.Unlock()
+	fake.CreateProcessStub = stub
+}
+
+func (fake *Container) CreateProcessArgsForCall(i int) *schema1.ProcessConfig {
+	fake.createProcessMutex.RLock()
+	defer fake.createProcessMutex.RUnlock()
+	argsForCall := fake.createProcessArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Container) CreateProcessReturns(result1 hcsshim.Process, result2 error) {
+	fake.createProcessMutex.Lock()
+	defer fake.createProcessMutex.Unlock()
+	fake.CreateProcessStub = nil
+	fake.createProcessReturns = struct {
+		result1 hcsshim.Process
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) CreateProcessReturnsOnCall(i int, result1 hcsshim.Process, result2 error) {
+	fake.createProcessMutex.Lock()
+	defer fake.createProcessMutex.Unlock()
+	fake.CreateProcessStub = nil
+	if fake.createProcessReturnsOnCall == nil {
+		fake.createProcessReturnsOnCall = make(map[int]struct {
+			result1 hcsshim.Process
+			result2 error
+		})
+	}
+	fake.createProcessReturnsOnCall[i] = struct {
+		result1 hcsshim.Process
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) HasPendingUpdates() (bool, error) {
+	fake.hasPendingUpdatesMutex.Lock()
+	ret, specificReturn := fake.hasPendingUpdatesReturnsOnCall[len(fake.hasPendingUpdatesArgsForCall)]
+	fake.hasPendingUpdatesArgsForCall = append(fake.hasPendingUpdatesArgsForCall, struct {
+	}{})
+	stub := fake.HasPendingUpdatesStub
+	fakeReturns := fake.hasPendingUpdatesReturns
+	fake.recordInvocation("HasPendingUpdates", []interface{}{})
+	fake.hasPendingUpdatesMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Container) HasPendingUpdatesCallCount() int {
+	fake.hasPendingUpdatesMutex.RLock()
+	defer fake.hasPendingUpdatesMutex.RUnlock()
+	return len(fake.hasPendingUpdatesArgsForCall)
+}
+
+func (fake *Container) HasPendingUpdatesCalls(stub func() (bool, error)) {
+	fake.hasPendingUpdatesMutex.Lock()
+	defer fake.hasPendingUpdatesMutex.Unlock()
+	fake.HasPendingUpdatesStub = stub
+}
+
+func (fake *Container) HasPendingUpdatesReturns(result1 bool, result2 error) {
+	fake.hasPendingUpdatesMutex.Lock()
+	defer fake.hasPendingUpdatesMutex.Unlock()
+	fake.HasPendingUpdatesStub = nil
+	fake.hasPendingUpdatesReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) HasPendingUpdatesReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.hasPendingUpdatesMutex.Lock()
+	defer fake.hasPendingUpdatesMutex.Unlock()
+	fake.HasPendingUpdatesStub = nil
+	if fake.hasPendingUpdatesReturnsOnCall == nil {
+		fake.hasPendingUpdatesReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.hasPendingUpdatesReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) MappedVirtualDisks() (map[int]schema1.MappedVirtualDiskController, error) {
+	fake.mappedVirtualDisksMutex.Lock()
+	ret, specificReturn := fake.mappedVirtualDisksReturnsOnCall[len(fake.mappedVirtualDisksArgsForCall)]
+	fake.mappedVirtualDisksArgsForCall = append(fake.mappedVirtualDisksArgsForCall, struct {
+	}{})
+	stub := fake.MappedVirtualDisksStub
+	fakeReturns := fake.mappedVirtualDisksReturns
+	fake.recordInvocation("MappedVirtualDisks", []interface{}{})
+	fake.mappedVirtualDisksMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Container) MappedVirtualDisksCallCount() int {
+	fake.mappedVirtualDisksMutex.RLock()
+	defer fake.mappedVirtualDisksMutex.RUnlock()
+	return len(fake.mappedVirtualDisksArgsForCall)
+}
+
+func (fake *Container) MappedVirtualDisksCalls(stub func() (map[int]schema1.MappedVirtualDiskController, error)) {
+	fake.mappedVirtualDisksMutex.Lock()
+	defer fake.mappedVirtualDisksMutex.Unlock()
+	fake.MappedVirtualDisksStub = stub
+}
+
+func (fake *Container) MappedVirtualDisksReturns(result1 map[int]schema1.MappedVirtualDiskController, result2 error) {
+	fake.mappedVirtualDisksMutex.Lock()
+	defer fake.mappedVirtualDisksMutex.Unlock()
+	fake.MappedVirtualDisksStub = nil
+	fake.mappedVirtualDisksReturns = struct {
+		result1 map[int]schema1.MappedVirtualDiskController
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) MappedVirtualDisksReturnsOnCall(i int, result1 map[int]schema1.MappedVirtualDiskController, result2 error) {
+	fake.mappedVirtualDisksMutex.Lock()
+	defer fake.mappedVirtualDisksMutex.Unlock()
+	fake.MappedVirtualDisksStub = nil
+	if fake.mappedVirtualDisksReturnsOnCall == nil {
+		fake.mappedVirtualDisksReturnsOnCall = make(map[int]struct {
+			result1 map[int]schema1.MappedVirtualDiskController
+			result2 error
+		})
+	}
+	fake.mappedVirtualDisksReturnsOnCall[i] = struct {
+		result1 map[int]schema1.MappedVirtualDiskController
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) Modify(arg1 *schema1.ResourceModificationRequestResponse) error {
+	fake.modifyMutex.Lock()
+	ret, specificReturn := fake.modifyReturnsOnCall[len(fake.modifyArgsForCall)]
+	fake.modifyArgsForCall = append(fake.modifyArgsForCall, struct {
+		arg1 *schema1.ResourceModificationRequestResponse
+	}{arg1})
+	stub := fake.ModifyStub
+	fakeReturns := fake.modifyReturns
+	fake.recordInvocation("Modify", []interface{}{arg1})
+	fake.modifyMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Container) ModifyCallCount() int {
+	fake.modifyMutex.RLock()
+	defer fake.modifyMutex.RUnlock()
+	return len(fake.modifyArgsForCall)
+}
+
+func (fake *Container) ModifyCalls(stub func(*schema1.ResourceModificationRequestResponse) error) {
+	fake.modifyMutex.Lock()
+	defer fake.modifyMutex.Unlock()
+	fake.ModifyStub = stub
+}
+
+func (fake *Container) ModifyArgsForCall(i int) *schema1.ResourceModificationRequestResponse {
+	fake.modifyMutex.RLock()
+	defer fake.modifyMutex.RUnlock()
+	argsForCall := fake.modifyArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Container) ModifyReturns(result1 error) {
+	fake.modifyMutex.Lock()
+	defer fake.modifyMutex.Unlock()
+	fake.ModifyStub = nil
+	fake.modifyReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) ModifyReturnsOnCall(i int, result1 error) {
+	fake.modifyMutex.Lock()
+	defer fake.modifyMutex.Unlock()
+	fake.ModifyStub = nil
+	if fake.modifyReturnsOnCall == nil {
+		fake.modifyReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.modifyReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) OpenProcess(arg1 int) (hcsshim.Process, error) {
+	fake.openProcessMutex.Lock()
+	ret, specificReturn := fake.openProcessReturnsOnCall[len(fake.openProcessArgsForCall)]
+	fake.openProcessArgsForCall = append(fake.openProcessArgsForCall, struct {
+		arg1 int
+	}{arg1})
+	stub := fake.OpenProcessStub
+	fakeReturns := fake.openProcessReturns
+	fake.recordInvocation("OpenProcess", []interface{}{arg1})
+	fake.openProcessMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Container) OpenProcessCallCount() int {
+	fake.openProcessMutex.RLock()
+	defer fake.openProcessMutex.RUnlock()
+	return len(fake.openProcessArgsForCall)
+}
+
+func (fake *Container) OpenProcessCalls(stub func(int) (hcsshim.Process, error)) {
+	fake.openProcessMutex.Lock()
+	defer fake.openProcessMutex.Unlock()
+	fake.OpenProcessStub = stub
+}
+
+func (fake *Container) OpenProcessArgsForCall(i int) int {
+	fake.openProcessMutex.RLock()
+	defer fake.openProcessMutex.RUnlock()
+	argsForCall := fake.openProcessArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Container) OpenProcessReturns(result1 hcsshim.Process, result2 error) {
+	fake.openProcessMutex.Lock()
+	defer fake.openProcessMutex.Unlock()
+	fake.OpenProcessStub = nil
+	fake.openProcessReturns = struct {
+		result1 hcsshim.Process
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) OpenProcessReturnsOnCall(i int, result1 hcsshim.Process, result2 error) {
+	fake.openProcessMutex.Lock()
+	defer fake.openProcessMutex.Unlock()
+	fake.OpenProcessStub = nil
+	if fake.openProcessReturnsOnCall == nil {
+		fake.openProcessReturnsOnCall = make(map[int]struct {
+			result1 hcsshim.Process
+			result2 error
+		})
+	}
+	fake.openProcessReturnsOnCall[i] = struct {
+		result1 hcsshim.Process
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) Pause() error {
+	fake.pauseMutex.Lock()
+	ret, specificReturn := fake.pauseReturnsOnCall[len(fake.pauseArgsForCall)]
+	fake.pauseArgsForCall = append(fake.pauseArgsForCall, struct {
+	}{})
+	stub := fake.PauseStub
+	fakeReturns := fake.pauseReturns
+	fake.recordInvocation("Pause", []interface{}{})
+	fake.pauseMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Container) PauseCallCount() int {
+	fake.pauseMutex.RLock()
+	defer fake.pauseMutex.RUnlock()
+	return len(fake.pauseArgsForCall)
+}
+
+func (fake *Container) PauseCalls(stub func() error) {
+	fake.pauseMutex.Lock()
+	defer fake.pauseMutex.Unlock()
+	fake.PauseStub = stub
+}
+
+func (fake *Container) PauseReturns(result1 error) {
+	fake.pauseMutex.Lock()
+	defer fake.pauseMutex.Unlock()
+	fake.PauseStub = nil
+	fake.pauseReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) PauseReturnsOnCall(i int, result1 error) {
+	fake.pauseMutex.Lock()
+	defer fake.pauseMutex.Unlock()
+	fake.PauseStub = nil
+	if fake.pauseReturnsOnCall == nil {
+		fake.pauseReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.pauseReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) ProcessList() ([]schema1.ProcessListItem, error) {
+	fake.processListMutex.Lock()
+	ret, specificReturn := fake.processListReturnsOnCall[len(fake.processListArgsForCall)]
+	fake.processListArgsForCall = append(fake.processListArgsForCall, struct {
+	}{})
+	stub := fake.ProcessListStub
+	fakeReturns := fake.processListReturns
+	fake.recordInvocation("ProcessList", []interface{}{})
+	fake.processListMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Container) ProcessListCallCount() int {
+	fake.processListMutex.RLock()
+	defer fake.processListMutex.RUnlock()
+	return len(fake.processListArgsForCall)
+}
+
+func (fake *Container) ProcessListCalls(stub func() ([]schema1.ProcessListItem, error)) {
+	fake.processListMutex.Lock()
+	defer fake.processListMutex.Unlock()
+	fake.ProcessListStub = stub
+}
+
+func (fake *Container) ProcessListReturns(result1 []schema1.ProcessListItem, result2 error) {
+	fake.processListMutex.Lock()
+	defer fake.processListMutex.Unlock()
+	fake.ProcessListStub = nil
+	fake.processListReturns = struct {
+		result1 []schema1.ProcessListItem
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) ProcessListReturnsOnCall(i int, result1 []schema1.ProcessListItem, result2 error) {
+	fake.processListMutex.Lock()
+	defer fake.processListMutex.Unlock()
+	fake.ProcessListStub = nil
+	if fake.processListReturnsOnCall == nil {
+		fake.processListReturnsOnCall = make(map[int]struct {
+			result1 []schema1.ProcessListItem
+			result2 error
+		})
+	}
+	fake.processListReturnsOnCall[i] = struct {
+		result1 []schema1.ProcessListItem
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) Resume() error {
+	fake.resumeMutex.Lock()
+	ret, specificReturn := fake.resumeReturnsOnCall[len(fake.resumeArgsForCall)]
+	fake.resumeArgsForCall = append(fake.resumeArgsForCall, struct {
+	}{})
+	stub := fake.ResumeStub
+	fakeReturns := fake.resumeReturns
+	fake.recordInvocation("Resume", []interface{}{})
+	fake.resumeMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Container) ResumeCallCount() int {
+	fake.resumeMutex.RLock()
+	defer fake.resumeMutex.RUnlock()
+	return len(fake.resumeArgsForCall)
+}
+
+func (fake *Container) ResumeCalls(stub func() error) {
+	fake.resumeMutex.Lock()
+	defer fake.resumeMutex.Unlock()
+	fake.ResumeStub = stub
+}
+
+func (fake *Container) ResumeReturns(result1 error) {
+	fake.resumeMutex.Lock()
+	defer fake.resumeMutex.Unlock()
+	fake.ResumeStub = nil
+	fake.resumeReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) ResumeReturnsOnCall(i int, result1 error) {
+	fake.resumeMutex.Lock()
+	defer fake.resumeMutex.Unlock()
+	fake.ResumeStub = nil
+	if fake.resumeReturnsOnCall == nil {
+		fake.resumeReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.resumeReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -212,16 +700,19 @@ func (fake *Container) StartReturnsOnCall(i int, result1 error) {
 func (fake *Container) Shutdown() error {
 	fake.shutdownMutex.Lock()
 	ret, specificReturn := fake.shutdownReturnsOnCall[len(fake.shutdownArgsForCall)]
-	fake.shutdownArgsForCall = append(fake.shutdownArgsForCall, struct{}{})
+	fake.shutdownArgsForCall = append(fake.shutdownArgsForCall, struct {
+	}{})
+	stub := fake.ShutdownStub
+	fakeReturns := fake.shutdownReturns
 	fake.recordInvocation("Shutdown", []interface{}{})
 	fake.shutdownMutex.Unlock()
-	if fake.ShutdownStub != nil {
-		return fake.ShutdownStub()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.shutdownReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Container) ShutdownCallCount() int {
@@ -230,7 +721,15 @@ func (fake *Container) ShutdownCallCount() int {
 	return len(fake.shutdownArgsForCall)
 }
 
+func (fake *Container) ShutdownCalls(stub func() error) {
+	fake.shutdownMutex.Lock()
+	defer fake.shutdownMutex.Unlock()
+	fake.ShutdownStub = stub
+}
+
 func (fake *Container) ShutdownReturns(result1 error) {
+	fake.shutdownMutex.Lock()
+	defer fake.shutdownMutex.Unlock()
 	fake.ShutdownStub = nil
 	fake.shutdownReturns = struct {
 		result1 error
@@ -238,6 +737,8 @@ func (fake *Container) ShutdownReturns(result1 error) {
 }
 
 func (fake *Container) ShutdownReturnsOnCall(i int, result1 error) {
+	fake.shutdownMutex.Lock()
+	defer fake.shutdownMutex.Unlock()
 	fake.ShutdownStub = nil
 	if fake.shutdownReturnsOnCall == nil {
 		fake.shutdownReturnsOnCall = make(map[int]struct {
@@ -249,19 +750,131 @@ func (fake *Container) ShutdownReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Container) Terminate() error {
-	fake.terminateMutex.Lock()
-	ret, specificReturn := fake.terminateReturnsOnCall[len(fake.terminateArgsForCall)]
-	fake.terminateArgsForCall = append(fake.terminateArgsForCall, struct{}{})
-	fake.recordInvocation("Terminate", []interface{}{})
-	fake.terminateMutex.Unlock()
-	if fake.TerminateStub != nil {
-		return fake.TerminateStub()
+func (fake *Container) Start() error {
+	fake.startMutex.Lock()
+	ret, specificReturn := fake.startReturnsOnCall[len(fake.startArgsForCall)]
+	fake.startArgsForCall = append(fake.startArgsForCall, struct {
+	}{})
+	stub := fake.StartStub
+	fakeReturns := fake.startReturns
+	fake.recordInvocation("Start", []interface{}{})
+	fake.startMutex.Unlock()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.terminateReturns.result1
+	return fakeReturns.result1
+}
+
+func (fake *Container) StartCallCount() int {
+	fake.startMutex.RLock()
+	defer fake.startMutex.RUnlock()
+	return len(fake.startArgsForCall)
+}
+
+func (fake *Container) StartCalls(stub func() error) {
+	fake.startMutex.Lock()
+	defer fake.startMutex.Unlock()
+	fake.StartStub = stub
+}
+
+func (fake *Container) StartReturns(result1 error) {
+	fake.startMutex.Lock()
+	defer fake.startMutex.Unlock()
+	fake.StartStub = nil
+	fake.startReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) StartReturnsOnCall(i int, result1 error) {
+	fake.startMutex.Lock()
+	defer fake.startMutex.Unlock()
+	fake.StartStub = nil
+	if fake.startReturnsOnCall == nil {
+		fake.startReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.startReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Container) Statistics() (schema1.Statistics, error) {
+	fake.statisticsMutex.Lock()
+	ret, specificReturn := fake.statisticsReturnsOnCall[len(fake.statisticsArgsForCall)]
+	fake.statisticsArgsForCall = append(fake.statisticsArgsForCall, struct {
+	}{})
+	stub := fake.StatisticsStub
+	fakeReturns := fake.statisticsReturns
+	fake.recordInvocation("Statistics", []interface{}{})
+	fake.statisticsMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Container) StatisticsCallCount() int {
+	fake.statisticsMutex.RLock()
+	defer fake.statisticsMutex.RUnlock()
+	return len(fake.statisticsArgsForCall)
+}
+
+func (fake *Container) StatisticsCalls(stub func() (schema1.Statistics, error)) {
+	fake.statisticsMutex.Lock()
+	defer fake.statisticsMutex.Unlock()
+	fake.StatisticsStub = stub
+}
+
+func (fake *Container) StatisticsReturns(result1 schema1.Statistics, result2 error) {
+	fake.statisticsMutex.Lock()
+	defer fake.statisticsMutex.Unlock()
+	fake.StatisticsStub = nil
+	fake.statisticsReturns = struct {
+		result1 schema1.Statistics
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) StatisticsReturnsOnCall(i int, result1 schema1.Statistics, result2 error) {
+	fake.statisticsMutex.Lock()
+	defer fake.statisticsMutex.Unlock()
+	fake.StatisticsStub = nil
+	if fake.statisticsReturnsOnCall == nil {
+		fake.statisticsReturnsOnCall = make(map[int]struct {
+			result1 schema1.Statistics
+			result2 error
+		})
+	}
+	fake.statisticsReturnsOnCall[i] = struct {
+		result1 schema1.Statistics
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Container) Terminate() error {
+	fake.terminateMutex.Lock()
+	ret, specificReturn := fake.terminateReturnsOnCall[len(fake.terminateArgsForCall)]
+	fake.terminateArgsForCall = append(fake.terminateArgsForCall, struct {
+	}{})
+	stub := fake.TerminateStub
+	fakeReturns := fake.terminateReturns
+	fake.recordInvocation("Terminate", []interface{}{})
+	fake.terminateMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
 }
 
 func (fake *Container) TerminateCallCount() int {
@@ -270,7 +883,15 @@ func (fake *Container) TerminateCallCount() int {
 	return len(fake.terminateArgsForCall)
 }
 
+func (fake *Container) TerminateCalls(stub func() error) {
+	fake.terminateMutex.Lock()
+	defer fake.terminateMutex.Unlock()
+	fake.TerminateStub = stub
+}
+
 func (fake *Container) TerminateReturns(result1 error) {
+	fake.terminateMutex.Lock()
+	defer fake.terminateMutex.Unlock()
 	fake.TerminateStub = nil
 	fake.terminateReturns = struct {
 		result1 error
@@ -278,6 +899,8 @@ func (fake *Container) TerminateReturns(result1 error) {
 }
 
 func (fake *Container) TerminateReturnsOnCall(i int, result1 error) {
+	fake.terminateMutex.Lock()
+	defer fake.terminateMutex.Unlock()
 	fake.TerminateStub = nil
 	if fake.terminateReturnsOnCall == nil {
 		fake.terminateReturnsOnCall = make(map[int]struct {
@@ -292,16 +915,19 @@ func (fake *Container) TerminateReturnsOnCall(i int, result1 error) {
 func (fake *Container) Wait() error {
 	fake.waitMutex.Lock()
 	ret, specificReturn := fake.waitReturnsOnCall[len(fake.waitArgsForCall)]
-	fake.waitArgsForCall = append(fake.waitArgsForCall, struct{}{})
+	fake.waitArgsForCall = append(fake.waitArgsForCall, struct {
+	}{})
+	stub := fake.WaitStub
+	fakeReturns := fake.waitReturns
 	fake.recordInvocation("Wait", []interface{}{})
 	fake.waitMutex.Unlock()
-	if fake.WaitStub != nil {
-		return fake.WaitStub()
+	if stub != nil {
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.waitReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Container) WaitCallCount() int {
@@ -310,7 +936,15 @@ func (fake *Container) WaitCallCount() int {
 	return len(fake.waitArgsForCall)
 }
 
+func (fake *Container) WaitCalls(stub func() error) {
+	fake.waitMutex.Lock()
+	defer fake.waitMutex.Unlock()
+	fake.WaitStub = stub
+}
+
 func (fake *Container) WaitReturns(result1 error) {
+	fake.waitMutex.Lock()
+	defer fake.waitMutex.Unlock()
 	fake.WaitStub = nil
 	fake.waitReturns = struct {
 		result1 error
@@ -318,6 +952,8 @@ func (fake *Container) WaitReturns(result1 error) {
 }
 
 func (fake *Container) WaitReturnsOnCall(i int, result1 error) {
+	fake.waitMutex.Lock()
+	defer fake.waitMutex.Unlock()
 	fake.WaitStub = nil
 	if fake.waitReturnsOnCall == nil {
 		fake.waitReturnsOnCall = make(map[int]struct {
@@ -335,15 +971,17 @@ func (fake *Container) WaitTimeout(arg1 time.Duration) error {
 	fake.waitTimeoutArgsForCall = append(fake.waitTimeoutArgsForCall, struct {
 		arg1 time.Duration
 	}{arg1})
+	stub := fake.WaitTimeoutStub
+	fakeReturns := fake.waitTimeoutReturns
 	fake.recordInvocation("WaitTimeout", []interface{}{arg1})
 	fake.waitTimeoutMutex.Unlock()
-	if fake.WaitTimeoutStub != nil {
-		return fake.WaitTimeoutStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.waitTimeoutReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Container) WaitTimeoutCallCount() int {
@@ -352,13 +990,22 @@ func (fake *Container) WaitTimeoutCallCount() int {
 	return len(fake.waitTimeoutArgsForCall)
 }
 
+func (fake *Container) WaitTimeoutCalls(stub func(time.Duration) error) {
+	fake.waitTimeoutMutex.Lock()
+	defer fake.waitTimeoutMutex.Unlock()
+	fake.WaitTimeoutStub = stub
+}
+
 func (fake *Container) WaitTimeoutArgsForCall(i int) time.Duration {
 	fake.waitTimeoutMutex.RLock()
 	defer fake.waitTimeoutMutex.RUnlock()
-	return fake.waitTimeoutArgsForCall[i].arg1
+	argsForCall := fake.waitTimeoutArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *Container) WaitTimeoutReturns(result1 error) {
+	fake.waitTimeoutMutex.Lock()
+	defer fake.waitTimeoutMutex.Unlock()
 	fake.WaitTimeoutStub = nil
 	fake.waitTimeoutReturns = struct {
 		result1 error
@@ -366,6 +1013,8 @@ func (fake *Container) WaitTimeoutReturns(result1 error) {
 }
 
 func (fake *Container) WaitTimeoutReturnsOnCall(i int, result1 error) {
+	fake.waitTimeoutMutex.Lock()
+	defer fake.waitTimeoutMutex.Unlock()
 	fake.WaitTimeoutStub = nil
 	if fake.waitTimeoutReturnsOnCall == nil {
 		fake.waitTimeoutReturnsOnCall = make(map[int]struct {
@@ -377,482 +1026,44 @@ func (fake *Container) WaitTimeoutReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Container) Pause() error {
-	fake.pauseMutex.Lock()
-	ret, specificReturn := fake.pauseReturnsOnCall[len(fake.pauseArgsForCall)]
-	fake.pauseArgsForCall = append(fake.pauseArgsForCall, struct{}{})
-	fake.recordInvocation("Pause", []interface{}{})
-	fake.pauseMutex.Unlock()
-	if fake.PauseStub != nil {
-		return fake.PauseStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.pauseReturns.result1
-}
-
-func (fake *Container) PauseCallCount() int {
-	fake.pauseMutex.RLock()
-	defer fake.pauseMutex.RUnlock()
-	return len(fake.pauseArgsForCall)
-}
-
-func (fake *Container) PauseReturns(result1 error) {
-	fake.PauseStub = nil
-	fake.pauseReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) PauseReturnsOnCall(i int, result1 error) {
-	fake.PauseStub = nil
-	if fake.pauseReturnsOnCall == nil {
-		fake.pauseReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.pauseReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) Resume() error {
-	fake.resumeMutex.Lock()
-	ret, specificReturn := fake.resumeReturnsOnCall[len(fake.resumeArgsForCall)]
-	fake.resumeArgsForCall = append(fake.resumeArgsForCall, struct{}{})
-	fake.recordInvocation("Resume", []interface{}{})
-	fake.resumeMutex.Unlock()
-	if fake.ResumeStub != nil {
-		return fake.ResumeStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.resumeReturns.result1
-}
-
-func (fake *Container) ResumeCallCount() int {
-	fake.resumeMutex.RLock()
-	defer fake.resumeMutex.RUnlock()
-	return len(fake.resumeArgsForCall)
-}
-
-func (fake *Container) ResumeReturns(result1 error) {
-	fake.ResumeStub = nil
-	fake.resumeReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) ResumeReturnsOnCall(i int, result1 error) {
-	fake.ResumeStub = nil
-	if fake.resumeReturnsOnCall == nil {
-		fake.resumeReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.resumeReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) HasPendingUpdates() (bool, error) {
-	fake.hasPendingUpdatesMutex.Lock()
-	ret, specificReturn := fake.hasPendingUpdatesReturnsOnCall[len(fake.hasPendingUpdatesArgsForCall)]
-	fake.hasPendingUpdatesArgsForCall = append(fake.hasPendingUpdatesArgsForCall, struct{}{})
-	fake.recordInvocation("HasPendingUpdates", []interface{}{})
-	fake.hasPendingUpdatesMutex.Unlock()
-	if fake.HasPendingUpdatesStub != nil {
-		return fake.HasPendingUpdatesStub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.hasPendingUpdatesReturns.result1, fake.hasPendingUpdatesReturns.result2
-}
-
-func (fake *Container) HasPendingUpdatesCallCount() int {
-	fake.hasPendingUpdatesMutex.RLock()
-	defer fake.hasPendingUpdatesMutex.RUnlock()
-	return len(fake.hasPendingUpdatesArgsForCall)
-}
-
-func (fake *Container) HasPendingUpdatesReturns(result1 bool, result2 error) {
-	fake.HasPendingUpdatesStub = nil
-	fake.hasPendingUpdatesReturns = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) HasPendingUpdatesReturnsOnCall(i int, result1 bool, result2 error) {
-	fake.HasPendingUpdatesStub = nil
-	if fake.hasPendingUpdatesReturnsOnCall == nil {
-		fake.hasPendingUpdatesReturnsOnCall = make(map[int]struct {
-			result1 bool
-			result2 error
-		})
-	}
-	fake.hasPendingUpdatesReturnsOnCall[i] = struct {
-		result1 bool
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) Statistics() (hcsshim.Statistics, error) {
-	fake.statisticsMutex.Lock()
-	ret, specificReturn := fake.statisticsReturnsOnCall[len(fake.statisticsArgsForCall)]
-	fake.statisticsArgsForCall = append(fake.statisticsArgsForCall, struct{}{})
-	fake.recordInvocation("Statistics", []interface{}{})
-	fake.statisticsMutex.Unlock()
-	if fake.StatisticsStub != nil {
-		return fake.StatisticsStub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.statisticsReturns.result1, fake.statisticsReturns.result2
-}
-
-func (fake *Container) StatisticsCallCount() int {
-	fake.statisticsMutex.RLock()
-	defer fake.statisticsMutex.RUnlock()
-	return len(fake.statisticsArgsForCall)
-}
-
-func (fake *Container) StatisticsReturns(result1 hcsshim.Statistics, result2 error) {
-	fake.StatisticsStub = nil
-	fake.statisticsReturns = struct {
-		result1 hcsshim.Statistics
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) StatisticsReturnsOnCall(i int, result1 hcsshim.Statistics, result2 error) {
-	fake.StatisticsStub = nil
-	if fake.statisticsReturnsOnCall == nil {
-		fake.statisticsReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.Statistics
-			result2 error
-		})
-	}
-	fake.statisticsReturnsOnCall[i] = struct {
-		result1 hcsshim.Statistics
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) ProcessList() ([]hcsshim.ProcessListItem, error) {
-	fake.processListMutex.Lock()
-	ret, specificReturn := fake.processListReturnsOnCall[len(fake.processListArgsForCall)]
-	fake.processListArgsForCall = append(fake.processListArgsForCall, struct{}{})
-	fake.recordInvocation("ProcessList", []interface{}{})
-	fake.processListMutex.Unlock()
-	if fake.ProcessListStub != nil {
-		return fake.ProcessListStub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.processListReturns.result1, fake.processListReturns.result2
-}
-
-func (fake *Container) ProcessListCallCount() int {
-	fake.processListMutex.RLock()
-	defer fake.processListMutex.RUnlock()
-	return len(fake.processListArgsForCall)
-}
-
-func (fake *Container) ProcessListReturns(result1 []hcsshim.ProcessListItem, result2 error) {
-	fake.ProcessListStub = nil
-	fake.processListReturns = struct {
-		result1 []hcsshim.ProcessListItem
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) ProcessListReturnsOnCall(i int, result1 []hcsshim.ProcessListItem, result2 error) {
-	fake.ProcessListStub = nil
-	if fake.processListReturnsOnCall == nil {
-		fake.processListReturnsOnCall = make(map[int]struct {
-			result1 []hcsshim.ProcessListItem
-			result2 error
-		})
-	}
-	fake.processListReturnsOnCall[i] = struct {
-		result1 []hcsshim.ProcessListItem
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) MappedVirtualDisks() (map[int]hcsshim.MappedVirtualDiskController, error) {
-	fake.mappedVirtualDisksMutex.Lock()
-	ret, specificReturn := fake.mappedVirtualDisksReturnsOnCall[len(fake.mappedVirtualDisksArgsForCall)]
-	fake.mappedVirtualDisksArgsForCall = append(fake.mappedVirtualDisksArgsForCall, struct{}{})
-	fake.recordInvocation("MappedVirtualDisks", []interface{}{})
-	fake.mappedVirtualDisksMutex.Unlock()
-	if fake.MappedVirtualDisksStub != nil {
-		return fake.MappedVirtualDisksStub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.mappedVirtualDisksReturns.result1, fake.mappedVirtualDisksReturns.result2
-}
-
-func (fake *Container) MappedVirtualDisksCallCount() int {
-	fake.mappedVirtualDisksMutex.RLock()
-	defer fake.mappedVirtualDisksMutex.RUnlock()
-	return len(fake.mappedVirtualDisksArgsForCall)
-}
-
-func (fake *Container) MappedVirtualDisksReturns(result1 map[int]hcsshim.MappedVirtualDiskController, result2 error) {
-	fake.MappedVirtualDisksStub = nil
-	fake.mappedVirtualDisksReturns = struct {
-		result1 map[int]hcsshim.MappedVirtualDiskController
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) MappedVirtualDisksReturnsOnCall(i int, result1 map[int]hcsshim.MappedVirtualDiskController, result2 error) {
-	fake.MappedVirtualDisksStub = nil
-	if fake.mappedVirtualDisksReturnsOnCall == nil {
-		fake.mappedVirtualDisksReturnsOnCall = make(map[int]struct {
-			result1 map[int]hcsshim.MappedVirtualDiskController
-			result2 error
-		})
-	}
-	fake.mappedVirtualDisksReturnsOnCall[i] = struct {
-		result1 map[int]hcsshim.MappedVirtualDiskController
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) CreateProcess(c *hcsshim.ProcessConfig) (hcsshim.Process, error) {
-	fake.createProcessMutex.Lock()
-	ret, specificReturn := fake.createProcessReturnsOnCall[len(fake.createProcessArgsForCall)]
-	fake.createProcessArgsForCall = append(fake.createProcessArgsForCall, struct {
-		c *hcsshim.ProcessConfig
-	}{c})
-	fake.recordInvocation("CreateProcess", []interface{}{c})
-	fake.createProcessMutex.Unlock()
-	if fake.CreateProcessStub != nil {
-		return fake.CreateProcessStub(c)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.createProcessReturns.result1, fake.createProcessReturns.result2
-}
-
-func (fake *Container) CreateProcessCallCount() int {
-	fake.createProcessMutex.RLock()
-	defer fake.createProcessMutex.RUnlock()
-	return len(fake.createProcessArgsForCall)
-}
-
-func (fake *Container) CreateProcessArgsForCall(i int) *hcsshim.ProcessConfig {
-	fake.createProcessMutex.RLock()
-	defer fake.createProcessMutex.RUnlock()
-	return fake.createProcessArgsForCall[i].c
-}
-
-func (fake *Container) CreateProcessReturns(result1 hcsshim.Process, result2 error) {
-	fake.CreateProcessStub = nil
-	fake.createProcessReturns = struct {
-		result1 hcsshim.Process
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) CreateProcessReturnsOnCall(i int, result1 hcsshim.Process, result2 error) {
-	fake.CreateProcessStub = nil
-	if fake.createProcessReturnsOnCall == nil {
-		fake.createProcessReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.Process
-			result2 error
-		})
-	}
-	fake.createProcessReturnsOnCall[i] = struct {
-		result1 hcsshim.Process
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) OpenProcess(pid int) (hcsshim.Process, error) {
-	fake.openProcessMutex.Lock()
-	ret, specificReturn := fake.openProcessReturnsOnCall[len(fake.openProcessArgsForCall)]
-	fake.openProcessArgsForCall = append(fake.openProcessArgsForCall, struct {
-		pid int
-	}{pid})
-	fake.recordInvocation("OpenProcess", []interface{}{pid})
-	fake.openProcessMutex.Unlock()
-	if fake.OpenProcessStub != nil {
-		return fake.OpenProcessStub(pid)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.openProcessReturns.result1, fake.openProcessReturns.result2
-}
-
-func (fake *Container) OpenProcessCallCount() int {
-	fake.openProcessMutex.RLock()
-	defer fake.openProcessMutex.RUnlock()
-	return len(fake.openProcessArgsForCall)
-}
-
-func (fake *Container) OpenProcessArgsForCall(i int) int {
-	fake.openProcessMutex.RLock()
-	defer fake.openProcessMutex.RUnlock()
-	return fake.openProcessArgsForCall[i].pid
-}
-
-func (fake *Container) OpenProcessReturns(result1 hcsshim.Process, result2 error) {
-	fake.OpenProcessStub = nil
-	fake.openProcessReturns = struct {
-		result1 hcsshim.Process
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) OpenProcessReturnsOnCall(i int, result1 hcsshim.Process, result2 error) {
-	fake.OpenProcessStub = nil
-	if fake.openProcessReturnsOnCall == nil {
-		fake.openProcessReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.Process
-			result2 error
-		})
-	}
-	fake.openProcessReturnsOnCall[i] = struct {
-		result1 hcsshim.Process
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *Container) Close() error {
-	fake.closeMutex.Lock()
-	ret, specificReturn := fake.closeReturnsOnCall[len(fake.closeArgsForCall)]
-	fake.closeArgsForCall = append(fake.closeArgsForCall, struct{}{})
-	fake.recordInvocation("Close", []interface{}{})
-	fake.closeMutex.Unlock()
-	if fake.CloseStub != nil {
-		return fake.CloseStub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.closeReturns.result1
-}
-
-func (fake *Container) CloseCallCount() int {
-	fake.closeMutex.RLock()
-	defer fake.closeMutex.RUnlock()
-	return len(fake.closeArgsForCall)
-}
-
-func (fake *Container) CloseReturns(result1 error) {
-	fake.CloseStub = nil
-	fake.closeReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) CloseReturnsOnCall(i int, result1 error) {
-	fake.CloseStub = nil
-	if fake.closeReturnsOnCall == nil {
-		fake.closeReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.closeReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) Modify(config *hcsshim.ResourceModificationRequestResponse) error {
-	fake.modifyMutex.Lock()
-	ret, specificReturn := fake.modifyReturnsOnCall[len(fake.modifyArgsForCall)]
-	fake.modifyArgsForCall = append(fake.modifyArgsForCall, struct {
-		config *hcsshim.ResourceModificationRequestResponse
-	}{config})
-	fake.recordInvocation("Modify", []interface{}{config})
-	fake.modifyMutex.Unlock()
-	if fake.ModifyStub != nil {
-		return fake.ModifyStub(config)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.modifyReturns.result1
-}
-
-func (fake *Container) ModifyCallCount() int {
-	fake.modifyMutex.RLock()
-	defer fake.modifyMutex.RUnlock()
-	return len(fake.modifyArgsForCall)
-}
-
-func (fake *Container) ModifyArgsForCall(i int) *hcsshim.ResourceModificationRequestResponse {
-	fake.modifyMutex.RLock()
-	defer fake.modifyMutex.RUnlock()
-	return fake.modifyArgsForCall[i].config
-}
-
-func (fake *Container) ModifyReturns(result1 error) {
-	fake.ModifyStub = nil
-	fake.modifyReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *Container) ModifyReturnsOnCall(i int, result1 error) {
-	fake.ModifyStub = nil
-	if fake.modifyReturnsOnCall == nil {
-		fake.modifyReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.modifyReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
 func (fake *Container) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.startMutex.RLock()
-	defer fake.startMutex.RUnlock()
+	fake.closeMutex.RLock()
+	defer fake.closeMutex.RUnlock()
+	fake.createProcessMutex.RLock()
+	defer fake.createProcessMutex.RUnlock()
+	fake.hasPendingUpdatesMutex.RLock()
+	defer fake.hasPendingUpdatesMutex.RUnlock()
+	fake.mappedVirtualDisksMutex.RLock()
+	defer fake.mappedVirtualDisksMutex.RUnlock()
+	fake.modifyMutex.RLock()
+	defer fake.modifyMutex.RUnlock()
+	fake.openProcessMutex.RLock()
+	defer fake.openProcessMutex.RUnlock()
+	fake.pauseMutex.RLock()
+	defer fake.pauseMutex.RUnlock()
+	fake.processListMutex.RLock()
+	defer fake.processListMutex.RUnlock()
+	fake.resumeMutex.RLock()
+	defer fake.resumeMutex.RUnlock()
 	fake.shutdownMutex.RLock()
 	defer fake.shutdownMutex.RUnlock()
+	fake.startMutex.RLock()
+	defer fake.startMutex.RUnlock()
+	fake.statisticsMutex.RLock()
+	defer fake.statisticsMutex.RUnlock()
 	fake.terminateMutex.RLock()
 	defer fake.terminateMutex.RUnlock()
 	fake.waitMutex.RLock()
 	defer fake.waitMutex.RUnlock()
 	fake.waitTimeoutMutex.RLock()
 	defer fake.waitTimeoutMutex.RUnlock()
-	fake.pauseMutex.RLock()
-	defer fake.pauseMutex.RUnlock()
-	fake.resumeMutex.RLock()
-	defer fake.resumeMutex.RUnlock()
-	fake.hasPendingUpdatesMutex.RLock()
-	defer fake.hasPendingUpdatesMutex.RUnlock()
-	fake.statisticsMutex.RLock()
-	defer fake.statisticsMutex.RUnlock()
-	fake.processListMutex.RLock()
-	defer fake.processListMutex.RUnlock()
-	fake.mappedVirtualDisksMutex.RLock()
-	defer fake.mappedVirtualDisksMutex.RUnlock()
-	fake.createProcessMutex.RLock()
-	defer fake.createProcessMutex.RUnlock()
-	fake.openProcessMutex.RLock()
-	defer fake.openProcessMutex.RUnlock()
-	fake.closeMutex.RLock()
-	defer fake.closeMutex.RUnlock()
-	fake.modifyMutex.RLock()
-	defer fake.modifyMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *Container) recordInvocation(key string, args []interface{}) {

@@ -53,15 +53,17 @@ func (fake *WrappedProcess) AttachIO(arg1 io.Reader, arg2 io.Writer, arg3 io.Wri
 		arg2 io.Writer
 		arg3 io.Writer
 	}{arg1, arg2, arg3})
+	stub := fake.AttachIOStub
+	fakeReturns := fake.attachIOReturns
 	fake.recordInvocation("AttachIO", []interface{}{arg1, arg2, arg3})
 	fake.attachIOMutex.Unlock()
-	if fake.AttachIOStub != nil {
-		return fake.AttachIOStub(arg1, arg2, arg3)
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.attachIOReturns.result1, fake.attachIOReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *WrappedProcess) AttachIOCallCount() int {
@@ -70,13 +72,22 @@ func (fake *WrappedProcess) AttachIOCallCount() int {
 	return len(fake.attachIOArgsForCall)
 }
 
+func (fake *WrappedProcess) AttachIOCalls(stub func(io.Reader, io.Writer, io.Writer) (int, error)) {
+	fake.attachIOMutex.Lock()
+	defer fake.attachIOMutex.Unlock()
+	fake.AttachIOStub = stub
+}
+
 func (fake *WrappedProcess) AttachIOArgsForCall(i int) (io.Reader, io.Writer, io.Writer) {
 	fake.attachIOMutex.RLock()
 	defer fake.attachIOMutex.RUnlock()
-	return fake.attachIOArgsForCall[i].arg1, fake.attachIOArgsForCall[i].arg2, fake.attachIOArgsForCall[i].arg3
+	argsForCall := fake.attachIOArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *WrappedProcess) AttachIOReturns(result1 int, result2 error) {
+	fake.attachIOMutex.Lock()
+	defer fake.attachIOMutex.Unlock()
 	fake.AttachIOStub = nil
 	fake.attachIOReturns = struct {
 		result1 int
@@ -85,6 +96,8 @@ func (fake *WrappedProcess) AttachIOReturns(result1 int, result2 error) {
 }
 
 func (fake *WrappedProcess) AttachIOReturnsOnCall(i int, result1 int, result2 error) {
+	fake.attachIOMutex.Lock()
+	defer fake.attachIOMutex.Unlock()
 	fake.AttachIOStub = nil
 	if fake.attachIOReturnsOnCall == nil {
 		fake.attachIOReturnsOnCall = make(map[int]struct {
@@ -103,9 +116,10 @@ func (fake *WrappedProcess) SetInterrupt(arg1 chan os.Signal) {
 	fake.setInterruptArgsForCall = append(fake.setInterruptArgsForCall, struct {
 		arg1 chan os.Signal
 	}{arg1})
+	stub := fake.SetInterruptStub
 	fake.recordInvocation("SetInterrupt", []interface{}{arg1})
 	fake.setInterruptMutex.Unlock()
-	if fake.SetInterruptStub != nil {
+	if stub != nil {
 		fake.SetInterruptStub(arg1)
 	}
 }
@@ -116,10 +130,17 @@ func (fake *WrappedProcess) SetInterruptCallCount() int {
 	return len(fake.setInterruptArgsForCall)
 }
 
+func (fake *WrappedProcess) SetInterruptCalls(stub func(chan os.Signal)) {
+	fake.setInterruptMutex.Lock()
+	defer fake.setInterruptMutex.Unlock()
+	fake.SetInterruptStub = stub
+}
+
 func (fake *WrappedProcess) SetInterruptArgsForCall(i int) chan os.Signal {
 	fake.setInterruptMutex.RLock()
 	defer fake.setInterruptMutex.RUnlock()
-	return fake.setInterruptArgsForCall[i].arg1
+	argsForCall := fake.setInterruptArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *WrappedProcess) WritePIDFile(arg1 string) error {
@@ -128,15 +149,17 @@ func (fake *WrappedProcess) WritePIDFile(arg1 string) error {
 	fake.writePIDFileArgsForCall = append(fake.writePIDFileArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.WritePIDFileStub
+	fakeReturns := fake.writePIDFileReturns
 	fake.recordInvocation("WritePIDFile", []interface{}{arg1})
 	fake.writePIDFileMutex.Unlock()
-	if fake.WritePIDFileStub != nil {
-		return fake.WritePIDFileStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.writePIDFileReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *WrappedProcess) WritePIDFileCallCount() int {
@@ -145,13 +168,22 @@ func (fake *WrappedProcess) WritePIDFileCallCount() int {
 	return len(fake.writePIDFileArgsForCall)
 }
 
+func (fake *WrappedProcess) WritePIDFileCalls(stub func(string) error) {
+	fake.writePIDFileMutex.Lock()
+	defer fake.writePIDFileMutex.Unlock()
+	fake.WritePIDFileStub = stub
+}
+
 func (fake *WrappedProcess) WritePIDFileArgsForCall(i int) string {
 	fake.writePIDFileMutex.RLock()
 	defer fake.writePIDFileMutex.RUnlock()
-	return fake.writePIDFileArgsForCall[i].arg1
+	argsForCall := fake.writePIDFileArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *WrappedProcess) WritePIDFileReturns(result1 error) {
+	fake.writePIDFileMutex.Lock()
+	defer fake.writePIDFileMutex.Unlock()
 	fake.WritePIDFileStub = nil
 	fake.writePIDFileReturns = struct {
 		result1 error
@@ -159,6 +191,8 @@ func (fake *WrappedProcess) WritePIDFileReturns(result1 error) {
 }
 
 func (fake *WrappedProcess) WritePIDFileReturnsOnCall(i int, result1 error) {
+	fake.writePIDFileMutex.Lock()
+	defer fake.writePIDFileMutex.Unlock()
 	fake.WritePIDFileStub = nil
 	if fake.writePIDFileReturnsOnCall == nil {
 		fake.writePIDFileReturnsOnCall = make(map[int]struct {
@@ -179,7 +213,11 @@ func (fake *WrappedProcess) Invocations() map[string][][]interface{} {
 	defer fake.setInterruptMutex.RUnlock()
 	fake.writePIDFileMutex.RLock()
 	defer fake.writePIDFileMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *WrappedProcess) recordInvocation(key string, args []interface{}) {

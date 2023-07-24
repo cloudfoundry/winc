@@ -32,15 +32,17 @@ func (fake *HCSClient) OpenContainer(arg1 string) (hcs.Container, error) {
 	fake.openContainerArgsForCall = append(fake.openContainerArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.OpenContainerStub
+	fakeReturns := fake.openContainerReturns
 	fake.recordInvocation("OpenContainer", []interface{}{arg1})
 	fake.openContainerMutex.Unlock()
-	if fake.OpenContainerStub != nil {
-		return fake.OpenContainerStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.openContainerReturns.result1, fake.openContainerReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *HCSClient) OpenContainerCallCount() int {
@@ -49,13 +51,22 @@ func (fake *HCSClient) OpenContainerCallCount() int {
 	return len(fake.openContainerArgsForCall)
 }
 
+func (fake *HCSClient) OpenContainerCalls(stub func(string) (hcs.Container, error)) {
+	fake.openContainerMutex.Lock()
+	defer fake.openContainerMutex.Unlock()
+	fake.OpenContainerStub = stub
+}
+
 func (fake *HCSClient) OpenContainerArgsForCall(i int) string {
 	fake.openContainerMutex.RLock()
 	defer fake.openContainerMutex.RUnlock()
-	return fake.openContainerArgsForCall[i].arg1
+	argsForCall := fake.openContainerArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *HCSClient) OpenContainerReturns(result1 hcs.Container, result2 error) {
+	fake.openContainerMutex.Lock()
+	defer fake.openContainerMutex.Unlock()
 	fake.OpenContainerStub = nil
 	fake.openContainerReturns = struct {
 		result1 hcs.Container
@@ -64,6 +75,8 @@ func (fake *HCSClient) OpenContainerReturns(result1 hcs.Container, result2 error
 }
 
 func (fake *HCSClient) OpenContainerReturnsOnCall(i int, result1 hcs.Container, result2 error) {
+	fake.openContainerMutex.Lock()
+	defer fake.openContainerMutex.Unlock()
 	fake.OpenContainerStub = nil
 	if fake.openContainerReturnsOnCall == nil {
 		fake.openContainerReturnsOnCall = make(map[int]struct {
@@ -82,7 +95,11 @@ func (fake *HCSClient) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.openContainerMutex.RLock()
 	defer fake.openContainerMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *HCSClient) recordInvocation(key string, args []interface{}) {
