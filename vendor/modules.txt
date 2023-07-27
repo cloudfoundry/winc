@@ -12,10 +12,9 @@ github.com/Microsoft/go-winio/internal/fs
 github.com/Microsoft/go-winio/internal/socket
 github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
-github.com/Microsoft/go-winio/pkg/security
 github.com/Microsoft/go-winio/vhd
-# github.com/Microsoft/hcsshim v0.9.9
-## explicit; go 1.13
+# github.com/Microsoft/hcsshim v0.10.0
+## explicit; go 1.18
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/computestorage
 github.com/Microsoft/hcsshim/internal/cow
@@ -29,10 +28,13 @@ github.com/Microsoft/hcsshim/internal/jobobject
 github.com/Microsoft/hcsshim/internal/log
 github.com/Microsoft/hcsshim/internal/logfields
 github.com/Microsoft/hcsshim/internal/longpath
+github.com/Microsoft/hcsshim/internal/memory
 github.com/Microsoft/hcsshim/internal/mergemaps
 github.com/Microsoft/hcsshim/internal/oc
+github.com/Microsoft/hcsshim/internal/protocol/guestrequest
 github.com/Microsoft/hcsshim/internal/queue
 github.com/Microsoft/hcsshim/internal/safefile
+github.com/Microsoft/hcsshim/internal/security
 github.com/Microsoft/hcsshim/internal/timeout
 github.com/Microsoft/hcsshim/internal/vmcompute
 github.com/Microsoft/hcsshim/internal/wclayer
@@ -41,9 +43,13 @@ github.com/Microsoft/hcsshim/osversion
 # github.com/blang/semver v3.5.1+incompatible
 ## explicit
 github.com/blang/semver
-# github.com/containerd/cgroups v1.1.0
-## explicit; go 1.17
-github.com/containerd/cgroups/stats/v1
+# github.com/containerd/cgroups/v3 v3.0.2
+## explicit; go 1.18
+github.com/containerd/cgroups/v3/cgroup1/stats
+# github.com/containerd/containerd v1.7.2
+## explicit; go 1.19
+github.com/containerd/containerd/errdefs
+github.com/containerd/containerd/log
 # github.com/cpuguy83/go-md2man/v2 v2.0.2
 ## explicit; go 1.11
 github.com/cpuguy83/go-md2man/v2/md2man
@@ -54,14 +60,16 @@ github.com/go-logr/logr/funcr
 # github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
-# github.com/gogo/protobuf v1.3.2
-## explicit; go 1.15
-github.com/gogo/protobuf/gogoproto
-github.com/gogo/protobuf/proto
-github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
+# github.com/golang/protobuf v1.5.3
+## explicit; go 1.9
+github.com/golang/protobuf/proto
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes/duration
+github.com/golang/protobuf/ptypes/timestamp
 # github.com/google/go-cmp v0.5.9
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
@@ -104,7 +112,7 @@ github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.27.8
+# github.com/onsi/gomega v1.27.10
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -120,10 +128,10 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/opencontainers/runtime-spec v1.1.0-rc.3 => github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
+# github.com/opencontainers/runtime-spec v1.1.0 => github.com/opencontainers/runtime-spec v1.0.1-0.20171004210716-34170989dc28
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/opencontainers/runtime-tools v0.9.0 => github.com/opencontainers/runtime-tools v0.0.0-20170728063910-e29f3ca4eb80
+# github.com/opencontainers/runtime-tools v0.9.1-0.20221107090550-2e043c6bd626 => github.com/opencontainers/runtime-tools v0.0.0-20170728063910-e29f3ca4eb80
 ## explicit
 github.com/opencontainers/runtime-tools/validate
 # github.com/pkg/errors v0.9.1
@@ -171,6 +179,7 @@ golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
 # golang.org/x/text v0.11.0
 ## explicit; go 1.17
 golang.org/x/text/encoding
@@ -209,6 +218,57 @@ golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20230726155614-23370e0ffb3e
+## explicit; go 1.19
+google.golang.org/genproto/googleapis/rpc/status
+# google.golang.org/grpc v1.57.0
+## explicit; go 1.17
+google.golang.org/grpc/attributes
+google.golang.org/grpc/codes
+google.golang.org/grpc/connectivity
+google.golang.org/grpc/credentials
+google.golang.org/grpc/grpclog
+google.golang.org/grpc/internal
+google.golang.org/grpc/internal/credentials
+google.golang.org/grpc/internal/grpclog
+google.golang.org/grpc/internal/status
+google.golang.org/grpc/resolver
+google.golang.org/grpc/serviceconfig
+google.golang.org/grpc/status
+# google.golang.org/protobuf v1.31.0
+## explicit; go 1.11
+google.golang.org/protobuf/encoding/protojson
+google.golang.org/protobuf/encoding/prototext
+google.golang.org/protobuf/encoding/protowire
+google.golang.org/protobuf/internal/descfmt
+google.golang.org/protobuf/internal/descopts
+google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/json
+google.golang.org/protobuf/internal/encoding/messageset
+google.golang.org/protobuf/internal/encoding/tag
+google.golang.org/protobuf/internal/encoding/text
+google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/filedesc
+google.golang.org/protobuf/internal/filetype
+google.golang.org/protobuf/internal/flags
+google.golang.org/protobuf/internal/genid
+google.golang.org/protobuf/internal/impl
+google.golang.org/protobuf/internal/order
+google.golang.org/protobuf/internal/pragma
+google.golang.org/protobuf/internal/set
+google.golang.org/protobuf/internal/strs
+google.golang.org/protobuf/internal/version
+google.golang.org/protobuf/proto
+google.golang.org/protobuf/reflect/protodesc
+google.golang.org/protobuf/reflect/protoreflect
+google.golang.org/protobuf/reflect/protoregistry
+google.golang.org/protobuf/runtime/protoiface
+google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/descriptorpb
+google.golang.org/protobuf/types/known/anypb
+google.golang.org/protobuf/types/known/durationpb
+google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
