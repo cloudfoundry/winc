@@ -1,5 +1,3 @@
-//go:build windows
-
 package wclayer
 
 import (
@@ -18,7 +16,7 @@ import (
 // folder path at which the layer is stored.
 func GetLayerMountPath(ctx context.Context, path string) (_ string, err error) {
 	title := "hcsshim::GetLayerMountPath"
-	ctx, span := oc.StartSpan(ctx, title)
+	ctx, span := trace.StartSpan(ctx, title)
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("path", path))

@@ -9,14 +9,6 @@
 
 package hcsschema
 
-type CPUGroupPropertyCode uint32
-
-const (
-	CPUCapacityProperty           = 0x00010000
-	CPUSchedulingPriorityProperty = 0x00020000
-	IdleLPReserveProperty         = 0x00030000
-)
-
 type CpuGroupProperty struct {
 	PropertyCode  uint32 `json:"PropertyCode,omitempty"`
 	PropertyValue uint32 `json:"PropertyValue,omitempty"`

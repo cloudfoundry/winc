@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 )
 
 // OSVersion is a wrapper for Windows version information
@@ -46,30 +45,6 @@ func Build() uint16 {
 	return Get().Build
 }
 
-// String returns the OSVersion formatted as a string. It implements the
-// [fmt.Stringer] interface.
-func (osv OSVersion) String() string {
-	return fmt.Sprintf("%d.%d.%d", osv.MajorVersion, osv.MinorVersion, osv.Build)
-}
-
-// ToString returns the OSVersion formatted as a string.
-//
-// Deprecated: use [OSVersion.String].
 func (osv OSVersion) ToString() string {
-	return osv.String()
-}
-
-// Running `cmd /c ver` shows something like "10.0.20348.1000". The last component ("1000") is the revision
-// number
-func BuildRevision() (uint32, error) {
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
-	if err != nil {
-		return 0, fmt.Errorf("open `CurrentVersion` registry key: %w", err)
-	}
-	defer k.Close()
-	s, _, err := k.GetIntegerValue("UBR")
-	if err != nil {
-		return 0, fmt.Errorf("read `UBR` from registry: %w", err)
-	}
-	return uint32(s), nil
+	return fmt.Sprintf("%d.%d.%d", osv.MajorVersion, osv.MinorVersion, osv.Build)
 }

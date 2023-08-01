@@ -29,8 +29,4 @@ type VirtualMachine struct {
 	StorageQoS *StorageQoS `json:"StorageQoS,omitempty"`
 
 	GuestConnection *GuestConnection `json:"GuestConnection,omitempty"`
-
-	SecuritySettings *SecuritySettings `json:"SecuritySettings,omitempty"`
-
-	DebugOptions *DebugOptions `json:"DebugOptions,omitempty"`
 }
