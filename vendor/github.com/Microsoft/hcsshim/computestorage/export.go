@@ -1,5 +1,3 @@
-//go:build windows
-
 package computestorage
 
 import (
@@ -21,8 +19,8 @@ import (
 //
 // `options` are the export options applied to the exported layer.
 func ExportLayer(ctx context.Context, layerPath, exportFolderPath string, layerData LayerData, options ExportLayerOptions) (err error) {
-	title := "hcsshim::ExportLayer"
-	ctx, span := oc.StartSpan(ctx, title) //nolint:ineffassign,staticcheck
+	title := "hcsshim.ExportLayer"
+	ctx, span := trace.StartSpan(ctx, title) //nolint:ineffassign,staticcheck
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(
@@ -30,17 +28,17 @@ func ExportLayer(ctx context.Context, layerPath, exportFolderPath string, layerD
 		trace.StringAttribute("exportFolderPath", exportFolderPath),
 	)
 
-	ldBytes, err := json.Marshal(layerData)
+	ldbytes, err := json.Marshal(layerData)
 	if err != nil {
 		return err
 	}
 
-	oBytes, err := json.Marshal(options)
+	obytes, err := json.Marshal(options)
 	if err != nil {
 		return err
 	}
 
-	err = hcsExportLayer(layerPath, exportFolderPath, string(ldBytes), string(oBytes))
+	err = hcsExportLayer(layerPath, exportFolderPath, string(ldbytes), string(obytes))
 	if err != nil {
 		return errors.Wrap(err, "failed to export layer")
 	}

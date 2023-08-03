@@ -1,5 +1,3 @@
-//go:build windows
-
 package vmcompute
 
 import (
@@ -7,17 +5,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"go.opencensus.io/trace"
-
 	"github.com/Microsoft/hcsshim/internal/interop"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
 	"github.com/Microsoft/hcsshim/internal/oc"
 	"github.com/Microsoft/hcsshim/internal/timeout"
+	"go.opencensus.io/trace"
 )
 
-//go:generate go run github.com/Microsoft/go-winio/tools/mkwinsyscall -output zsyscall_windows.go vmcompute.go
+//go:generate go run ../../mksyscall_windows.go -output zsyscall_windows.go vmcompute.go
 
 //sys hcsEnumerateComputeSystems(query string, computeSystems **uint16, result **uint16) (hr error) = vmcompute.HcsEnumerateComputeSystems?
 //sys hcsCreateComputeSystem(id string, configuration string, identity syscall.Handle, computeSystem *HcsSystem, result **uint16) (hr error) = vmcompute.HcsCreateComputeSystem?
@@ -66,7 +62,7 @@ type HcsCallback syscall.Handle
 type HcsProcessInformation struct {
 	// ProcessId is the pid of the created process.
 	ProcessId uint32
-	_         uint32 // reserved padding
+	reserved  uint32 //nolint:structcheck
 	// StdInput is the handle associated with the stdin of the process.
 	StdInput syscall.Handle
 	// StdOutput is the handle associated with the stdout of the process.
@@ -76,26 +72,10 @@ type HcsProcessInformation struct {
 }
 
 func execute(ctx gcontext.Context, timeout time.Duration, f func() error) error {
-	now := time.Now()
 	if timeout > 0 {
 		var cancel gcontext.CancelFunc
 		ctx, cancel = gcontext.WithTimeout(ctx, timeout)
 		defer cancel()
-	}
-
-	// if ctx already has prior deadlines, the shortest timeout takes precedence and is used.
-	// find the true timeout for reporting
-	//
-	// this is mostly an issue with (*UtilityVM).Start(context.Context), which sets its
-	// own (2 minute) timeout.
-	deadline, ok := ctx.Deadline()
-	trueTimeout := timeout
-	if ok {
-		trueTimeout = deadline.Sub(now)
-		log.G(ctx).WithFields(logrus.Fields{
-			logfields.Timeout: trueTimeout,
-			"desiredTimeout":  timeout,
-		}).Trace("Executing syscall with deadline")
 	}
 
 	done := make(chan error, 1)
@@ -105,10 +85,8 @@ func execute(ctx gcontext.Context, timeout time.Duration, f func() error) error 
 	select {
 	case <-ctx.Done():
 		if ctx.Err() == gcontext.DeadlineExceeded {
-			log.G(ctx).WithField(logfields.Timeout, trueTimeout).
-				Warning("Syscall did not complete within operation timeout. This may indicate a platform issue. " +
-					"If it appears to be making no forward progress, obtain the stacks and see if there is a syscall " +
-					"stuck in the platform API for a significant length of time.")
+			log.G(ctx).WithField(logfields.Timeout, timeout).
+				Warning("Syscall did not complete within operation timeout. This may indicate a platform issue. If it appears to be making no forward progress, obtain the stacks and see if there is a syscall stuck in the platform API for a significant length of time.")
 		}
 		return ctx.Err()
 	case err := <-done:
@@ -117,7 +95,7 @@ func execute(ctx gcontext.Context, timeout time.Duration, f func() error) error 
 }
 
 func HcsEnumerateComputeSystems(ctx gcontext.Context, query string) (computeSystems, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsEnumerateComputeSystems")
+	ctx, span := trace.StartSpan(ctx, "HcsEnumerateComputeSystems")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -144,7 +122,7 @@ func HcsEnumerateComputeSystems(ctx gcontext.Context, query string) (computeSyst
 }
 
 func HcsCreateComputeSystem(ctx gcontext.Context, id string, configuration string, identity syscall.Handle) (computeSystem HcsSystem, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsCreateComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsCreateComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -169,7 +147,7 @@ func HcsCreateComputeSystem(ctx gcontext.Context, id string, configuration strin
 }
 
 func HcsOpenComputeSystem(ctx gcontext.Context, id string) (computeSystem HcsSystem, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsOpenComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsOpenComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -189,7 +167,7 @@ func HcsOpenComputeSystem(ctx gcontext.Context, id string) (computeSystem HcsSys
 }
 
 func HcsCloseComputeSystem(ctx gcontext.Context, computeSystem HcsSystem) (hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsCloseComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsCloseComputeSystem")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, hr) }()
 
@@ -199,7 +177,7 @@ func HcsCloseComputeSystem(ctx gcontext.Context, computeSystem HcsSystem) (hr er
 }
 
 func HcsStartComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsStartComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsStartComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -222,7 +200,7 @@ func HcsStartComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, option
 }
 
 func HcsShutdownComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsShutdownComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsShutdownComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -245,7 +223,7 @@ func HcsShutdownComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, opt
 }
 
 func HcsTerminateComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsTerminateComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsTerminateComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -268,7 +246,7 @@ func HcsTerminateComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, op
 }
 
 func HcsPauseComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsPauseComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsPauseComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -291,7 +269,7 @@ func HcsPauseComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, option
 }
 
 func HcsResumeComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsResumeComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsResumeComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -314,7 +292,7 @@ func HcsResumeComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, optio
 }
 
 func HcsGetComputeSystemProperties(ctx gcontext.Context, computeSystem HcsSystem, propertyQuery string) (properties, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsGetComputeSystemProperties")
+	ctx, span := trace.StartSpan(ctx, "HcsGetComputeSystemProperties")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -341,7 +319,7 @@ func HcsGetComputeSystemProperties(ctx gcontext.Context, computeSystem HcsSystem
 }
 
 func HcsModifyComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, configuration string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsModifyComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsModifyComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -362,7 +340,7 @@ func HcsModifyComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, confi
 }
 
 func HcsModifyServiceSettings(ctx gcontext.Context, settings string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsModifyServiceSettings")
+	ctx, span := trace.StartSpan(ctx, "HcsModifyServiceSettings")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -383,7 +361,7 @@ func HcsModifyServiceSettings(ctx gcontext.Context, settings string) (result str
 }
 
 func HcsRegisterComputeSystemCallback(ctx gcontext.Context, computeSystem HcsSystem, callback uintptr, context uintptr) (callbackHandle HcsCallback, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsRegisterComputeSystemCallback")
+	ctx, span := trace.StartSpan(ctx, "HcsRegisterComputeSystemCallback")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, hr) }()
 
@@ -393,7 +371,7 @@ func HcsRegisterComputeSystemCallback(ctx gcontext.Context, computeSystem HcsSys
 }
 
 func HcsUnregisterComputeSystemCallback(ctx gcontext.Context, callbackHandle HcsCallback) (hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsUnregisterComputeSystemCallback")
+	ctx, span := trace.StartSpan(ctx, "HcsUnregisterComputeSystemCallback")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, hr) }()
 
@@ -403,7 +381,7 @@ func HcsUnregisterComputeSystemCallback(ctx gcontext.Context, callbackHandle Hcs
 }
 
 func HcsCreateProcess(ctx gcontext.Context, computeSystem HcsSystem, processParameters string) (processInformation HcsProcessInformation, process HcsProcess, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsCreateProcess")
+	ctx, span := trace.StartSpan(ctx, "HcsCreateProcess")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -411,12 +389,7 @@ func HcsCreateProcess(ctx gcontext.Context, computeSystem HcsSystem, processPara
 		}
 		oc.SetSpanStatus(span, hr)
 	}()
-	if span.IsRecordingEvents() {
-		// wont handle v1 process parameters
-		if s, err := log.ScrubProcessParameters(processParameters); err == nil {
-			span.AddAttributes(trace.StringAttribute("processParameters", s))
-		}
-	}
+	span.AddAttributes(trace.StringAttribute("processParameters", processParameters))
 
 	return processInformation, process, result, execute(ctx, timeout.SyscallWatcher, func() error {
 		var resultp *uint16
@@ -429,7 +402,7 @@ func HcsCreateProcess(ctx gcontext.Context, computeSystem HcsSystem, processPara
 }
 
 func HcsOpenProcess(ctx gcontext.Context, computeSystem HcsSystem, pid uint32) (process HcsProcess, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsOpenProcess")
+	ctx, span := trace.StartSpan(ctx, "HcsOpenProcess")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -450,7 +423,7 @@ func HcsOpenProcess(ctx gcontext.Context, computeSystem HcsSystem, pid uint32) (
 }
 
 func HcsCloseProcess(ctx gcontext.Context, process HcsProcess) (hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsCloseProcess")
+	ctx, span := trace.StartSpan(ctx, "HcsCloseProcess")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, hr) }()
 
@@ -460,7 +433,7 @@ func HcsCloseProcess(ctx gcontext.Context, process HcsProcess) (hr error) {
 }
 
 func HcsTerminateProcess(ctx gcontext.Context, process HcsProcess) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsTerminateProcess")
+	ctx, span := trace.StartSpan(ctx, "HcsTerminateProcess")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -480,7 +453,7 @@ func HcsTerminateProcess(ctx gcontext.Context, process HcsProcess) (result strin
 }
 
 func HcsSignalProcess(ctx gcontext.Context, process HcsProcess, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsSignalProcess")
+	ctx, span := trace.StartSpan(ctx, "HcsSignalProcess")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -501,7 +474,7 @@ func HcsSignalProcess(ctx gcontext.Context, process HcsProcess, options string) 
 }
 
 func HcsGetProcessInfo(ctx gcontext.Context, process HcsProcess) (processInformation HcsProcessInformation, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsGetProcessInfo")
+	ctx, span := trace.StartSpan(ctx, "HcsGetProcessInfo")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -521,7 +494,7 @@ func HcsGetProcessInfo(ctx gcontext.Context, process HcsProcess) (processInforma
 }
 
 func HcsGetProcessProperties(ctx gcontext.Context, process HcsProcess) (processProperties, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsGetProcessProperties")
+	ctx, span := trace.StartSpan(ctx, "HcsGetProcessProperties")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -547,7 +520,7 @@ func HcsGetProcessProperties(ctx gcontext.Context, process HcsProcess) (processP
 }
 
 func HcsModifyProcess(ctx gcontext.Context, process HcsProcess, settings string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsModifyProcess")
+	ctx, span := trace.StartSpan(ctx, "HcsModifyProcess")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -568,7 +541,7 @@ func HcsModifyProcess(ctx gcontext.Context, process HcsProcess, settings string)
 }
 
 func HcsGetServiceProperties(ctx gcontext.Context, propertyQuery string) (properties, result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsGetServiceProperties")
+	ctx, span := trace.StartSpan(ctx, "HcsGetServiceProperties")
 	defer span.End()
 	defer func() {
 		if result != "" {
@@ -595,7 +568,7 @@ func HcsGetServiceProperties(ctx gcontext.Context, propertyQuery string) (proper
 }
 
 func HcsRegisterProcessCallback(ctx gcontext.Context, process HcsProcess, callback uintptr, context uintptr) (callbackHandle HcsCallback, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsRegisterProcessCallback")
+	ctx, span := trace.StartSpan(ctx, "HcsRegisterProcessCallback")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, hr) }()
 
@@ -605,7 +578,7 @@ func HcsRegisterProcessCallback(ctx gcontext.Context, process HcsProcess, callba
 }
 
 func HcsUnregisterProcessCallback(ctx gcontext.Context, callbackHandle HcsCallback) (hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsUnregisterProcessCallback")
+	ctx, span := trace.StartSpan(ctx, "HcsUnregisterProcessCallback")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, hr) }()
 
@@ -615,7 +588,7 @@ func HcsUnregisterProcessCallback(ctx gcontext.Context, callbackHandle HcsCallba
 }
 
 func HcsSaveComputeSystem(ctx gcontext.Context, computeSystem HcsSystem, options string) (result string, hr error) {
-	ctx, span := oc.StartSpan(ctx, "HcsSaveComputeSystem")
+	ctx, span := trace.StartSpan(ctx, "HcsSaveComputeSystem")
 	defer span.End()
 	defer func() {
 		if result != "" {

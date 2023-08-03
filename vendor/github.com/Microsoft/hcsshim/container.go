@@ -1,5 +1,3 @@
-//go:build windows
-
 package hcsshim
 
 import (
@@ -62,7 +60,7 @@ type container struct {
 	waitCh   chan struct{}
 }
 
-// createContainerAdditionalJSON is read from the environment at initialization
+// createComputeSystemAdditionalJSON is read from the environment at initialisation
 // time. It allows an environment variable to define additional JSON which
 // is merged in the CreateComputeSystem call to HCS.
 var createContainerAdditionalJSON []byte

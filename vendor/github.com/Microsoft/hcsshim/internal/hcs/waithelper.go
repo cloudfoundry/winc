@@ -1,5 +1,3 @@
-//go:build windows
-
 package hcs
 
 import (
@@ -9,14 +7,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 )
 
-func processAsyncHcsResult(
-	ctx context.Context,
-	err error,
-	resultJSON string,
-	callbackNumber uintptr,
-	expectedNotification hcsNotification,
-	timeout *time.Duration,
-) ([]ErrorEvent, error) {
+func processAsyncHcsResult(ctx context.Context, err error, resultJSON string, callbackNumber uintptr, expectedNotification hcsNotification, timeout *time.Duration) ([]ErrorEvent, error) {
 	events := processHcsResult(ctx, resultJSON)
 	if IsPending(err) {
 		return nil, waitForNotification(ctx, callbackNumber, expectedNotification, timeout)
@@ -25,12 +16,7 @@ func processAsyncHcsResult(
 	return events, err
 }
 
-func waitForNotification(
-	ctx context.Context,
-	callbackNumber uintptr,
-	expectedNotification hcsNotification,
-	timeout *time.Duration,
-) error {
+func waitForNotification(ctx context.Context, callbackNumber uintptr, expectedNotification hcsNotification, timeout *time.Duration) error {
 	callbackMapLock.RLock()
 	if _, ok := callbackMap[callbackNumber]; !ok {
 		callbackMapLock.RUnlock()

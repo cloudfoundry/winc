@@ -1,16 +1,13 @@
-//go:build windows
-
 package hns
 
 import (
 	"encoding/json"
 	"errors"
-	"net"
-
 	"github.com/sirupsen/logrus"
+	"net"
 )
 
-// Subnet is associated with a network and represents a list
+// Subnet is assoicated with a network and represents a list
 // of subnets available to the network
 type Subnet struct {
 	AddressPrefix  string            `json:",omitempty"`
@@ -18,7 +15,7 @@ type Subnet struct {
 	Policies       []json.RawMessage `json:",omitempty"`
 }
 
-// MacPool is associated with a network and represents a list
+// MacPool is assoicated with a network and represents a list
 // of macaddresses available to the network
 type MacPool struct {
 	StartMacAddress string `json:",omitempty"`

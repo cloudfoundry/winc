@@ -1,5 +1,3 @@
-//go:build windows
-
 package winapi
 
 import "github.com/Microsoft/go-winio/pkg/guid"
