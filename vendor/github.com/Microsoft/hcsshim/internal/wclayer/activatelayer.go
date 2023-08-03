@@ -1,5 +1,3 @@
-//go:build windows
-
 package wclayer
 
 import (
@@ -16,7 +14,7 @@ import (
 // An activated layer must later be deactivated via DeactivateLayer.
 func ActivateLayer(ctx context.Context, path string) (err error) {
 	title := "hcsshim::ActivateLayer"
-	ctx, span := oc.StartSpan(ctx, title) //nolint:ineffassign,staticcheck
+	ctx, span := trace.StartSpan(ctx, title) //nolint:ineffassign,staticcheck
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("path", path))

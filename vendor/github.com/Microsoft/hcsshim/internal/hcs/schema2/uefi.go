@@ -12,8 +12,6 @@ package hcsschema
 type Uefi struct {
 	EnableDebugger bool `json:"EnableDebugger,omitempty"`
 
-	ApplySecureBootTemplate string `json:"ApplySecureBootTemplate,omitempty"`
-
 	SecureBootTemplateId string `json:"SecureBootTemplateId,omitempty"`
 
 	BootThis *UefiBootEntry `json:"BootThis,omitempty"`
