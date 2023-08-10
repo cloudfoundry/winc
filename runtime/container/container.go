@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"code.cloudfoundry.org/credhub-cli/credhub"
+	"code.cloudfoundry.org/credhub-cli/credhub/auth"
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/runtime/config"
 	"github.com/Microsoft/hcsshim"
@@ -162,10 +164,10 @@ func (m *Manager) Create(spec *specs.Spec, credentialSpec string) error {
 		MappedDirectories: mappedDirs,
 	}
 
-	credentialSpecFromEnv := getCredentialSpecFromEnv(spec.Process.Env)
+	credentialSpecFromEnv := getCredentialSpecFromEnv(spec.Process.Env, spec.Hostname)
 
 	if credentialSpecFromEnv != "" {
-		containerConfig.Credentials = credentialSpecFromEnv
+		// containerConfig.Credentials = credentialSpecFromEnv
 		m.logger.Infof("Overriding CredentialSpec from VCAP_SERVICES env")
 	} else if credentialSpec != "" {
 		containerConfig.Credentials = credentialSpec
@@ -397,21 +399,63 @@ func makeCmdLine(args []string) string {
 	return s
 }
 
-func getCredentialSpecFromEnv(envs []string) string {
+func getCredentialSpecFromEnv(envs []string, hostName string) string {
 	for _, env := range envs {
 		entry := strings.SplitN(env, "=", 2)
 		if len(entry) > 1 && entry[0] == "VCAP_SERVICES" {
 			vcapServicesValue := interface{}(nil)
 			json.Unmarshal([]byte(entry[1]), &vcapServicesValue)
-			csConfig, err := jsonpath.Get("$.*[*].credentials.credential_spec_config", vcapServicesValue)
+			csConfig, err := jsonpath.Get("$.credhub[*].credentials.*", vcapServicesValue)
 			if err == nil {
 				values := csConfig.([]interface{})
 				if len(values) == 1 {
-					jsonValue, _ := json.Marshal(&values[0])
-					return fmt.Sprintf("%s", jsonValue)
+					credentialRef := fmt.Sprintf("%s", values[0])
+
+					clientId := "credhub_admin_client"
+					clientSecret := "my-password"
+
+					credhubClient, err := credhub.New("https://credhub.service.cf.internal:8844",
+						credhub.Auth(auth.UaaClientCredentials(clientId, clientSecret)),
+					)
+					if err != nil {
+						os.WriteFile(`C:\log.log`, []byte(err.Error()), 0666)
+						return ""
+					}
+
+					credential, err := credhubClient.GetLatestVersion(credentialRef)
+					if err != nil {
+						os.WriteFile(`C:\log1.log`, []byte(err.Error()), 0666)
+						return ""
+					}
+
+					json, err := credential.MarshalJSON()
+					if err != nil {
+						os.WriteFile(`C:\log2.log`, []byte(err.Error()), 0666)
+						return ""
+					}
+
+					os.WriteFile(`C:\log9.log`, []byte(fmt.Sprintf("%s", json)), 0666)
+					return fmt.Sprintf("%s", json)
+				} else {
+					os.WriteFile(`C:\log4.log`, []byte(fmt.Sprintf("%+v", values)), 0666)
+					return ""
 				}
+			} else {
+				os.WriteFile(`C:\log3.log`, []byte(err.Error()), 0666)
+				return ""
 			}
 		}
 	}
 	return ""
+}
+
+func getEnvValue(envs []string, key string) string {
+	for _, env := range envs {
+		entry := strings.SplitN(env, "=", 2)
+		if len(entry) > 1 && entry[0] == key {
+			return entry[1]
+		}
+	}
+	return ""
+
 }
