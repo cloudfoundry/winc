@@ -14,7 +14,7 @@ github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/go-winio/pkg/security
 github.com/Microsoft/go-winio/vhd
-# github.com/Microsoft/hcsshim v0.11.0 => github.com/Microsoft/hcsshim v0.9.10
+# github.com/Microsoft/hcsshim v0.11.1 => github.com/Microsoft/hcsshim v0.9.10
 ## explicit; go 1.13
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/computestorage
@@ -82,7 +82,7 @@ github.com/miekg/dns
 # github.com/mitchellh/go-ps v1.0.0
 ## explicit; go 1.13
 github.com/mitchellh/go-ps
-# github.com/onsi/ginkgo/v2 v2.12.0
+# github.com/onsi/ginkgo/v2 v2.12.1
 ## explicit; go 1.18
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
