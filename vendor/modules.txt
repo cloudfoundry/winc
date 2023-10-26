@@ -2,7 +2,7 @@
 ## explicit; go 1.20
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes
-# code.cloudfoundry.org/localip v0.0.0-20231017144440-ef7ea823eb34
+# code.cloudfoundry.org/localip v0.0.0-20231025145031-77dc93c89492
 ## explicit; go 1.20
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.6.1
@@ -69,7 +69,7 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98
+# github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b
 ## explicit; go 1.19
 github.com/google/pprof/profile
 # github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -104,7 +104,7 @@ github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.28.0
+# github.com/onsi/gomega v1.29.0
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
