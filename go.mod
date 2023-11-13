@@ -10,7 +10,7 @@ require (
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/miekg/dns v1.1.56
 	github.com/mitchellh/go-ps v1.0.0
-	github.com/onsi/ginkgo/v2 v2.13.0
+	github.com/onsi/ginkgo/v2 v2.13.1
 	github.com/onsi/gomega v1.30.0
 	github.com/opencontainers/runtime-spec v1.1.0
 	github.com/opencontainers/runtime-tools v0.9.1-0.20221107090550-2e043c6bd626
