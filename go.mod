@@ -4,11 +4,11 @@ go 1.19
 
 require (
 	code.cloudfoundry.org/filelock v0.0.0-20230612152934-de193be258e4
-	code.cloudfoundry.org/localip v0.0.0-20231101144618-f2950077affe
+	code.cloudfoundry.org/localip v0.0.0-20231114145404-41b8c8e318cb
 	github.com/Microsoft/hcsshim v0.11.4
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
-	github.com/miekg/dns v1.1.56
+	github.com/miekg/dns v1.1.57
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/onsi/ginkgo/v2 v2.13.1
 	github.com/onsi/gomega v1.30.0
