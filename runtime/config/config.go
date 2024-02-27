@@ -114,7 +114,7 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 	}
 
 	if len(spec.Args) == 0 {
-		msgs = append(msgs, fmt.Sprintf("args must not be empty"))
+		msgs = append(msgs, "args must not be empty")
 	}
 
 	for _, env := range spec.Env {
