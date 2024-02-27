@@ -135,10 +135,7 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 
 func envValid(env string) bool {
 	items := strings.Split(env, "=")
-	if len(items) < 2 {
-		return false
-	}
-	return true
+	return len(items) >= 2
 }
 
 func checkSemVer(version string) []string {
