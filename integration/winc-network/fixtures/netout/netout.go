@@ -51,7 +51,6 @@ func testDNS(host string) {
 		os.Exit(1)
 	}
 	fmt.Printf("found addrs: %+v\n", addrs)
-	return
 }
 
 func testTCP(addr string, port int) {
