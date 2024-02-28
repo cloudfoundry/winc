@@ -71,7 +71,7 @@ var _ = Describe("Events", func() {
 					Expect(cmd.Start()).To(Succeed())
 
 					Eventually(func() string {
-						out := make([]byte, 256, 256)
+						out := make([]byte, 256)
 						n, _ := stdOut.Read(out)
 						return strings.TrimSpace(string(out[:n]))
 					}).Should(Equal(fmt.Sprintf("Allocated %d", memConsumedBytes)))
