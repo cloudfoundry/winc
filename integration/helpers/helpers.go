@@ -146,7 +146,7 @@ func (h *Helpers) WriteNetworkConfig(networkConfig network.Config, networkConfig
 func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
 	h.WriteNetworkConfig(networkConfig, networkConfigFile)
 
-	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
+	args := []string{"--action", "create", "--configFile", networkConfigFile}
 	args = append(args, extraArgs...)
 	cmd := exec.Command(h.wincNetworkBin, args...)
 	_, _, err := h.Execute(cmd)
