@@ -345,7 +345,7 @@ func (h *Helpers) ContainerProcesses(containerId, filter string) []hcsshim.Proce
 }
 
 func (h *Helpers) ExecCommand(command string, args ...string) *exec.Cmd {
-	allArgs := []string{}
+	var allArgs []string
 	if h.debug {
 		allArgs = append([]string{"--log", h.logFile.Name(), "--debug"}, args...)
 	} else {
