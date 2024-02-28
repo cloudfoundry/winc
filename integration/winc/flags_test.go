@@ -229,8 +229,8 @@ var _ = Describe("Flags", func() {
 
 		It("creates a container and uses the credential spec path", func() {
 			file, err := os.CreateTemp(bundlePath, "credential-spec")
-			defer file.Close()
 			Expect(err).NotTo(HaveOccurred())
+			defer file.Close()
 
 			args := []string{"--credential-spec", file.Name(), "create", containerId, "-b", bundlePath}
 			_, _, err = helpers.Execute(exec.Command(wincBin, args...))

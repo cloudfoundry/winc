@@ -156,8 +156,8 @@ func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile 
 func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile string) {
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
-	defer f.Close()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	defer f.Close()
 
 	oldGatewaysInUse := h.loadGatewaysInUse(f)
 	var newGatewaysInUse []string
@@ -200,8 +200,8 @@ func (h *Helpers) GenerateNetworkConfig() network.Config {
 
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
-	defer f.Close()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	defer f.Close()
 
 	gatewaysInUse := h.loadGatewaysInUse(f)
 
