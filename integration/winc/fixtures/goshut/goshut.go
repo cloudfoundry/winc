@@ -21,7 +21,7 @@ func eventHandler(controlType uint) uint {
 		fmt.Printf("Looping forever\n")
 		start := time.Now()
 		for {
-			fmt.Printf("IN LOOP: Elapsed time=%s\n", time.Now().Sub(start))
+			fmt.Printf("IN LOOP: Elapsed time=%s\n", time.Since(start))
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
