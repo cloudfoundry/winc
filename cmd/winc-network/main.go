@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -68,7 +67,7 @@ func main() {
 
 		var logWriter io.Writer
 		if logFile == "" || logFile == os.DevNull {
-			logWriter = ioutil.Discard
+			logWriter = io.Discard
 		} else {
 			if err := os.MkdirAll(filepath.Dir(logFile), 0666); err != nil {
 				return err
@@ -155,7 +154,7 @@ func main() {
 func parseConfig(configFile string) (network.Config, error) {
 	var config network.Config
 	if configFile != "" {
-		content, err := ioutil.ReadFile(configFile)
+		content, err := os.ReadFile(configFile)
 		if err != nil {
 			return config, err
 		}

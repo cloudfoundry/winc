@@ -3,7 +3,7 @@ package endpoint_test
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 
 	"code.cloudfoundry.org/winc/network"
 	"code.cloudfoundry.org/winc/network/endpoint"
@@ -37,7 +37,7 @@ var _ = Describe("EndpointManager", func() {
 
 		endpointManager = endpoint.NewEndpointManager(hcsClient, containerId, config)
 
-		logrus.SetOutput(ioutil.Discard)
+		logrus.SetOutput(io.Discard)
 	})
 
 	Describe("Create", func() {

@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,7 +27,7 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 	}
 
 	configPath := filepath.Join(bundlePath, SpecConfig)
-	content, err := ioutil.ReadFile(configPath)
+	content, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, &MissingBundleConfigError{BundlePath: bundlePath}
 	}
@@ -77,7 +76,7 @@ func ValidateProcess(logger *logrus.Entry, processConfig string, overrides *spec
 	if processConfig == "" {
 		spec.Cwd = defaultCwd
 	} else {
-		content, err := ioutil.ReadFile(processConfig)
+		content, err := os.ReadFile(processConfig)
 		if err != nil {
 			return nil, &MissingProcessConfigError{ProcessConfig: processConfig}
 		}

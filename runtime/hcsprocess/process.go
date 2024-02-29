@@ -2,7 +2,6 @@ package hcsprocess
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"strconv"
@@ -29,7 +28,7 @@ func New(p hcsshim.Process) *Process {
 
 func (p *Process) WritePIDFile(pidFile string) error {
 	if pidFile != "" {
-		if err := ioutil.WriteFile(pidFile, []byte(strconv.FormatInt(int64(p.process.Pid()), 10)), 0666); err != nil {
+		if err := os.WriteFile(pidFile, []byte(strconv.FormatInt(int64(p.process.Pid()), 10)), 0666); err != nil {
 			return err
 		}
 	}

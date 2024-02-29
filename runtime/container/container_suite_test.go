@@ -1,7 +1,7 @@
 package container_test
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,7 +10,7 @@ import (
 )
 
 var _ = BeforeSuite(func() {
-	logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(io.Discard)
 })
 
 func TestContainer(t *testing.T) {

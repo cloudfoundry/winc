@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,7 +26,7 @@ var _ = Describe("Events", func() {
 
 		BeforeEach(func() {
 			var err error
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			bundlePath, err = os.MkdirTemp("", "winccontainer")
 			Expect(err).To(Succeed())
 
 			containerId = filepath.Base(bundlePath)

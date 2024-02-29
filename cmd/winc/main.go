@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -128,7 +127,7 @@ func main() {
 		}
 
 		var logWriter io.Writer
-		logWriter = ioutil.Discard
+		logWriter = io.Discard
 
 		if !emptyLog(log) && logHandle != 0 {
 			return errors.New("only one of --log and --log-handle can be passed")

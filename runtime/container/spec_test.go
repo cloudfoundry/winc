@@ -2,7 +2,8 @@ package container_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
+	"os"
 	"path/filepath"
 
 	"code.cloudfoundry.org/winc/runtime/config"
@@ -32,7 +33,7 @@ var _ = Describe("Spec", func() {
 
 	BeforeEach(func() {
 		var err error
-		bundlePath, err = ioutil.TempDir("", "bundlePath")
+		bundlePath, err = os.MkdirTemp("", "bundlePath")
 		Expect(err).ToNot(HaveOccurred())
 		containerId = filepath.Base(bundlePath)
 
@@ -60,7 +61,7 @@ var _ = Describe("Spec", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		logger = (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "create")
 
 		containerManager = container.New(logger, hcsClient, containerId)
@@ -114,5 +115,5 @@ var _ = Describe("Spec", func() {
 func writeSpec(bundlePath string, spec *specs.Spec) {
 	contents, err := json.Marshal(spec)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), contents, 0644)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), contents, 0644)).To(Succeed())
 }

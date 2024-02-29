@@ -2,7 +2,7 @@ package container_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"code.cloudfoundry.org/winc/runtime/container"
@@ -27,7 +27,7 @@ var _ = Describe("Delete", func() {
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "delete")
 
 		containerManager = container.New(logger, hcsClient, containerId)

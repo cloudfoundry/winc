@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -25,7 +24,7 @@ var _ = Describe("Config", func() {
 
 	BeforeEach(func() {
 		var err error
-		bundlePath, err = ioutil.TempDir("", "config.test")
+		bundlePath, err = os.MkdirTemp("", "config.test")
 		Expect(err).NotTo(HaveOccurred())
 		logger = logrus.WithField("suite", "config")
 	})
@@ -59,7 +58,7 @@ var _ = Describe("Config", func() {
 			JustBeforeEach(func() {
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 			})
 
 			It("validates the bundle and returns the expected runtime spec", func() {
@@ -110,7 +109,7 @@ var _ = Describe("Config", func() {
 				encoder := encoding.NewEncoder()
 				configUnicode, err := encoder.Bytes(config)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), configUnicode, 0666)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), configUnicode, 0666)).To(Succeed())
 			})
 
 			It("errors", func() {
@@ -123,7 +122,7 @@ var _ = Describe("Config", func() {
 		Context("when provided a bundle with a config.json that is invalid JSON", func() {
 			BeforeEach(func() {
 				config := []byte("{")
-				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 			})
 
 			It("errors", func() {
@@ -153,7 +152,7 @@ var _ = Describe("Config", func() {
 				}
 				config, err := json.Marshal(&invalidSpec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
 				logOutput = &bytes.Buffer{}
 				logrus.SetOutput(logOutput)
@@ -190,7 +189,7 @@ var _ = Describe("Config", func() {
 					}
 					config, err := json.Marshal(&invalidSpec)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+					Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
 					logOutput = &bytes.Buffer{}
 					logrus.SetOutput(logOutput)
@@ -215,7 +214,7 @@ var _ = Describe("Config", func() {
 					}
 					config, err := json.Marshal(&invalidSpec)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+					Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
 					logOutput = &bytes.Buffer{}
 					logrus.SetOutput(logOutput)
@@ -241,7 +240,7 @@ var _ = Describe("Config", func() {
 					}
 					config, err := json.Marshal(&invalidSpec)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+					Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 
 					logOutput = &bytes.Buffer{}
 					logrus.SetOutput(logOutput)
@@ -259,7 +258,7 @@ var _ = Describe("Config", func() {
 					invalidSpec.Version = fmt.Sprintf("%d.%d.%d%s", specs.VersionMajor+1, specs.VersionMinor, specs.VersionPatch, specs.VersionDev)
 					config, err := json.Marshal(&invalidSpec)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+					Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 				})
 
 				It("errors", func() {
@@ -275,7 +274,7 @@ var _ = Describe("Config", func() {
 					invalidSpec.Version = "not-a-semver"
 					config, err := json.Marshal(&invalidSpec)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ioutil.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
+					Expect(os.WriteFile(filepath.Join(bundlePath, "config.json"), config, 0666)).To(Succeed())
 				})
 
 				It("errors", func() {
@@ -297,7 +296,7 @@ var _ = Describe("Config", func() {
 		)
 
 		BeforeEach(func() {
-			f, err := ioutil.TempFile("", "process.json")
+			f, err := os.CreateTemp("", "process.json")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f.Close()).To(Succeed())
 			processConfig = f.Name()
@@ -323,7 +322,7 @@ var _ = Describe("Config", func() {
 				}
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+				Expect(os.WriteFile(processConfig, config, 0666)).To(Succeed())
 			})
 
 			It("returns the expected process spec", func() {
@@ -342,7 +341,7 @@ var _ = Describe("Config", func() {
 					}
 					config, err := json.Marshal(&spec)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+					Expect(os.WriteFile(processConfig, config, 0666)).To(Succeed())
 				})
 
 				It("validates the process spec", func() {
@@ -465,7 +464,7 @@ var _ = Describe("Config", func() {
 				encoder := encoding.NewEncoder()
 				configUnicode, err := encoder.Bytes(config)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, configUnicode, 0666)).To(Succeed())
+				Expect(os.WriteFile(processConfig, configUnicode, 0666)).To(Succeed())
 			})
 
 			It("errors", func() {
@@ -477,7 +476,7 @@ var _ = Describe("Config", func() {
 		Context("when the process config file is not valid JSON", func() {
 			BeforeEach(func() {
 				config := []byte("{")
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+				Expect(os.WriteFile(processConfig, config, 0666)).To(Succeed())
 			})
 
 			It("the returned error describes the underlying JSON unmarshal error", func() {
@@ -501,7 +500,7 @@ var _ = Describe("Config", func() {
 
 				config, err := json.Marshal(&invalidSpec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+				Expect(os.WriteFile(processConfig, config, 0666)).To(Succeed())
 
 				logOutput = &bytes.Buffer{}
 				logrus.SetOutput(logOutput)

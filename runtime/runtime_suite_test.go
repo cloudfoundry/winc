@@ -1,7 +1,7 @@
 package runtime_test
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -12,7 +12,7 @@ import (
 func TestRuntime(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(io.Discard)
 
 	RunSpecs(t, "Runtime Suite")
 }

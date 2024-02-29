@@ -1,7 +1,7 @@
 package container_test
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 
 	"code.cloudfoundry.org/winc/runtime/container"
@@ -34,7 +34,7 @@ var _ = Describe("CredentialSpec", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		logger = (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "create")
 
 		containerManager = container.New(logger, hcsClient, containerId)

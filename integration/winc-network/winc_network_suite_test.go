@@ -3,7 +3,6 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -108,11 +107,11 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	var err error
-	tempDir, err = ioutil.TempDir("", "winc-network.config")
+	tempDir, err = os.MkdirTemp("", "winc-network.config")
 	Expect(err).NotTo(HaveOccurred())
 	networkConfigFile = filepath.Join(tempDir, "winc-network.json")
 
-	bundlePath, err = ioutil.TempDir("", "winccontainer")
+	bundlePath, err = os.MkdirTemp("", "winccontainer")
 	Expect(err).NotTo(HaveOccurred())
 	containerId = filepath.Base(bundlePath)
 })

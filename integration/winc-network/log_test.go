@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +19,7 @@ var _ = Describe("Logging", func() {
 
 	BeforeEach(func() {
 		var err error
-		tempDir, err = ioutil.TempDir("", "log-dir")
+		tempDir, err = os.MkdirTemp("", "log-dir")
 		Expect(err).NotTo(HaveOccurred())
 
 		logFile = filepath.Join(tempDir, "winc-network.log")
@@ -50,7 +49,7 @@ var _ = Describe("Logging", func() {
 		It("does not log to the specified file when creating a network", func() {
 			helpers.CreateNetwork(networkConfig, networkConfigFile, "--log", logFile)
 
-			contents, err := ioutil.ReadFile(logFile)
+			contents, err := os.ReadFile(logFile)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(string(contents)).To(BeEmpty())
@@ -68,7 +67,7 @@ var _ = Describe("Logging", func() {
 			_, _, err := helpers.Execute(cmd)
 			Expect(err).NotTo(HaveOccurred())
 
-			contents, err := ioutil.ReadFile(logFile)
+			contents, err := os.ReadFile(logFile)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(string(contents)).To(ContainSubstring("netsh http add urlacl url=http://*:8080/ user=Users"))
@@ -78,7 +77,7 @@ var _ = Describe("Logging", func() {
 			It("outputs debug level logs", func() {
 				helpers.CreateNetwork(networkConfig, networkConfigFile, "--log", logFile, "--debug")
 
-				contents, err := ioutil.ReadFile(logFile)
+				contents, err := os.ReadFile(logFile)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(string(contents)).NotTo(BeEmpty())
@@ -90,13 +89,13 @@ var _ = Describe("Logging", func() {
 		BeforeEach(func() {
 			c, err := json.Marshal(networkConfig)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(ioutil.WriteFile(networkConfigFile, c, 0644)).To(Succeed())
+			Expect(os.WriteFile(networkConfigFile, c, 0644)).To(Succeed())
 		})
 
 		It("logs errors to the specified file", func() {
 			exec.Command(wincNetworkBin, "--action", "some-invalid-action", "--log", logFile).CombinedOutput()
 
-			contents, err := ioutil.ReadFile(logFile)
+			contents, err := os.ReadFile(logFile)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(string(contents)).NotTo(BeEmpty())

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -27,7 +26,7 @@ func main() {
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := io.Copy(ioutil.Discard, r.Body)
+	_, err := io.Copy(io.Discard, r.Body)
 	if err != nil {
 		panic(err)
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,7 +29,7 @@ var _ = Describe("Create", func() {
 
 	BeforeEach(func() {
 		var err error
-		bundlePath, err = ioutil.TempDir("", "winccontainer")
+		bundlePath, err = os.MkdirTemp("", "winccontainer")
 		Expect(err).To(Succeed())
 
 		containerId = filepath.Base(bundlePath)
@@ -108,9 +107,9 @@ var _ = Describe("Create", func() {
 
 			BeforeEach(func() {
 				var err error
-				mountSource, err = ioutil.TempDir("", "mountsource")
+				mountSource, err = os.MkdirTemp("", "mountsource")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
+				Expect(os.WriteFile(filepath.Join(mountSource, "sentinel"), []byte("hello"), 0644)).To(Succeed())
 				Expect(acl.Apply(mountSource, false, false, acl.GrantName(windows.GENERIC_ALL, "Everyone"))).To(Succeed())
 
 				mountDest = "C:\\mountdest"
@@ -187,7 +186,7 @@ var _ = Describe("Create", func() {
 
 				BeforeEach(func() {
 					var err error
-					symlinkDir, err = ioutil.TempDir("", "symlinkdir")
+					symlinkDir, err = os.MkdirTemp("", "symlinkdir")
 					Expect(err).ToNot(HaveOccurred())
 					symlink := filepath.Join(symlinkDir, "link-dir")
 					Expect(createSymlinkToDir(mountSource, symlink)).To(Succeed())
@@ -282,12 +281,12 @@ var _ = Describe("Create", func() {
 				)
 
 				BeforeEach(func() {
-					l, err := ioutil.TempFile("", "winc.log")
+					l, err := os.CreateTemp("", "winc.log")
 					Expect(err).ToNot(HaveOccurred())
 					Expect(l.Close()).To(Succeed())
 					logFile = l.Name()
 
-					m, err := ioutil.TempFile("", "mountfile")
+					m, err := os.CreateTemp("", "mountfile")
 					Expect(err).ToNot(HaveOccurred())
 					Expect(m.Close()).To(Succeed())
 					mountFile = m.Name()
@@ -308,7 +307,7 @@ var _ = Describe("Create", func() {
 					stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, "--debug", "--log", logFile, "create", "-b", bundlePath, containerId))
 					Expect(err).NotTo(HaveOccurred(), stdOut.String(), stdErr.String())
 
-					contents, err := ioutil.ReadFile(logFile)
+					contents, err := os.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(string(contents)).To(ContainSubstring("mount is not a directory, ignoring"))
 					Expect(string(contents)).To(ContainSubstring(fmt.Sprintf(`"mount":"%s"`, strings.Replace(mountFile, `\`, `\\`, -1))))

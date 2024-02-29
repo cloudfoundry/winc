@@ -3,7 +3,6 @@ package state
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -212,7 +211,7 @@ func (m *Manager) stateDir() string {
 
 func (m *Manager) loadState() (State, error) {
 	logrus.Debugf("load state")
-	contents, err := ioutil.ReadFile(filepath.Join(m.stateDir(), stateFile))
+	contents, err := os.ReadFile(filepath.Join(m.stateDir(), stateFile))
 	if err != nil {
 		return State{}, err
 	}
@@ -230,5 +229,5 @@ func (m *Manager) writeState(state State) error {
 		return err
 	}
 
-	return ioutil.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
+	return os.WriteFile(filepath.Join(m.stateDir(), stateFile), contents, 0644)
 }

@@ -3,7 +3,6 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,7 +30,7 @@ var _ = Describe("Exec", func() {
 
 		BeforeEach(func() {
 			var err error
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			bundlePath, err = os.MkdirTemp("", "winccontainer")
 			Expect(err).To(Succeed())
 
 			containerId = filepath.Base(bundlePath)
@@ -69,7 +68,7 @@ var _ = Describe("Exec", func() {
 			BeforeEach(func() {
 				containerPid := helpers.GetContainerState(containerId).Pid
 				cmdPath := filepath.Join("c:\\", "proc", strconv.Itoa(containerPid), "root", "Windows", "System32", "cmd")
-				Expect(ioutil.WriteFile(cmdPath, []byte("xxx"), 0644)).To(Succeed())
+				Expect(os.WriteFile(cmdPath, []byte("xxx"), 0644)).To(Succeed())
 			})
 
 			It("runs the .exe for windows", func() {
@@ -83,7 +82,7 @@ var _ = Describe("Exec", func() {
 			var processConfig string
 
 			BeforeEach(func() {
-				f, err := ioutil.TempFile("", "process.json")
+				f, err := os.CreateTemp("", "process.json")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 				processConfig = f.Name()
@@ -98,7 +97,7 @@ var _ = Describe("Exec", func() {
 				expectedSpec.Args = []string{"/tmp/sleep", "99999"}
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+				Expect(os.WriteFile(processConfig, config, 0666)).To(Succeed())
 
 				args := []string{"exec", "--process", processConfig, "--detach", containerId}
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
@@ -113,7 +112,7 @@ var _ = Describe("Exec", func() {
 				expectedSpec.Args = []string{"some-invalid-command"}
 				config, err := json.Marshal(&expectedSpec)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ioutil.WriteFile(processConfig, config, 0666)).To(Succeed())
+				Expect(os.WriteFile(processConfig, config, 0666)).To(Succeed())
 
 				args := []string{"exec", "--process", processConfig, containerId}
 				stdOut, stdErr, err := helpers.Execute(exec.Command(wincBin, args...))
@@ -152,7 +151,7 @@ var _ = Describe("Exec", func() {
 				var logFile string
 
 				BeforeEach(func() {
-					f, err := ioutil.TempFile("", "winc.log")
+					f, err := os.CreateTemp("", "winc.log")
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
 					logFile = f.Name()
@@ -170,7 +169,7 @@ var _ = Describe("Exec", func() {
 					expectedErrorMsg := fmt.Sprintf("could not start command 'cmd.exe' in container: %s", containerId)
 					Expect(stdErr.String()).To(ContainSubstring(expectedErrorMsg))
 
-					log, err := ioutil.ReadFile(logFile)
+					log, err := os.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(string(log)).To(ContainSubstring("The user name or password is incorrect."))
 				})
@@ -238,7 +237,7 @@ var _ = Describe("Exec", func() {
 			var pidFile string
 
 			BeforeEach(func() {
-				f, err := ioutil.TempFile("", "pid")
+				f, err := os.CreateTemp("", "pid")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 				pidFile = f.Name()
@@ -256,7 +255,7 @@ var _ = Describe("Exec", func() {
 				pl := helpers.ContainerProcesses(containerId, "cmd.exe")
 				Expect(len(pl)).To(Equal(1))
 
-				pidBytes, err := ioutil.ReadFile(pidFile)
+				pidBytes, err := os.ReadFile(pidFile)
 				Expect(err).ToNot(HaveOccurred())
 				pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
 				Expect(err).ToNot(HaveOccurred())
@@ -297,7 +296,7 @@ var _ = Describe("Exec", func() {
 			if !strings.HasPrefix(os.Getenv("WINC_TEST_ROOTFS"), "docker:///cloudfoundry/windows2016fs:2019") {
 				Skip("This test is relevant only for cloudfoundry/windows2016fs:2019* rootfs")
 			}
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			bundlePath, err = os.MkdirTemp("", "winccontainer")
 			Expect(err).To(Succeed())
 
 			containerId = filepath.Base(bundlePath)

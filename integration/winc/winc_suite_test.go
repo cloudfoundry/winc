@@ -3,7 +3,6 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	mathrand "math/rand"
 	"os"
 	"os/exec"
@@ -96,7 +95,7 @@ var _ = BeforeSuite(func() {
 	goshutBin, err = gexec.Build("code.cloudfoundry.org/winc/integration/winc/fixtures/goshut")
 	Expect(err).ToNot(HaveOccurred())
 
-	binDir, err := ioutil.TempDir("", "winccontainer")
+	binDir, err := os.MkdirTemp("", "winccontainer")
 	Expect(err).ToNot(HaveOccurred())
 
 	err = os.Rename(sleepBin, filepath.Join(binDir, "sleep.exe"))

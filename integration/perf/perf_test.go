@@ -3,7 +3,6 @@ package perf_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -27,7 +26,7 @@ var _ = Describe("Perf", func() {
 
 	BeforeEach(func() {
 		var err error
-		tempDir, err = ioutil.TempDir("", "winc-perf")
+		tempDir, err = os.MkdirTemp("", "winc-perf")
 		Expect(err).NotTo(HaveOccurred())
 
 		bundleDepot = filepath.Join(tempDir, "bundle-depot")

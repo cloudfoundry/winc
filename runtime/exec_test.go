@@ -3,7 +3,6 @@ package runtime_test
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -58,7 +57,7 @@ var _ = Describe("Exec", func() {
 		containerFactory.NewManagerReturns(cm)
 
 		var err error
-		processSpecDir, err = ioutil.TempDir("", "runtime.exec")
+		processSpecDir, err = os.MkdirTemp("", "runtime.exec")
 		Expect(err).NotTo(HaveOccurred())
 		processSpecFile = filepath.Join(processSpecDir, "process.json")
 
@@ -73,7 +72,7 @@ var _ = Describe("Exec", func() {
 
 		c, err := json.Marshal(processSpec)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(ioutil.WriteFile(processSpecFile, c, 0644)).To(Succeed())
+		Expect(os.WriteFile(processSpecFile, c, 0644)).To(Succeed())
 
 		unwrappedProcess = &hcsfakes.Process{}
 
@@ -159,7 +158,7 @@ var _ = Describe("Exec", func() {
 
 			c, err := json.Marshal(processSpec)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(ioutil.WriteFile(processSpecFile, c, 0644)).To(Succeed())
+			Expect(os.WriteFile(processSpecFile, c, 0644)).To(Succeed())
 		})
 
 		It("returns an error", func() {
