@@ -135,19 +135,6 @@ func uploadFile(containerId string, fileSize int, serverURL string) int {
 	return uploadTime
 }
 
-func downloadFile(containerId string, fileSize int, serverURL string) int {
-	stdout, _, err := helpers.ExecInContainer(containerId, []string{"C:\\client.exe", serverURL, "download", strconv.Itoa(fileSize)}, false)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	outputRegex := regexp.MustCompile(`downloaded in ([0-9]+) miliseconds`)
-	match := outputRegex.FindStringSubmatch(strings.TrimSpace(stdout.String()))
-	ExpectWithOffset(1, len(match)).To(Equal(2))
-	downloadTime, err := strconv.Atoi(match[1])
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	return downloadTime
-}
-
 func deleteContainerAndNetwork(id string, config network.Config) {
 	helpers.NetworkDown(id, networkConfigFile)
 	helpers.DeleteContainer(id)
