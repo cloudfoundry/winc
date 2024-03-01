@@ -183,7 +183,7 @@ func (n *NetInterface) SetMTU(name string, mtu uint32, family uint32) error {
 	row.InterfaceLuid = adapterInfo.LUID
 	row.Family = family
 
-	r0, _, err := syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	r0, _, err := syscall.SyscallN(getIpInterfaceEntry.Addr(), uintptr(unsafe.Pointer(&row)), 0, 0)
 	if int32(r0) != 0 {
 		err := fmt.Errorf("GetIpInterfaceEntry: 0x%x", r0)
 		logrus.Error(err)
@@ -196,7 +196,7 @@ func (n *NetInterface) SetMTU(name string, mtu uint32, family uint32) error {
 	// SitePrefixLength must be 0 for IPv4 interfaces
 	row.SitePrefixLength = 0
 
-	r0, _, err = syscall.Syscall(setIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	r0, _, err = syscall.SyscallN(setIpInterfaceEntry.Addr(), uintptr(unsafe.Pointer(&row)), 0, 0)
 	if int32(r0) != 0 {
 		err := fmt.Errorf("SetIpInterfaceEntry: 0x%x", r0)
 		logrus.Error(err)
@@ -226,7 +226,7 @@ func (n *NetInterface) GetMTU(name string, family uint32) (uint32, error) {
 	row.InterfaceLuid = adapterInfo.LUID
 	row.Family = family
 
-	r0, _, err := syscall.Syscall(getIpInterfaceEntry.Addr(), 1, uintptr(unsafe.Pointer(&row)), 0, 0)
+	r0, _, err := syscall.SyscallN(getIpInterfaceEntry.Addr(), uintptr(unsafe.Pointer(&row)), 0, 0)
 	if int32(r0) != 0 {
 		err := fmt.Errorf("GetIpInterfaceEntry: 0x%x", r0)
 		logrus.Error(err)
