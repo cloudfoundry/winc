@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/big"
 	mathrand "math/rand"
@@ -58,7 +57,7 @@ func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string, debug
 
 	if h.debug {
 		var err error
-		h.logFile, err = ioutil.TempFile("", "log")
+		h.logFile, err = os.CreateTemp("", "log")
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 	return h
@@ -66,7 +65,7 @@ func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string, debug
 
 func (h *Helpers) Logs() []byte {
 	h.logFile.Close()
-	content, err := ioutil.ReadFile(h.logFile.Name())
+	content, err := os.ReadFile(h.logFile.Name())
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	Expect(os.RemoveAll(h.logFile.Name())).To(Succeed())
 	return content
@@ -86,7 +85,7 @@ func (h *Helpers) GenerateBundle(bundleSpec specs.Spec, bundlePath string) {
 	config, err := json.Marshal(&bundleSpec)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	configFile := filepath.Join(bundlePath, "config.json")
-	ExpectWithOffset(1, ioutil.WriteFile(configFile, config, 0666)).To(Succeed())
+	ExpectWithOffset(1, os.WriteFile(configFile, config, 0666)).To(Succeed())
 }
 
 func (h *Helpers) CreateContainer(bundleSpec specs.Spec, bundlePath, containerId string) {
@@ -146,7 +145,7 @@ func (h *Helpers) WriteNetworkConfig(networkConfig network.Config, networkConfig
 func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
 	h.WriteNetworkConfig(networkConfig, networkConfigFile)
 
-	args := append([]string{"--action", "create", "--configFile", networkConfigFile})
+	args := []string{"--action", "create", "--configFile", networkConfigFile}
 	args = append(args, extraArgs...)
 	cmd := exec.Command(h.wincNetworkBin, args...)
 	_, _, err := h.Execute(cmd)
@@ -156,8 +155,8 @@ func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile 
 func (h *Helpers) DeleteNetwork(networkConfig network.Config, networkConfigFile string) {
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
-	defer f.Close()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	defer f.Close()
 
 	oldGatewaysInUse := h.loadGatewaysInUse(f)
 	var newGatewaysInUse []string
@@ -200,8 +199,8 @@ func (h *Helpers) GenerateNetworkConfig() network.Config {
 
 	gatewayFile := filelock.NewLocker(h.gatewayFileName)
 	f, err := gatewayFile.Open()
-	defer f.Close()
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	defer f.Close()
 
 	gatewaysInUse := h.loadGatewaysInUse(f)
 
@@ -345,7 +344,7 @@ func (h *Helpers) ContainerProcesses(containerId, filter string) []hcsshim.Proce
 }
 
 func (h *Helpers) ExecCommand(command string, args ...string) *exec.Cmd {
-	allArgs := []string{}
+	var allArgs []string
 	if h.debug {
 		allArgs = append([]string{"--log", h.logFile.Name(), "--debug"}, args...)
 	} else {

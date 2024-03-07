@@ -62,7 +62,7 @@ func (m *Mounter) setPoint(mountPoint, volume string) error {
 		return err
 	}
 
-	r0, _, err := syscall.Syscall(setVolumeMountPointW.Addr(), 2, uintptr(unsafe.Pointer(mp)), uintptr(unsafe.Pointer(vol)), 0)
+	r0, _, err := syscall.SyscallN(setVolumeMountPointW.Addr(), uintptr(unsafe.Pointer(mp)), uintptr(unsafe.Pointer(vol)), 0)
 	if int32(r0) == 0 {
 		return fmt.Errorf("error setting mount point: %s", err.Error())
 	}
@@ -82,7 +82,7 @@ func (m *Mounter) deletePoint(mountPoint string) error {
 		return err
 	}
 
-	r0, _, err := syscall.Syscall(deleteVolumeMountPointW.Addr(), 2, uintptr(unsafe.Pointer(mp)), 0, 0)
+	r0, _, err := syscall.SyscallN(deleteVolumeMountPointW.Addr(), uintptr(unsafe.Pointer(mp)), 0, 0)
 	if int32(r0) == 0 {
 		return fmt.Errorf("error deleting mount point: %s", err.Error())
 	}

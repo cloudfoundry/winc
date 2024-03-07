@@ -26,7 +26,7 @@ func (e *DuplicateError) Error() string {
 type LowMemoryError struct{}
 
 func (e *LowMemoryError) Error() string {
-	return fmt.Sprintf("not enough memory")
+	return "not enough memory"
 }
 
 func CleanError(err error) error {

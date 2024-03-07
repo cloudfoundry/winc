@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,7 +103,7 @@ var _ = Describe("Flags", func() {
 
 			BeforeEach(func() {
 				var err error
-				bundlePath, err = ioutil.TempDir("", "winccontainer")
+				bundlePath, err = os.MkdirTemp("", "winccontainer")
 				Expect(err).To(Succeed())
 
 				containerId = filepath.Base(bundlePath)
@@ -212,7 +211,7 @@ var _ = Describe("Flags", func() {
 
 		BeforeEach(func() {
 			var err error
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			bundlePath, err = os.MkdirTemp("", "winccontainer")
 			Expect(err).To(Succeed())
 
 			containerId = filepath.Base(bundlePath)
@@ -229,8 +228,8 @@ var _ = Describe("Flags", func() {
 
 		It("creates a container and uses the credential spec path", func() {
 			file, err := os.CreateTemp(bundlePath, "credential-spec")
-			defer file.Close()
 			Expect(err).NotTo(HaveOccurred())
+			defer file.Close()
 
 			args := []string{"--credential-spec", file.Name(), "create", containerId, "-b", bundlePath}
 			_, _, err = helpers.Execute(exec.Command(wincBin, args...))
@@ -257,7 +256,7 @@ var _ = Describe("Flags", func() {
 
 		BeforeEach(func() {
 			var err error
-			tempDir, err = ioutil.TempDir("", "log-dir")
+			tempDir, err = os.MkdirTemp("", "log-dir")
 			Expect(err).NotTo(HaveOccurred())
 
 			logFile = filepath.Join(tempDir, "winc.log")
@@ -284,7 +283,7 @@ var _ = Describe("Flags", func() {
 
 			BeforeEach(func() {
 				var err error
-				bundlePath, err = ioutil.TempDir("", "winccontainer")
+				bundlePath, err = os.MkdirTemp("", "winccontainer")
 				Expect(err).To(Succeed())
 
 				containerId = filepath.Base(bundlePath)
@@ -304,7 +303,7 @@ var _ = Describe("Flags", func() {
 				stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
 				Expect(err).NotTo(HaveOccurred())
 
-				log, err := ioutil.ReadFile(logFile)
+				log, err := os.ReadFile(logFile)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(log).To(BeEmpty())
 
@@ -327,7 +326,7 @@ var _ = Describe("Flags", func() {
 					stdOut, _, err := helpers.Execute(exec.Command(wincBin, args...))
 					Expect(err).NotTo(HaveOccurred())
 
-					log, err := ioutil.ReadFile(logFile)
+					log, err := os.ReadFile(logFile)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(string(log)).To(ContainSubstring(fmt.Sprintf(`"containerId":"%s"`, containerId)))
 
@@ -343,7 +342,7 @@ var _ = Describe("Flags", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(stdErr.String()).To(ContainSubstring("bundle config.json does not exist"))
 
-				log, err := ioutil.ReadFile(logFile)
+				log, err := os.ReadFile(logFile)
 				Expect(err).ToNot(HaveOccurred())
 
 				expectedLogContents := strings.Replace(strings.Trim(stdErr.String(), "\n"), `\`, `\\`, -1)
@@ -389,10 +388,10 @@ var _ = Describe("Flags", func() {
 
 		BeforeEach(func() {
 			var err error
-			storePath, err = ioutil.TempDir("", "wincroot")
+			storePath, err = os.MkdirTemp("", "wincroot")
 			Expect(err).ToNot(HaveOccurred())
 
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			bundlePath, err = os.MkdirTemp("", "winccontainer")
 			Expect(err).To(Succeed())
 
 			containerId = filepath.Base(bundlePath)
@@ -426,10 +425,10 @@ var _ = Describe("Flags", func() {
 
 		BeforeEach(func() {
 			var err error
-			rootPath, err = ioutil.TempDir("", "wincroot")
+			rootPath, err = os.MkdirTemp("", "wincroot")
 			Expect(err).ToNot(HaveOccurred())
 
-			bundlePath, err = ioutil.TempDir("", "winccontainer")
+			bundlePath, err = os.MkdirTemp("", "winccontainer")
 			Expect(err).To(Succeed())
 
 			containerId = filepath.Base(bundlePath)

@@ -1,7 +1,6 @@
 package firewall_test
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +23,7 @@ var (
 
 var _ = BeforeSuite(func() {
 	var err error
-	firewallDir, err = ioutil.TempDir("", "network.firewall")
+	firewallDir, err = os.MkdirTemp("", "network.firewall")
 	Expect(err).NotTo(HaveOccurred())
 	firewallDLL = filepath.Join(firewallDir, "firewall.dll")
 

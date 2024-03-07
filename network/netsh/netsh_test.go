@@ -3,7 +3,7 @@ package netsh_test
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"io"
 	"time"
 
 	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
@@ -26,7 +26,7 @@ var _ = Describe("Netsh", func() {
 	BeforeEach(func() {
 		hcsClient = &fakes.HCSClient{}
 		runner = netsh.NewRunner(hcsClient, containerId, 2)
-		logrus.SetOutput(ioutil.Discard)
+		logrus.SetOutput(io.Discard)
 	})
 
 	Describe("RunContainer", func() {

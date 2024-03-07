@@ -3,7 +3,7 @@ package state_test
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -34,14 +34,14 @@ var _ = Describe("State", func() {
 
 	BeforeEach(func() {
 		var err error
-		rootDir, err = ioutil.TempDir("", "create.root")
+		rootDir, err = os.MkdirTemp("", "create.root")
 		Expect(err).ToNot(HaveOccurred())
 		stateFile = filepath.Join(rootDir, containerId, "state.json")
 
 		hcsClient = &fakes.HCSClient{}
 		sc = &fakes.WinSyscall{}
 		logger := (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "state")
 
 		sm = state.New(logger, hcsClient, sc, containerId, rootDir)
@@ -56,7 +56,7 @@ var _ = Describe("State", func() {
 			Expect(sm.Initialize(bundlePath)).To(Succeed())
 
 			var state state.State
-			contents, err := ioutil.ReadFile(stateFile)
+			contents, err := os.ReadFile(stateFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(json.Unmarshal(contents, &state)).To(Succeed())
 
@@ -90,7 +90,7 @@ var _ = Describe("State", func() {
 			Expect(sm.SetFailure()).To(Succeed())
 
 			var state state.State
-			contents, err := ioutil.ReadFile(stateFile)
+			contents, err := os.ReadFile(stateFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(json.Unmarshal(contents, &state)).To(Succeed())
 
@@ -122,7 +122,7 @@ var _ = Describe("State", func() {
 			Expect(sm.SetSuccess(proc)).To(Succeed())
 
 			var state state.State
-			contents, err := ioutil.ReadFile(stateFile)
+			contents, err := os.ReadFile(stateFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(json.Unmarshal(contents, &state)).To(Succeed())
 
@@ -153,7 +153,7 @@ var _ = Describe("State", func() {
 				Expect(err).To(HaveOccurred())
 
 				var state state.State
-				contents, err := ioutil.ReadFile(stateFile)
+				contents, err := os.ReadFile(stateFile)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(json.Unmarshal(contents, &state)).To(Succeed())
 
@@ -181,7 +181,7 @@ var _ = Describe("State", func() {
 				Expect(err).To(HaveOccurred())
 
 				var state state.State
-				contents, err := ioutil.ReadFile(stateFile)
+				contents, err := os.ReadFile(stateFile)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(json.Unmarshal(contents, &state)).To(Succeed())
 
@@ -218,7 +218,7 @@ var _ = Describe("State", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(os.MkdirAll(filepath.Dir(stateFile), 0755)).To(Succeed())
-			Expect(ioutil.WriteFile(stateFile, c, 0644)).To(Succeed())
+			Expect(os.WriteFile(stateFile, c, 0644)).To(Succeed())
 		})
 
 		It("includes the necessary fields in the oci state", func() {
@@ -248,7 +248,7 @@ var _ = Describe("State", func() {
 				s.StartTime = syscall.Filetime{}
 				c, err := json.Marshal(s)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ioutil.WriteFile(stateFile, c, 0644)).To(Succeed())
+				Expect(os.WriteFile(stateFile, c, 0644)).To(Succeed())
 			})
 
 			It("reports the container is created", func() {
@@ -383,7 +383,7 @@ var _ = Describe("State", func() {
 				s.ExecFailed = true
 				c, err := json.Marshal(s)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ioutil.WriteFile(stateFile, c, 0644)).To(Succeed())
+				Expect(os.WriteFile(stateFile, c, 0644)).To(Succeed())
 			})
 
 			It("reports the container is stopped", func() {
@@ -442,7 +442,7 @@ var _ = Describe("State", func() {
 				s.StartTime = syscall.Filetime{}
 				c, err := json.Marshal(s)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ioutil.WriteFile(stateFile, c, 0644)).To(Succeed())
+				Expect(os.WriteFile(stateFile, c, 0644)).To(Succeed())
 			})
 
 			It("returns an invalid state error", func() {
@@ -457,7 +457,7 @@ var _ = Describe("State", func() {
 				s.PID = 0
 				c, err := json.Marshal(s)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(ioutil.WriteFile(stateFile, c, 0644)).To(Succeed())
+				Expect(os.WriteFile(stateFile, c, 0644)).To(Succeed())
 			})
 
 			It("returns an invalid state error", func() {

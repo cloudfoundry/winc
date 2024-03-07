@@ -2,12 +2,12 @@ package container_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"syscall"
 
+	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 	"code.cloudfoundry.org/winc/runtime/container"
 	"code.cloudfoundry.org/winc/runtime/container/fakes"
-	hcsfakes "code.cloudfoundry.org/winc/hcs/fakes"
 
 	"github.com/Microsoft/hcsshim"
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +31,7 @@ var _ = Describe("Exec", func() {
 		fakeContainer = &hcsfakes.Container{}
 
 		logger := (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "exec")
 
 		containerManager = container.New(logger, hcsClient, containerId)

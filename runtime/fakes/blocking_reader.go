@@ -15,9 +15,7 @@ type Reader struct {
 func (r *Reader) Read(p []byte) (int, error) {
 	r.ReadCall.Receives.Bytes = p
 
-	for {
-		//do stuff neverending
-	}
+	select {} // wait forever
 }
 
 func (r *Reader) Close() error {

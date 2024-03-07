@@ -2,7 +2,7 @@ package network_test
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 
 	"code.cloudfoundry.org/winc/network"
@@ -41,7 +41,7 @@ var _ = Describe("NetworkManager", func() {
 
 		networkManager = network.NewNetworkManager(hcsClient, netRuleApplier, endpointManager, containerId, config, mtu)
 
-		logrus.SetOutput(ioutil.Discard)
+		logrus.SetOutput(io.Discard)
 	})
 
 	Describe("CreateHostNATNetwork", func() {

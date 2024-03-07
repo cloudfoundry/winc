@@ -51,7 +51,6 @@ func testDNS(host string) {
 		os.Exit(1)
 	}
 	fmt.Printf("found addrs: %+v\n", addrs)
-	return
 }
 
 func testTCP(addr string, port int) {
@@ -65,6 +64,10 @@ func testTCP(addr string, port int) {
 
 func testUDP(addr string, port int) {
 	serverAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, port))
+	if err != nil {
+		fmt.Printf("failed to resolve UDP address: %v\n", err)
+		os.Exit(1)
+	}
 	m := new(dns.Msg)
 	m.SetQuestion("google.com.", dns.TypeSOA)
 

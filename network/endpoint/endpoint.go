@@ -51,7 +51,7 @@ func (e *EndpointManager) Create() (hcsshim.HNSEndpoint, error) {
 
 	if e.config.MaximumOutgoingBandwidth != 0 {
 		policy, err := json.Marshal(hcsshim.QosPolicy{
-			Type: hcsshim.QOS,
+			Type:                            hcsshim.QOS,
 			MaximumOutgoingBandwidthInBytes: uint64(e.config.MaximumOutgoingBandwidth),
 		})
 		if err != nil {

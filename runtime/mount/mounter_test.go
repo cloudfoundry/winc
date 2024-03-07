@@ -2,7 +2,7 @@ package mount_test
 
 import (
 	"crypto/rand"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/big"
 	"os"
@@ -37,7 +37,7 @@ var _ = Describe("Mounter", func() {
 		pid = -int(p.Int64())
 
 		logger = (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "state")
 
 		mountPath = filepath.Join("C:\\", "proc", strconv.Itoa(pid), "root")

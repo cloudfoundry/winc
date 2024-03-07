@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,7 +26,7 @@ var _ = Describe("Run", func() {
 
 	BeforeEach(func() {
 		var err error
-		bundlePath, err = ioutil.TempDir("", "winccontainer")
+		bundlePath, err = os.MkdirTemp("", "winccontainer")
 		Expect(err).To(Succeed())
 
 		containerId = filepath.Base(bundlePath)
@@ -62,7 +61,7 @@ var _ = Describe("Run", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		pid := helpers.GetContainerState(containerId).Pid
-		Expect(ioutil.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "test.txt"), []byte("contents"), 0644)).To(Succeed())
 
 		stdOut, _, err := helpers.ExecInContainer(containerId, []string{"cmd.exe", "/C", "type", "test.txt"}, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -111,7 +110,7 @@ var _ = Describe("Run", func() {
 		var pidFile string
 
 		BeforeEach(func() {
-			f, err := ioutil.TempFile("", "pid")
+			f, err := os.CreateTemp("", "pid")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(f.Close()).To(Succeed())
 			pidFile = f.Name()
@@ -128,7 +127,7 @@ var _ = Describe("Run", func() {
 
 			containerPid := helpers.GetContainerState(containerId).Pid
 
-			pidBytes, err := ioutil.ReadFile(pidFile)
+			pidBytes, err := os.ReadFile(pidFile)
 			Expect(err).ToNot(HaveOccurred())
 			pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
 			Expect(err).ToNot(HaveOccurred())
@@ -196,7 +195,7 @@ var _ = Describe("Run", func() {
 			var pidFile string
 
 			BeforeEach(func() {
-				f, err := ioutil.TempFile("", "pid")
+				f, err := os.CreateTemp("", "pid")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 				pidFile = f.Name()
@@ -214,7 +213,7 @@ var _ = Describe("Run", func() {
 
 				containerPid := helpers.GetContainerState(containerId).Pid
 
-				pidBytes, err := ioutil.ReadFile(pidFile)
+				pidBytes, err := os.ReadFile(pidFile)
 				Expect(err).ToNot(HaveOccurred())
 				pid, err := strconv.ParseInt(string(pidBytes), 10, 64)
 				Expect(err).ToNot(HaveOccurred())

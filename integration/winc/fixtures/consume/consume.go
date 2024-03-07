@@ -23,7 +23,7 @@ func main() {
 		}
 	}
 
-	a := make([]byte, mem, mem)
+	a := make([]byte, mem)
 	fmt.Printf("Allocated %d\n", len(a))
 
 	time.Sleep(time.Duration(sleepTime) * time.Second)

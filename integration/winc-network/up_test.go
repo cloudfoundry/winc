@@ -3,7 +3,7 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -121,7 +121,7 @@ var _ = Describe("Up", func() {
 				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
-				data, err := ioutil.ReadAll(resp.Body)
+				data, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
@@ -129,7 +129,7 @@ var _ = Describe("Up", func() {
 				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
-				data, err = ioutil.ReadAll(resp.Body)
+				data, err = io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
 			})
@@ -142,7 +142,7 @@ var _ = Describe("Up", func() {
 				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
-				data, err := ioutil.ReadAll(resp.Body)
+				data, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort1)))
 
@@ -150,7 +150,7 @@ var _ = Describe("Up", func() {
 				Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
-				data, err = ioutil.ReadAll(resp.Body)
+				data, err = io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %d", containerPort2)))
 			})
@@ -568,7 +568,7 @@ var _ = Describe("Up", func() {
 		BeforeEach(func() {
 			var err error
 
-			bundlePath2, err = ioutil.TempDir("", "winccontainer-2")
+			bundlePath2, err = os.MkdirTemp("", "winccontainer-2")
 			Expect(err).NotTo(HaveOccurred())
 			containerId2 = filepath.Base(bundlePath2)
 
@@ -640,7 +640,7 @@ var _ = Describe("Up", func() {
 			Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 			defer resp.Body.Close()
 
-			data, err := ioutil.ReadAll(resp.Body)
+			data, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
 
@@ -667,7 +667,7 @@ var _ = Describe("Up", func() {
 			Eventually(httpGetInto(address, &resp), "30s").Should(Succeed())
 			defer resp.Body.Close()
 
-			data, err = ioutil.ReadAll(resp.Body)
+			data, err = io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
 		})
@@ -713,7 +713,7 @@ var _ = Describe("Up", func() {
 				Eventually(httpGetInto(serverURL, &resp), "30s").Should(Succeed())
 				defer resp.Body.Close()
 
-				data, err := ioutil.ReadAll(resp.Body)
+				data, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).To(Equal(fmt.Sprintf("Response from server on port %s", containerPort)))
 			})

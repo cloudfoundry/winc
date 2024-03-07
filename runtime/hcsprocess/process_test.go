@@ -2,7 +2,6 @@ package hcsprocess_test
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -23,7 +22,7 @@ var _ = Describe("Process", func() {
 		fakeProcess = &hcsfakes.Process{}
 		wrappedProcess = hcsprocess.New(fakeProcess)
 		var err error
-		tempDir, err = ioutil.TempDir("", "process")
+		tempDir, err = os.MkdirTemp("", "process")
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -41,7 +40,7 @@ var _ = Describe("Process", func() {
 			Expect(wrappedProcess.WritePIDFile(pidFile)).To(Succeed())
 			Expect(fakeProcess.PidCallCount()).To(Equal(1))
 			Expect(pidFile).To(BeAnExistingFile())
-			content, err := ioutil.ReadFile(pidFile)
+			content, err := os.ReadFile(pidFile)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(Equal("1034"))
 		})

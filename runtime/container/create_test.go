@@ -3,7 +3,7 @@ package container_test
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -57,7 +57,7 @@ var _ = Describe("Create", func() {
 
 		hcsClient = &fakes.HCSClient{}
 		logger := (&logrus.Logger{
-			Out: ioutil.Discard,
+			Out: io.Discard,
 		}).WithField("test", "create")
 
 		containerManager = container.New(logger, hcsClient, containerId)
@@ -135,7 +135,7 @@ var _ = Describe("Create", func() {
 
 			BeforeEach(func() {
 				var err error
-				mount, err = ioutil.TempDir("", "mountdir")
+				mount, err = os.MkdirTemp("", "mountdir")
 				Expect(err).ToNot(HaveOccurred())
 
 				spec.Mounts = []specs.Mount{
@@ -229,7 +229,7 @@ var _ = Describe("Create", func() {
 				var mountFile string
 
 				BeforeEach(func() {
-					m, err := ioutil.TempFile("", "mountfile")
+					m, err := os.CreateTemp("", "mountfile")
 					Expect(err).ToNot(HaveOccurred())
 					Expect(m.Close()).To(Succeed())
 					mountFile = m.Name()

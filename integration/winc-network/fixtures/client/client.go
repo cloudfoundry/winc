@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -47,7 +46,7 @@ func upload(url string, num int) {
 	}
 	defer resp.Body.Close()
 
-	_, err = ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +71,7 @@ func download(url string, num int) {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	_, err = io.Copy(ioutil.Discard, resp.Body)
+	_, err = io.Copy(io.Discard, resp.Body)
 	if err != nil {
 		panic(err)
 	}
