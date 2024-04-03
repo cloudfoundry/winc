@@ -52,13 +52,9 @@ cd winc-release
 Running Tests
 ---------------
 
-- `./scripts/create-docker-container.bash`: This will create a docker container with appropriate mounts.
-- `./scripts/test-in-docker-locally.bash`: Create docker container and run lint and template-tests in a single script.
-
 > [!IMPORTANT]
 > The following scripts is ran against a Concourse worker. Set `FLY_TARGET` (Defaults to `shared`) environment variable to target your installation instead
 
-- `./scripts/docker/build-binaries.bash`: This will build binaries requires for testing this repo
-- `./scripts/docker/test-all.bash`: This will test all submodules
-- `./scripts/docker/test.bash <package>`: This will test a package e.g. winc
-
+- `./scripts/create-docker-container.bash`: This will create a docker container with appropriate mounts. Scripts under `scripts/docker` can then be used from within the container for development (e.g. `/repo/scripts/docker/lint.bash`)
+- `./scripts/test-in-docker.bash`: Create docker container and run lint and template-tests in a single script.
+- `./scripts/test-in-concourse.bash <package>`: Create concourse on-off job and test all components or a single package. Optional `WITH_CLEAN=yes` environment variable is recommended to be set when submitting a PR to make sure cache is cleared.
