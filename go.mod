@@ -3,9 +3,9 @@ module code.cloudfoundry.org/winc
 go 1.19
 
 require (
-	code.cloudfoundry.org/filelock v0.0.0-20240322145144-5c8d1ab4be29
-	code.cloudfoundry.org/localip v0.0.0-20240327135844-618edde82d72
-	github.com/Microsoft/hcsshim v0.12.1
+	code.cloudfoundry.org/filelock v0.0.0-20240403142352-8a69c21cc3ba
+	code.cloudfoundry.org/localip v0.0.0-20240403132407-90bfe96e2c2c
+	github.com/Microsoft/hcsshim v0.12.2
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/miekg/dns v1.1.58
@@ -31,7 +31,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/pprof v0.0.0-20240327155427-868f304927ed // indirect
+	github.com/google/pprof v0.0.0-20240402174815-29b9bb013b0f // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	go.opencensus.io v0.24.0 // indirect
