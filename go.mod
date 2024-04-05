@@ -3,8 +3,8 @@ module code.cloudfoundry.org/winc
 go 1.19
 
 require (
-	code.cloudfoundry.org/filelock v0.0.0-20240404142549-02c90625c4c9
-	code.cloudfoundry.org/localip v0.0.0-20240403132407-90bfe96e2c2c
+	code.cloudfoundry.org/filelock v0.0.0-20240405142619-d5c949b5e222
+	code.cloudfoundry.org/localip v0.0.0-20240405144441-7c0fb8a04c60
 	github.com/Microsoft/hcsshim v0.12.2
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -36,8 +36,8 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/tools v0.19.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/tools v0.20.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
