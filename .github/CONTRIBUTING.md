@@ -57,4 +57,7 @@ Running Tests
 
 - `./scripts/create-docker-container.bash`: This will create a docker container with appropriate mounts. Scripts under `scripts/docker` can then be used from within the container for development (e.g. `/repo/scripts/docker/lint.bash`)
 - `./scripts/test-in-docker.bash`: Create docker container and run lint and template-tests in a single script.
-- `./scripts/test-in-concourse.bash <package>`: Create concourse on-off job and test all components or a single package. Optional `WITH_CLEAN=yes` environment variable is recommended to be set when submitting a PR to make sure cache is cleared.
+- `./scripts/test-in-concourse.bash <package>`: Create concourse on-off job and test all components or a single package. Optional `CLEAN_CACHE=yes` environment variable is recommended to be set when submitting a PR to make sure cache is cleared.
+
+> [!IMPORTANT]
+> If you are about to submit a PR, please make sure to run `CLEAN_CACHE=yes ./scripts/test-in-concourse.bash` to ensure everything is tested with a rebuild of required binaries.
