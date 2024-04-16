@@ -1,8 +1,8 @@
-# code.cloudfoundry.org/filelock v0.0.0-20240409143021-86f5884ca555
+# code.cloudfoundry.org/filelock v0.0.0-20240416143633-127f34fd06fe
 ## explicit; go 1.20
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes
-# code.cloudfoundry.org/localip v0.0.0-20240415163129-d07e61fbafff
+# code.cloudfoundry.org/localip v0.0.0-20240416163151-0c7ee3b63ec1
 ## explicit; go 1.20
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.6.1
@@ -69,7 +69,7 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/pprof v0.0.0-20240415144954-be81aee2d733
+# github.com/google/pprof v0.0.0-20240416155748-26353dc0451f
 ## explicit; go 1.19
 github.com/google/pprof/profile
 # github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
