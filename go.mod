@@ -3,7 +3,7 @@ module code.cloudfoundry.org/winc
 go 1.19
 
 require (
-	code.cloudfoundry.org/filelock v0.0.0-20240416143633-127f34fd06fe
+	code.cloudfoundry.org/filelock v0.0.0-20240417143641-f04b449d93e8
 	code.cloudfoundry.org/localip v0.0.0-20240416163151-0c7ee3b63ec1
 	github.com/Microsoft/hcsshim v0.12.2
 	github.com/blang/semver v3.5.1+incompatible
