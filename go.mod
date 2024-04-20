@@ -1,11 +1,13 @@
 module code.cloudfoundry.org/winc
 
-go 1.19
+go 1.21
+
+toolchain go1.22.2
 
 require (
 	code.cloudfoundry.org/filelock v0.0.0-20240419143859-3e7294896977
 	code.cloudfoundry.org/localip v0.0.0-20240418163417-db5b659080e9
-	github.com/Microsoft/hcsshim v0.12.2
+	github.com/Microsoft/hcsshim v0.12.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/miekg/dns v1.1.59
@@ -23,7 +25,7 @@ require (
 )
 
 require (
-	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
