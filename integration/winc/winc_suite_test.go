@@ -3,7 +3,6 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
-	mathrand "math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,7 +65,6 @@ func TestWinc(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	mathrand.Seed(time.Now().UnixNano() + int64(GinkgoParallelProcess()))
 	var (
 		present bool
 		err     error
