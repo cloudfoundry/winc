@@ -2,7 +2,6 @@ package perf_test
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,8 +48,6 @@ var _ = BeforeSuite(func() {
 		present bool
 		err     error
 	)
-
-	rand.Seed(time.Now().UnixNano() + int64(GinkgoParallelProcess()))
 
 	rootfsURI, present = os.LookupEnv("WINC_TEST_ROOTFS")
 	Expect(present).To(BeTrue(), "WINC_TEST_ROOTFS not set")
