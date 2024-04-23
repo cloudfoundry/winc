@@ -69,7 +69,7 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/pprof v0.0.0-20240422180639-6d00f2148849
+# github.com/google/pprof v0.0.0-20240422182052-72c8669ad3e7
 ## explicit; go 1.19
 github.com/google/pprof/profile
 # github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
