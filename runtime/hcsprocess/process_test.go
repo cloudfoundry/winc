@@ -107,7 +107,7 @@ var _ = Describe("Process", func() {
 					code <- exitCode
 				}()
 
-				Eventually(code).Should(Receive(Equal(0), "AttachIO didn't exit."))
+				Eventually(code).Should(Receive(Equal(0)))
 
 				Expect(attachedStdout).To(gbytes.Say("something-on-stdout"))
 				Expect(attachedStderr).To(gbytes.Say("something-on-stderr"))
