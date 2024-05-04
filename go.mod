@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	code.cloudfoundry.org/filelock v0.0.0-20240430144742-533492b1653c
-	code.cloudfoundry.org/localip v0.0.0-20240430164506-a3c239b1c98e
+	code.cloudfoundry.org/localip v0.0.0-20240504164949-b01cb2f14f10
 	github.com/Microsoft/hcsshim v0.12.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -20,8 +20,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.15
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.19.0
-	golang.org/x/text v0.14.0
+	golang.org/x/sys v0.20.0
+	golang.org/x/text v0.15.0
 )
 
 require (
