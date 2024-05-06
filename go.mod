@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	code.cloudfoundry.org/filelock v0.0.0-20240505145246-ee31c1b1a865
-	code.cloudfoundry.org/localip v0.0.0-20240504164949-b01cb2f14f10
+	code.cloudfoundry.org/localip v0.0.0-20240506165051-e4042fdda905
 	github.com/Microsoft/hcsshim v0.12.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -38,8 +38,8 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/tools v0.20.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/tools v0.21.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
