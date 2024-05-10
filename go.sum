@@ -24,8 +24,8 @@ cloud.google.com/go/storage v1.5.0/go.mod h1:tpKbwo567HUNpVclU5sGELwQWBDZ8gh0Zeo
 cloud.google.com/go/storage v1.6.0/go.mod h1:N7U0C8pVQ/+NIKOBQyamJIeKQKkZ+mxpohlUTyfDhBk=
 code.cloudfoundry.org/filelock v0.0.0-20240509145650-67a3677ef078 h1:C2xLFiFsyYbbDPWTOUzLZvOlbHpcX6uVWAO5vOiO4mk=
 code.cloudfoundry.org/filelock v0.0.0-20240509145650-67a3677ef078/go.mod h1:VcRcqFZuwnkDWdYQHUCq7Jm86Y0vFyFqr52UQusVduU=
-code.cloudfoundry.org/localip v0.0.0-20240509165301-8bc1ed51129f h1:H/WR+CLg/6h42ZXy0cKYeSiUmwimzEvo+vIu+lSi37Q=
-code.cloudfoundry.org/localip v0.0.0-20240509165301-8bc1ed51129f/go.mod h1:J/06xIYGoEbaRVYBSU9G38S21j18eXOnrcnS1ZttOyg=
+code.cloudfoundry.org/localip v0.0.0-20240510172921-bb8a25c4a355 h1:B/q8R/a7VOZzffqMXWt/w125a5ar5FebUAjA3gLVO4s=
+code.cloudfoundry.org/localip v0.0.0-20240510172921-bb8a25c4a355/go.mod h1:J/06xIYGoEbaRVYBSU9G38S21j18eXOnrcnS1ZttOyg=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/Azure/azure-sdk-for-go v16.2.1+incompatible/go.mod h1:9XXNKU+eRnpl9moKnB4QOLf1HestfXbmab5FXxiDBjc=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
