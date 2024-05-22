@@ -5,8 +5,8 @@ go 1.21
 toolchain go1.22.2
 
 require (
-	code.cloudfoundry.org/filelock v0.0.0-20240521151048-394c3cd79271
-	code.cloudfoundry.org/localip v0.0.0-20240521170707-7a9b929a6df5
+	code.cloudfoundry.org/filelock v0.0.0-20240522151230-8406fd3a5062
+	code.cloudfoundry.org/localip v0.0.0-20240522170718-27ba331e6ea9
 	github.com/Microsoft/hcsshim v0.12.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
