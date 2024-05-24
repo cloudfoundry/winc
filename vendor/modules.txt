@@ -1,8 +1,8 @@
-# code.cloudfoundry.org/filelock v0.0.0-20240522151230-8406fd3a5062
+# code.cloudfoundry.org/filelock v0.0.0-20240524151430-f475f13a7f1f
 ## explicit; go 1.20
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes
-# code.cloudfoundry.org/localip v0.0.0-20240522170718-27ba331e6ea9
+# code.cloudfoundry.org/localip v0.0.0-20240524171018-3d7459c0c458
 ## explicit; go 1.20
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.6.2
@@ -82,7 +82,7 @@ github.com/miekg/dns
 # github.com/mitchellh/go-ps v1.0.0
 ## explicit; go 1.13
 github.com/mitchellh/go-ps
-# github.com/onsi/ginkgo/v2 v2.18.0
+# github.com/onsi/ginkgo/v2 v2.19.0
 ## explicit; go 1.20
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config

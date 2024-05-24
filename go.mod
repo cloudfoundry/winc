@@ -5,14 +5,14 @@ go 1.21
 toolchain go1.22.2
 
 require (
-	code.cloudfoundry.org/filelock v0.0.0-20240522151230-8406fd3a5062
-	code.cloudfoundry.org/localip v0.0.0-20240522170718-27ba331e6ea9
+	code.cloudfoundry.org/filelock v0.0.0-20240524151430-f475f13a7f1f
+	code.cloudfoundry.org/localip v0.0.0-20240524171018-3d7459c0c458
 	github.com/Microsoft/hcsshim v0.12.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/miekg/dns v1.1.59
 	github.com/mitchellh/go-ps v1.0.0
-	github.com/onsi/ginkgo/v2 v2.18.0
+	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/opencontainers/runtime-spec v1.2.0
 	github.com/opencontainers/runtime-tools v0.9.1-0.20221107090550-2e043c6bd626
