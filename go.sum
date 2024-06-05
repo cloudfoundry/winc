@@ -22,10 +22,10 @@ cloud.google.com/go/pubsub v1.2.0/go.mod h1:jhfEVHT8odbXTkndysNHCcx0awwzvfOlguIA
 cloud.google.com/go/storage v1.0.0/go.mod h1:IhtSnM/ZTZV8YYJWCY8RULGVqBDmpoyjwiyrjsg+URw=
 cloud.google.com/go/storage v1.5.0/go.mod h1:tpKbwo567HUNpVclU5sGELwQWBDZ8gh0ZeosJ0Rtdos=
 cloud.google.com/go/storage v1.6.0/go.mod h1:N7U0C8pVQ/+NIKOBQyamJIeKQKkZ+mxpohlUTyfDhBk=
-code.cloudfoundry.org/filelock v0.0.0-20240604152720-28f9cd5891c4 h1:50ApEgpCMTPda2CasZWSsLMQ5JjS1PuqxdnvtpRjJSA=
-code.cloudfoundry.org/filelock v0.0.0-20240604152720-28f9cd5891c4/go.mod h1:sD4zIXqs5zUsyL7PEgLt25lCBfvTYcURucE0ZZg4GV8=
-code.cloudfoundry.org/localip v0.0.0-20240604172015-484561499a86 h1:1bkiCxMliO2TGj7nOS1sgAIfu/khRTfIOCYxtH1V5ww=
-code.cloudfoundry.org/localip v0.0.0-20240604172015-484561499a86/go.mod h1:ZqFQyegQyUqLakq0G4qIX8bNwx+QB8tjV+j7uMbdTfc=
+code.cloudfoundry.org/filelock v0.0.0-20240605152813-891eacc2974f h1:9zSHZdWWYBW2WzH4+DXBgqmUASelrjH3XOShRwva4ig=
+code.cloudfoundry.org/filelock v0.0.0-20240605152813-891eacc2974f/go.mod h1:3wmlLsTQP9AvoHpxJ/ZDy00t2Y3FwoMSmnrZrSI0LEI=
+code.cloudfoundry.org/localip v0.0.0-20240605172145-e093a99dad61 h1:JMme5fxVvBFGp1iwN7caKs9juiRB7MvKqZrDq5bY1XA=
+code.cloudfoundry.org/localip v0.0.0-20240605172145-e093a99dad61/go.mod h1:pbgSmVvSJjPvMx66WG1rkiBQrzGpR5Py8ApuG7t2onA=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/Azure/azure-sdk-for-go v16.2.1+incompatible/go.mod h1:9XXNKU+eRnpl9moKnB4QOLf1HestfXbmab5FXxiDBjc=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=

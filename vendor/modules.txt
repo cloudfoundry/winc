@@ -1,8 +1,8 @@
-# code.cloudfoundry.org/filelock v0.0.0-20240604152720-28f9cd5891c4
+# code.cloudfoundry.org/filelock v0.0.0-20240605152813-891eacc2974f
 ## explicit; go 1.20
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes
-# code.cloudfoundry.org/localip v0.0.0-20240604172015-484561499a86
+# code.cloudfoundry.org/localip v0.0.0-20240605172145-e093a99dad61
 ## explicit; go 1.20
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.6.2
