@@ -7,7 +7,7 @@ toolchain go1.22.2
 require (
 	code.cloudfoundry.org/filelock v0.0.0-20240711155740-a50c183dc1e0
 	code.cloudfoundry.org/localip v0.0.0-20240711175824-a1a2d50a2164
-	github.com/Microsoft/hcsshim v0.12.4
+	github.com/Microsoft/hcsshim v0.12.5
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/miekg/dns v1.1.61
