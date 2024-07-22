@@ -5,8 +5,8 @@ go 1.21
 toolchain go1.22.2
 
 require (
-	code.cloudfoundry.org/filelock v0.0.0-20240721160733-dfef009bbf3c
-	code.cloudfoundry.org/localip v0.0.0-20240721180538-4c37751a4ea9
+	code.cloudfoundry.org/filelock v0.0.0-20240722160912-61547654594f
+	code.cloudfoundry.org/localip v0.0.0-20240722180725-05cb35dd1d96
 	github.com/Microsoft/hcsshim v0.12.5
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -33,7 +33,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/pprof v0.0.0-20240721033354-7089f98c1d14 // indirect
+	github.com/google/pprof v0.0.0-20240722153945-304e4f0156b8 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	go.opencensus.io v0.24.0 // indirect
