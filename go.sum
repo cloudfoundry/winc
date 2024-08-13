@@ -22,10 +22,10 @@ cloud.google.com/go/pubsub v1.2.0/go.mod h1:jhfEVHT8odbXTkndysNHCcx0awwzvfOlguIA
 cloud.google.com/go/storage v1.0.0/go.mod h1:IhtSnM/ZTZV8YYJWCY8RULGVqBDmpoyjwiyrjsg+URw=
 cloud.google.com/go/storage v1.5.0/go.mod h1:tpKbwo567HUNpVclU5sGELwQWBDZ8gh0ZeosJ0Rtdos=
 cloud.google.com/go/storage v1.6.0/go.mod h1:N7U0C8pVQ/+NIKOBQyamJIeKQKkZ+mxpohlUTyfDhBk=
-code.cloudfoundry.org/filelock v0.0.0-20240809162905-2d85401cacaa h1:An3sPp9yNz7rHW8CIAoi1+5lOfavHd9bZw9bTV61HQg=
-code.cloudfoundry.org/filelock v0.0.0-20240809162905-2d85401cacaa/go.mod h1:JHY5PtxLGnT0KpaqSH4PrMEeZNZO/DoHzfNfwN4Wq38=
-code.cloudfoundry.org/localip v0.0.0-20240808182500-901907e2b652 h1:cnWxWjvVA8rmUaUf5tlPaIUm6oAXIItIqXFJmcqkwL0=
-code.cloudfoundry.org/localip v0.0.0-20240808182500-901907e2b652/go.mod h1:pKjXFE6+lRQaUzH+jthaQMRyHfZIcFafdl94+XmjBmc=
+code.cloudfoundry.org/filelock v0.1.0 h1:RNX90wQiHTy6gbBz5dYWd3fBkcN3luqew94AogwkR8Y=
+code.cloudfoundry.org/filelock v0.1.0/go.mod h1:JHY5PtxLGnT0KpaqSH4PrMEeZNZO/DoHzfNfwN4Wq38=
+code.cloudfoundry.org/localip v0.1.0 h1:WTa+ozlDUE2X5YKYcVbMpe+Azp1ARurjdtWPJTQNb40=
+code.cloudfoundry.org/localip v0.1.0/go.mod h1:pKjXFE6+lRQaUzH+jthaQMRyHfZIcFafdl94+XmjBmc=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/Azure/azure-sdk-for-go v16.2.1+incompatible/go.mod h1:9XXNKU+eRnpl9moKnB4QOLf1HestfXbmab5FXxiDBjc=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
@@ -432,8 +432,8 @@ github.com/mattn/go-shellwords v1.0.6/go.mod h1:3xCvwCdWdlDJUrvuMn7Wuy9eWs4pE8vq
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2/go.mod h1:eD9eIE7cdwcMi9rYluz88Jz2VyhSmden33/aXg4oVIY=
-github.com/miekg/dns v1.1.61 h1:nLxbwF3XxhwVSm8g9Dghm9MHPaUZuqhPiGL+675ZmEs=
-github.com/miekg/dns v1.1.61/go.mod h1:mnAarhS3nWaW+NVP2wTkYVIZyHNJ098SJZUki3eykwQ=
+github.com/miekg/dns v1.1.62 h1:cN8OuEF1/x5Rq6Np+h1epln8OiyPWV+lROx9LxcGgIQ=
+github.com/miekg/dns v1.1.62/go.mod h1:mvDlcItzm+br7MToIKqkglaGhlFMHJ9DTNNWONWXbNQ=
 github.com/miekg/pkcs11 v1.0.3/go.mod h1:XsNlhZGX73bx86s2hdc/FuaLm2CPZJemRLMA+WTFxgs=
 github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible/go.mod h1:8AuVvqP/mXw1px98n46wfvcGfQ4ci2FwoAjKYxuo3Z4=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
