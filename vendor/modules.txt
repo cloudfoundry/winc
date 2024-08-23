@@ -1,8 +1,8 @@
-# code.cloudfoundry.org/filelock v0.2.0
+# code.cloudfoundry.org/filelock v0.3.0
 ## explicit; go 1.20
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes
-# code.cloudfoundry.org/localip v0.2.0
+# code.cloudfoundry.org/localip v0.3.0
 ## explicit; go 1.20
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.6.2
@@ -148,7 +148,7 @@ go.opencensus.io/internal
 go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
-# golang.org/x/exp v0.0.0-20240822175202-778ce7bba035
+# golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
