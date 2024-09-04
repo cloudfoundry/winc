@@ -1,12 +1,12 @@
 module code.cloudfoundry.org/winc
 
-go 1.22
+go 1.22.0
 
 toolchain go1.22.3
 
 require (
-	code.cloudfoundry.org/filelock v0.6.0
-	code.cloudfoundry.org/localip v0.7.0
+	code.cloudfoundry.org/filelock v0.7.0
+	code.cloudfoundry.org/localip v0.8.0
 	github.com/Microsoft/hcsshim v0.12.6
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -20,8 +20,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.15
 	golang.org/x/sync v0.8.0
-	golang.org/x/sys v0.24.0
-	golang.org/x/text v0.17.0
+	golang.org/x/sys v0.25.0
+	golang.org/x/text v0.18.0
 )
 
 require (
@@ -37,7 +37,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/mod v0.20.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
