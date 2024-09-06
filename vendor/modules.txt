@@ -1,4 +1,4 @@
-# code.cloudfoundry.org/filelock v0.7.0
+# code.cloudfoundry.org/filelock v0.8.0
 ## explicit; go 1.22
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes

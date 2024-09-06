@@ -22,8 +22,8 @@ cloud.google.com/go/pubsub v1.2.0/go.mod h1:jhfEVHT8odbXTkndysNHCcx0awwzvfOlguIA
 cloud.google.com/go/storage v1.0.0/go.mod h1:IhtSnM/ZTZV8YYJWCY8RULGVqBDmpoyjwiyrjsg+URw=
 cloud.google.com/go/storage v1.5.0/go.mod h1:tpKbwo567HUNpVclU5sGELwQWBDZ8gh0ZeosJ0Rtdos=
 cloud.google.com/go/storage v1.6.0/go.mod h1:N7U0C8pVQ/+NIKOBQyamJIeKQKkZ+mxpohlUTyfDhBk=
-code.cloudfoundry.org/filelock v0.7.0 h1:nxjkEAoMP7mW3R+nv2tQB4AH7JTDolLqoiDkdSBZdn0=
-code.cloudfoundry.org/filelock v0.7.0/go.mod h1:v8jaYxF2WruC6WJF6+ORAEaKzGCkxFI8x54Y7UN87b4=
+code.cloudfoundry.org/filelock v0.8.0 h1:bmRxhh+Gu97VkoT98BWIZSf0r7Flj3eHAexbCvktGUw=
+code.cloudfoundry.org/filelock v0.8.0/go.mod h1:9f6hS+F1NwcTfXNYg037tQrFEA2A0Sb27Ce5FVHMnyA=
 code.cloudfoundry.org/localip v0.9.0 h1:oDzwhVOz25y6KNxOLU40rMUGYDlF4x7bhNmo9TG9wEg=
 code.cloudfoundry.org/localip v0.9.0/go.mod h1:xRwB1sKUt3egaWX07hLCOf2CFac/A4IbfI3K0f5wibI=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
