@@ -137,21 +137,21 @@ func (r *Runtime) Delete(containerId string, force bool) error {
 	}
 	containerIdsToDelete = append(containerIdsToDelete, containerId)
 
-	var errors []string
+	var allErrors []string
 	for _, containerIdToDelete := range containerIdsToDelete {
 		cm := r.containerFactory.NewManager(logger, &client, containerIdToDelete)
 
 		sm := r.stateFactory.NewManager(logger, &client, &wsc, containerIdToDelete, r.rootDir)
 
 		if err := r.deleteContainer(cm, sm, force, logger); err != nil {
-			errors = append(errors, err.Error())
+			allErrors = append(allErrors, err.Error())
 		}
 	}
 
-	if len(errors) == 0 {
+	if len(allErrors) == 0 {
 		return nil
 	} else {
-		return fmt.Errorf(strings.Join(errors, "\n"))
+		return errors.New(strings.Join(allErrors, "\n"))
 	}
 }
 
