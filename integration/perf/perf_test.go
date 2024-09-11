@@ -99,7 +99,7 @@ var _ = Describe("Perf", func() {
 					helpers.TheProcessExits(containerId, "cmd.exe")
 
 					state := helpers.GetContainerState(containerId)
-					Expect(state.Status).To(Equal("stopped"))
+					Expect(state.Status).To(Equal(specs.StateStopped))
 
 					return nil
 				})

@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/blang/semver"
+	"github.com/hashicorp/go-multierror"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/sirupsen/logrus"
@@ -39,7 +40,10 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 		return nil, &BundleConfigInvalidJSONError{BundlePath: bundlePath, InternalError: err}
 	}
 
-	validator := validate.NewValidator(&spec, bundlePath, true, "windows")
+	validator, err := validate.NewValidator(&spec, bundlePath, true, "windows")
+	if err != nil {
+		return nil, &BundleConfigValidationError{BundlePath: bundlePath, ErrorMessages: []string{fmt.Sprintf("could not create bundle validator: %s", err)}}
+	}
 	msgs := checkAll(spec, validator)
 	if len(msgs) != 0 {
 		for _, m := range msgs {
@@ -53,8 +57,24 @@ func ValidateBundle(logger *logrus.Entry, bundlePath string) (*specs.Spec, error
 
 func checkAll(spec specs.Spec, v validate.Validator) []string {
 	msgs := []string{}
-	msgs = append(msgs, v.CheckPlatform()...)
-	msgs = append(msgs, v.CheckMandatoryFields()...)
+	if err := v.CheckPlatform(); err != nil {
+		if multiErr, ok := err.(*multierror.Error); ok {
+			for _, e := range multiErr.WrappedErrors() {
+				msgs = append(msgs, e.Error())
+			}
+		} else {
+			msgs = append(msgs, err.Error())
+		}
+	}
+	if err := v.CheckMandatoryFields(); err != nil {
+		if multiErr, ok := err.(*multierror.Error); ok {
+			for _, e := range multiErr.WrappedErrors() {
+				msgs = append(msgs, e.Error())
+			}
+		} else {
+			msgs = append(msgs, err.Error())
+		}
+	}
 	msgs = append(msgs, checkSemVer(spec.Version)...)
 	if spec.Root == nil {
 		msgs = append(msgs, "'root' MUST be set when platform is `windows`")

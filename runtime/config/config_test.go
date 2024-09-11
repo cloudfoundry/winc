@@ -163,9 +163,8 @@ var _ = Describe("Config", func() {
 				Expect(err).To(BeAssignableToTypeOf(&config.BundleConfigValidationError{}))
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("bundle config.json is invalid: %s:", bundlePath)))
 				Expect(err.Error()).To(ContainSubstring("'windows' MUST be set when platform is `windows`"))
-				Expect(err.Error()).To(ContainSubstring(`'Spec.Version' should not be empty.`))
-				Expect(err.Error()).To(ContainSubstring(`'Process.Args' should not be empty.`))
-				Expect(err.Error()).To(ContainSubstring(`'Process.Cwd' should not be empty.`))
+				Expect(err.Error()).To(ContainSubstring(`'Spec.Version' should not be empty`))
+				Expect(err.Error()).To(ContainSubstring(`'Process.Cwd' should not be empty`))
 				Expect(err.Error()).To(ContainSubstring(`"" is not a valid SemVer: Version string empty`))
 				Expect(spec).To(BeNil())
 			})
@@ -174,7 +173,7 @@ var _ = Describe("Config", func() {
 				_, err := config.ValidateBundle(logger, bundlePath)
 				Expect(err).To(HaveOccurred())
 				logOutputStr := logOutput.String()
-				Expect(logOutputStr).To(ContainSubstring("'Spec.Version' should not be empty."))
+				Expect(logOutputStr).To(ContainSubstring("'Spec.Version' should not be empty"))
 			})
 
 			Context("when the 'Windows.LayerFolders' field is empty", func() {
