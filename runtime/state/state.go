@@ -134,9 +134,9 @@ func (m *Manager) State() (*specs.State, error) {
 		return nil, err
 	}
 
-	var status string
+	var status specs.ContainerState
 	if cp.Stopped {
-		status = "stopped"
+		status = specs.StateStopped
 	} else {
 		status, err = m.userProgramStatus(state)
 		if err != nil {
@@ -154,9 +154,9 @@ func (m *Manager) State() (*specs.State, error) {
 	}, nil
 }
 
-func (m *Manager) userProgramStatus(state State) (string, error) {
+func (m *Manager) userProgramStatus(state State) (specs.ContainerState, error) {
 	if state.ExecFailed {
-		return "stopped", nil
+		return specs.StateStopped, nil
 	}
 
 	if !stateValid(state) {
@@ -164,7 +164,7 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 	}
 
 	if (state.PID == 0) && (state.StartTime == syscall.Filetime{}) {
-		return "created", nil
+		return specs.StateCreated, nil
 	}
 
 	h, err := m.sc.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(state.PID))
@@ -172,7 +172,7 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 		if errno, ok := err.(syscall.Errno); ok {
 			// 0x57 is ERROR_INVALID_PARAMETER, which is returned if the process doesn't exist
 			if errno == 0x57 {
-				return "stopped", nil
+				return specs.StateStopped, nil
 			}
 		}
 		return "", fmt.Errorf("OpenProcess: %s", err.Error())
@@ -185,7 +185,7 @@ func (m *Manager) userProgramStatus(state State) (string, error) {
 	}
 
 	if exitCode != STILL_ACTIVE_EXIT_CODE {
-		return "stopped", nil
+		return specs.StateStopped, nil
 	}
 
 	creationTime, err := m.sc.GetProcessStartTime(h)
