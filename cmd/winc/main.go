@@ -143,12 +143,12 @@ func main() {
 		}
 
 		if !emptyLog(log) {
-			if err := os.MkdirAll(filepath.Dir(log), 0666); err != nil {
+			if err := os.MkdirAll(filepath.Dir(log), 0755); err != nil {
 				return err
 			}
 
 			var err error
-			logFile, err = os.OpenFile(log, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
+			logFile, err = os.OpenFile(log, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0644)
 			if err != nil {
 				return err
 			}
