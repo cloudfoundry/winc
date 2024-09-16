@@ -102,7 +102,10 @@ func (m *Manager) SetSuccess(proc hcs.Process) error {
 		retErr := fmt.Errorf("OpenProcess: %s", err.Error())
 		m.logger.Error(retErr)
 		state.ExecFailed = true
-		m.writeState(state)
+		writeErr := m.writeState(state)
+		if writeErr != nil {
+			m.logger.Error(writeErr)
+		}
 		return retErr
 	}
 	defer m.sc.CloseHandle(h)
@@ -112,7 +115,10 @@ func (m *Manager) SetSuccess(proc hcs.Process) error {
 		retErr := fmt.Errorf("GetProcessStartTime: %s", err.Error())
 		m.logger.Error(retErr)
 		state.ExecFailed = true
-		m.writeState(state)
+		writeErr := m.writeState(state)
+		if writeErr != nil {
+			m.logger.Error(writeErr)
+		}
 		return retErr
 	}
 

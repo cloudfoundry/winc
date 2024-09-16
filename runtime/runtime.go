@@ -372,6 +372,7 @@ func (r *Runtime) createContainer(cm ContainerManager, sm StateManager, bundlePa
 	}
 
 	if err := sm.Initialize(bundlePath); err != nil {
+		// #nosec G104 - we don't need to capture errors from deleting the thing that failed to initialize
 		cm.Delete(false)
 		return nil, err
 	}
