@@ -28,7 +28,7 @@ func New(p hcsshim.Process) *Process {
 
 func (p *Process) WritePIDFile(pidFile string) error {
 	if pidFile != "" {
-		if err := os.WriteFile(pidFile, []byte(strconv.FormatInt(int64(p.process.Pid()), 10)), 0666); err != nil {
+		if err := os.WriteFile(pidFile, []byte(strconv.FormatInt(int64(p.process.Pid()), 10)), 0644); err != nil {
 			return err
 		}
 	}
