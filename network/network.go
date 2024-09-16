@@ -173,7 +173,9 @@ func (n *NetworkManager) Up(inputs UpInputs) (UpOutputs, error) {
 
 	outputs, err := n.up(inputs)
 	if err != nil {
+		// #nosec G104 - we don't need to capture errors from deleting the thing that failed to initialize
 		n.applier.Cleanup()
+		// #nosec G104 - we don't need to capture errors from deleting the thing that failed to initialize
 		n.endpointManager.Delete()
 	}
 	logrus.Debugf("finished networkmanager up %d", inputs.Pid)

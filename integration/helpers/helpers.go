@@ -64,7 +64,8 @@ func NewHelpers(wincBin, grootBin, grootImageStore, wincNetworkBin string, debug
 }
 
 func (h *Helpers) Logs() []byte {
-	h.logFile.Close()
+	err := h.logFile.Close()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	content, err := os.ReadFile(h.logFile.Name())
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	Expect(os.RemoveAll(h.logFile.Name())).To(Succeed())
@@ -139,7 +140,8 @@ func (h *Helpers) WriteNetworkConfig(networkConfig network.Config, networkConfig
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	_, err = file.Write(data)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	file.Close()
+	err = file.Close()
+	ExpectWithOffset(1, err).NotTo(HaveOcccured())
 }
 
 func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {

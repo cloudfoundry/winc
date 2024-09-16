@@ -61,6 +61,7 @@ func main() {
 	var logFile *os.File
 	defer func() {
 		if logFile != nil {
+			// #nosec G104 - we don't need to capture errors from failing to close the log file as the program exits.
 			logFile.Close()
 		}
 	}()
