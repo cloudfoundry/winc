@@ -141,7 +141,7 @@ func (h *Helpers) WriteNetworkConfig(networkConfig network.Config, networkConfig
 	_, err = file.Write(data)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	err = file.Close()
-	ExpectWithOffset(1, err).NotTo(HaveOcccured())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 }
 
 func (h *Helpers) CreateNetwork(networkConfig network.Config, networkConfigFile string, extraArgs ...string) {
