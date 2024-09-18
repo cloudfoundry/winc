@@ -9,7 +9,7 @@ toolchain go1.22.3
 replace github.com/containerd/errdefs => github.com/containerd/errdefs v0.1.0
 
 require (
-	code.cloudfoundry.org/filelock v0.10.0
+	code.cloudfoundry.org/filelock v0.11.0
 	code.cloudfoundry.org/localip v0.11.0
 	github.com/Microsoft/hcsshim v0.12.6
 	github.com/blang/semver v3.5.1+incompatible
@@ -34,7 +34,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/containerd/cgroups/v3 v3.0.3 // indirect
 	github.com/containerd/errdefs v0.2.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
