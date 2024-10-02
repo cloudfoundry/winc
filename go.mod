@@ -10,8 +10,8 @@ replace github.com/containerd/errdefs => github.com/containerd/errdefs v0.1.0
 
 require (
 	code.cloudfoundry.org/filelock v0.11.0
-	code.cloudfoundry.org/localip v0.11.0
-	github.com/Microsoft/hcsshim v0.12.6
+	code.cloudfoundry.org/localip v0.12.0
+	github.com/Microsoft/hcsshim v0.12.7
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
@@ -39,7 +39,7 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/pprof v0.0.0-20240910150728-a0b0bb1d4134 // indirect
+	github.com/google/pprof v0.0.0-20241001023024-f4c0cfd0cf1d // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/opencontainers/selinux v1.11.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -51,8 +51,8 @@ require (
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/tools v0.25.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240924160255-9d4c2d233b61 // indirect
-	google.golang.org/grpc v1.67.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240930140551-af27646dc61f // indirect
+	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
