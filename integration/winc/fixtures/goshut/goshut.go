@@ -51,6 +51,10 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hi there, I love you!\n")
 	})
-	err := http.ListenAndServe(":8080", nil)
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: nil,
+	}
+	err := server.ListenAndServe()
 	fmt.Fprintf(os.Stderr, "HTTP server exited: %s\n", err)
 }
