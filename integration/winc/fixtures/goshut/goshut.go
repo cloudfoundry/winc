@@ -52,8 +52,9 @@ func main() {
 		fmt.Fprintf(w, "Hi there, I love you!\n")
 	})
 	server := &http.Server{
-		Addr:    ":8080",
-		Handler: nil,
+		Addr:              ":8080",
+		Handler:           nil,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 	err := server.ListenAndServe()
 	fmt.Fprintf(os.Stderr, "HTTP server exited: %s\n", err)

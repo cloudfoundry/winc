@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -22,8 +23,9 @@ func main() {
 	http.HandleFunc("/upload", uploadHandler)
 	http.HandleFunc("/download", downloadHandler)
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
-		Handler: nil,
+		Addr:              fmt.Sprintf(":%s", port),
+		Handler:           nil,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	log.Fatal(server.ListenAndServe())
