@@ -152,14 +152,14 @@ func getContainerIp(containerId string) net.IP {
 	return endpoint.IPAddress
 }
 
-func randomPort() int {
+func randomPort() uint16 {
 	l, err := net.Listen("tcp", ":0")
 	Expect(err).NotTo(HaveOccurred())
 	defer l.Close()
 	split := strings.Split(l.Addr().String(), ":")
-	port, err := strconv.Atoi(split[len(split)-1])
+	port, err := strconv.ParseUint(split[len(split)-1], 10, 16)
 	Expect(err).NotTo(HaveOccurred())
-	return port
+	return uint16(port)
 }
 
 func endpointExists(endpointName string) bool {
@@ -190,16 +190,17 @@ func allEndpoints(containerID string) []string {
 	return endpointIDs
 }
 
-func findExternalPort(portMappings, containerPort string) int {
+func findExternalPort(portMappings, containerPort string) uint16 {
 	var mappedPorts []netrules.PortMapping
 	err := json.Unmarshal([]byte(portMappings), &mappedPorts)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	var externalPort, internalPort int
-	internalPort, err = strconv.Atoi(containerPort)
+	var externalPort uint16
+	var internalPort uint64
+	internalPort, err = strconv.ParseUint(containerPort, 10, 16)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	for _, v := range mappedPorts {
-		if v.ContainerPort == uint32(internalPort) {
-			externalPort = int(v.HostPort)
+		if v.ContainerPort == uint16(internalPort) {
+			externalPort = v.HostPort
 			break
 		}
 	}

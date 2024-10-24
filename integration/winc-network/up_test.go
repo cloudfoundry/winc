@@ -70,16 +70,16 @@ var _ = Describe("Up", func() {
 
 		Context("stdin contains a net in rule", func() {
 			var (
-				hostPort1      uint32
-				hostPort2      uint32
-				containerPort1 uint32
-				containerPort2 uint32
+				hostPort1      uint16
+				hostPort2      uint16
+				containerPort1 uint16
+				containerPort2 uint16
 				client         http.Client
 			)
 
 			BeforeEach(func() {
 				hostPort1 = 0
-				hostPort2 = uint32(randomPort())
+				hostPort2 = randomPort()
 
 				containerPort1 = 12345
 				containerPort2 = 9876
@@ -614,7 +614,7 @@ var _ = Describe("Up", func() {
 			pid = helpers.GetContainerState(containerId2).Pid
 			helpers.CopyFile(filepath.Join("c:\\", "proc", strconv.Itoa(pid), "root", "netout.exe"), netoutBin)
 
-			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", hostIp, "--port", strconv.Itoa(hostPort)}, false)
+			stdOut, _, err := helpers.ExecInContainer(containerId2, []string{"c:\\netout.exe", "--protocol", "tcp", "--addr", hostIp, "--port", fmt.Sprintf("%d", hostPort)}, false)
 			Expect(err).To(HaveOccurred())
 			Expect(stdOut.String()).To(ContainSubstring("An attempt was made to access a socket in a way forbidden by its access permissions"))
 		})

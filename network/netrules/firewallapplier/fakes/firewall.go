@@ -54,15 +54,17 @@ func (fake *Firewall) CreateRule(arg1 firewall.Rule) error {
 	fake.createRuleArgsForCall = append(fake.createRuleArgsForCall, struct {
 		arg1 firewall.Rule
 	}{arg1})
+	stub := fake.CreateRuleStub
+	fakeReturns := fake.createRuleReturns
 	fake.recordInvocation("CreateRule", []interface{}{arg1})
 	fake.createRuleMutex.Unlock()
-	if fake.CreateRuleStub != nil {
-		return fake.CreateRuleStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.createRuleReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Firewall) CreateRuleCallCount() int {
@@ -71,13 +73,22 @@ func (fake *Firewall) CreateRuleCallCount() int {
 	return len(fake.createRuleArgsForCall)
 }
 
+func (fake *Firewall) CreateRuleCalls(stub func(firewall.Rule) error) {
+	fake.createRuleMutex.Lock()
+	defer fake.createRuleMutex.Unlock()
+	fake.CreateRuleStub = stub
+}
+
 func (fake *Firewall) CreateRuleArgsForCall(i int) firewall.Rule {
 	fake.createRuleMutex.RLock()
 	defer fake.createRuleMutex.RUnlock()
-	return fake.createRuleArgsForCall[i].arg1
+	argsForCall := fake.createRuleArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *Firewall) CreateRuleReturns(result1 error) {
+	fake.createRuleMutex.Lock()
+	defer fake.createRuleMutex.Unlock()
 	fake.CreateRuleStub = nil
 	fake.createRuleReturns = struct {
 		result1 error
@@ -85,6 +96,8 @@ func (fake *Firewall) CreateRuleReturns(result1 error) {
 }
 
 func (fake *Firewall) CreateRuleReturnsOnCall(i int, result1 error) {
+	fake.createRuleMutex.Lock()
+	defer fake.createRuleMutex.Unlock()
 	fake.CreateRuleStub = nil
 	if fake.createRuleReturnsOnCall == nil {
 		fake.createRuleReturnsOnCall = make(map[int]struct {
@@ -102,15 +115,17 @@ func (fake *Firewall) DeleteRule(arg1 string) error {
 	fake.deleteRuleArgsForCall = append(fake.deleteRuleArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.DeleteRuleStub
+	fakeReturns := fake.deleteRuleReturns
 	fake.recordInvocation("DeleteRule", []interface{}{arg1})
 	fake.deleteRuleMutex.Unlock()
-	if fake.DeleteRuleStub != nil {
-		return fake.DeleteRuleStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.deleteRuleReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Firewall) DeleteRuleCallCount() int {
@@ -119,13 +134,22 @@ func (fake *Firewall) DeleteRuleCallCount() int {
 	return len(fake.deleteRuleArgsForCall)
 }
 
+func (fake *Firewall) DeleteRuleCalls(stub func(string) error) {
+	fake.deleteRuleMutex.Lock()
+	defer fake.deleteRuleMutex.Unlock()
+	fake.DeleteRuleStub = stub
+}
+
 func (fake *Firewall) DeleteRuleArgsForCall(i int) string {
 	fake.deleteRuleMutex.RLock()
 	defer fake.deleteRuleMutex.RUnlock()
-	return fake.deleteRuleArgsForCall[i].arg1
+	argsForCall := fake.deleteRuleArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *Firewall) DeleteRuleReturns(result1 error) {
+	fake.deleteRuleMutex.Lock()
+	defer fake.deleteRuleMutex.Unlock()
 	fake.DeleteRuleStub = nil
 	fake.deleteRuleReturns = struct {
 		result1 error
@@ -133,6 +157,8 @@ func (fake *Firewall) DeleteRuleReturns(result1 error) {
 }
 
 func (fake *Firewall) DeleteRuleReturnsOnCall(i int, result1 error) {
+	fake.deleteRuleMutex.Lock()
+	defer fake.deleteRuleMutex.Unlock()
 	fake.DeleteRuleStub = nil
 	if fake.deleteRuleReturnsOnCall == nil {
 		fake.deleteRuleReturnsOnCall = make(map[int]struct {
@@ -150,15 +176,17 @@ func (fake *Firewall) RuleExists(arg1 string) (bool, error) {
 	fake.ruleExistsArgsForCall = append(fake.ruleExistsArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.RuleExistsStub
+	fakeReturns := fake.ruleExistsReturns
 	fake.recordInvocation("RuleExists", []interface{}{arg1})
 	fake.ruleExistsMutex.Unlock()
-	if fake.RuleExistsStub != nil {
-		return fake.RuleExistsStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.ruleExistsReturns.result1, fake.ruleExistsReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *Firewall) RuleExistsCallCount() int {
@@ -167,13 +195,22 @@ func (fake *Firewall) RuleExistsCallCount() int {
 	return len(fake.ruleExistsArgsForCall)
 }
 
+func (fake *Firewall) RuleExistsCalls(stub func(string) (bool, error)) {
+	fake.ruleExistsMutex.Lock()
+	defer fake.ruleExistsMutex.Unlock()
+	fake.RuleExistsStub = stub
+}
+
 func (fake *Firewall) RuleExistsArgsForCall(i int) string {
 	fake.ruleExistsMutex.RLock()
 	defer fake.ruleExistsMutex.RUnlock()
-	return fake.ruleExistsArgsForCall[i].arg1
+	argsForCall := fake.ruleExistsArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *Firewall) RuleExistsReturns(result1 bool, result2 error) {
+	fake.ruleExistsMutex.Lock()
+	defer fake.ruleExistsMutex.Unlock()
 	fake.RuleExistsStub = nil
 	fake.ruleExistsReturns = struct {
 		result1 bool
@@ -182,6 +219,8 @@ func (fake *Firewall) RuleExistsReturns(result1 bool, result2 error) {
 }
 
 func (fake *Firewall) RuleExistsReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.ruleExistsMutex.Lock()
+	defer fake.ruleExistsMutex.Unlock()
 	fake.RuleExistsStub = nil
 	if fake.ruleExistsReturnsOnCall == nil {
 		fake.ruleExistsReturnsOnCall = make(map[int]struct {
@@ -204,7 +243,11 @@ func (fake *Firewall) Invocations() map[string][][]interface{} {
 	defer fake.deleteRuleMutex.RUnlock()
 	fake.ruleExistsMutex.RLock()
 	defer fake.ruleExistsMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *Firewall) recordInvocation(key string, args []interface{}) {

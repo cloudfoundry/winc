@@ -16,7 +16,7 @@ type NetShRunner interface {
 
 //go:generate counterfeiter -o fakes/port_allocator.go --fake-name PortAllocator . PortAllocator
 type PortAllocator interface {
-	AllocatePort(handle string, port int) (int, error)
+	AllocatePort(handle string, port uint16) (uint16, error)
 	ReleaseAllPorts(handle string) error
 }
 
@@ -51,7 +51,7 @@ func (a *Applier) In(rule netrules.NetIn, containerIP string) (*hcsshim.NatPolic
 		if err != nil {
 			return nil, nil, err
 		}
-		externalPort = uint32(allocatedPort)
+		externalPort = allocatedPort
 	}
 
 	fr := firewall.Rule{
@@ -127,7 +127,7 @@ func (a *Applier) Cleanup() error {
 	return nil
 }
 
-func (a *Applier) OpenPort(port uint32) error {
+func (a *Applier) OpenPort(port uint16) error {
 	args := []string{"http", "add", "urlacl", fmt.Sprintf("url=http://*:%d/", port), "user=Users"}
 	return a.netSh.RunContainer(args)
 }

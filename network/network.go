@@ -278,8 +278,8 @@ func (n *NetworkManager) up(inputs UpInputs) (UpOutputs, error) {
 	mappedPorts := []netrules.PortMapping{}
 	for _, nat := range hnsNats {
 		mappedPorts = append(mappedPorts, netrules.PortMapping{
-			ContainerPort: uint32(nat.InternalPort),
-			HostPort:      uint32(nat.ExternalPort),
+			ContainerPort: nat.InternalPort,
+			HostPort:      nat.ExternalPort,
 		})
 	}
 	portBytes, err := json.Marshal(mappedPorts)

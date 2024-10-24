@@ -119,7 +119,7 @@ var _ = Describe("Firewall Applier", func() {
 				Expect(portAllocator.AllocatePortCallCount()).To(Equal(1))
 				id, p := portAllocator.AllocatePortArgsForCall(0)
 				Expect(id).To(Equal(containerId))
-				Expect(p).To(Equal(0))
+				Expect(p).To(Equal(uint16(0)))
 			})
 
 			Context("when allocating a port fails", func() {

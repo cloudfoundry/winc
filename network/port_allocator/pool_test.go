@@ -30,7 +30,7 @@ var _ = Describe("Tracker", func() {
 			newPort, err := tracker.AcquireOne(pool, "some-handle")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newPort).To(BeInRange(100, 110))
-			Expect(pool.AcquiredPorts).To(Equal(map[int]string{newPort: "some-handle"}))
+			Expect(pool.AcquiredPorts).To(Equal(map[uint16]string{newPort: "some-handle"}))
 		})
 
 		Context("when acquiring multiple ports", func() {
@@ -50,7 +50,7 @@ var _ = Describe("Tracker", func() {
 		Context("when the only unacquired port is in the middle of the range", func() {
 			BeforeEach(func() {
 				tracker.Capacity = 3
-				pool.AcquiredPorts = map[int]string{
+				pool.AcquiredPorts = map[uint16]string{
 					100: "some-handle",
 					102: "some-handle",
 				}
@@ -59,15 +59,15 @@ var _ = Describe("Tracker", func() {
 			It("reserves and returns that unacquired port", func() {
 				port, err := tracker.AcquireOne(pool, "some-handle")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(port).To(Equal(101))
-				Expect(pool.AcquiredPorts).To(HaveKey(101))
+				Expect(port).To(Equal(uint16(101)))
+				Expect(pool.AcquiredPorts).To(HaveKey(uint16(101)))
 			})
 		})
 
 		Context("when the pool has reached capacity", func() {
 			BeforeEach(func() {
 				tracker.Capacity = 2
-				pool.AcquiredPorts = map[int]string{
+				pool.AcquiredPorts = map[uint16]string{
 					100: "some-handle",
 					101: "some-handle",
 				}
@@ -103,7 +103,7 @@ var _ = Describe("Tracker", func() {
 	Describe("acquire and release lifecycle", func() {
 		It("can re-acquire ports which have been acquired and then released", func() {
 			var err error
-			for i := 0; i < tracker.Capacity; i++ {
+			for i := uint16(0); i < tracker.Capacity; i++ {
 				if i%2 == 0 {
 					_, err = tracker.AcquireOne(pool, "some-handle")
 				} else {
@@ -114,13 +114,13 @@ var _ = Describe("Tracker", func() {
 			Expect(tracker.ReleaseAll(pool, "some-handle")).To(Succeed())
 			reacquired, err := tracker.AcquireOne(pool, "some-handle")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(reacquired).To(Equal(100))
+			Expect(reacquired).To(Equal(uint16(100)))
 		})
 	})
 
 	Describe("InRange", func() {
 		It("returns true if the given port is in the allocation range", func() {
-			for i := 100; i < 110; i++ {
+			for i := uint16(100); i < 110; i++ {
 				Expect(tracker.InRange(i)).To(BeTrue())
 			}
 		})
@@ -131,7 +131,7 @@ var _ = Describe("Tracker", func() {
 
 	Describe("serializing the pool", func() {
 		It("can be roud-tripped through JSON intact", func() {
-			pool.AcquiredPorts = map[int]string{
+			pool.AcquiredPorts = map[uint16]string{
 				42:  "some-handle",
 				105: "some-handle2",
 			}
@@ -146,7 +146,7 @@ var _ = Describe("Tracker", func() {
 		})
 
 		It("marshals as a map from container handle to list of allocated ports", func() {
-			pool.AcquiredPorts = map[int]string{
+			pool.AcquiredPorts = map[uint16]string{
 				42:  "some-handle",
 				105: "some-handle2",
 			}
