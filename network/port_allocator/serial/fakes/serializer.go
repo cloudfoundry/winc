@@ -9,11 +9,11 @@ import (
 )
 
 type Serializer struct {
-	DecodeAllStub        func(file io.ReadSeeker, outData interface{}) error
+	DecodeAllStub        func(io.ReadSeeker, interface{}) error
 	decodeAllMutex       sync.RWMutex
 	decodeAllArgsForCall []struct {
-		file    io.ReadSeeker
-		outData interface{}
+		arg1 io.ReadSeeker
+		arg2 interface{}
 	}
 	decodeAllReturns struct {
 		result1 error
@@ -21,11 +21,11 @@ type Serializer struct {
 	decodeAllReturnsOnCall map[int]struct {
 		result1 error
 	}
-	EncodeAndOverwriteStub        func(file serial.OverwriteableFile, outData interface{}) error
+	EncodeAndOverwriteStub        func(serial.OverwriteableFile, interface{}) error
 	encodeAndOverwriteMutex       sync.RWMutex
 	encodeAndOverwriteArgsForCall []struct {
-		file    serial.OverwriteableFile
-		outData interface{}
+		arg1 serial.OverwriteableFile
+		arg2 interface{}
 	}
 	encodeAndOverwriteReturns struct {
 		result1 error
@@ -37,22 +37,24 @@ type Serializer struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Serializer) DecodeAll(file io.ReadSeeker, outData interface{}) error {
+func (fake *Serializer) DecodeAll(arg1 io.ReadSeeker, arg2 interface{}) error {
 	fake.decodeAllMutex.Lock()
 	ret, specificReturn := fake.decodeAllReturnsOnCall[len(fake.decodeAllArgsForCall)]
 	fake.decodeAllArgsForCall = append(fake.decodeAllArgsForCall, struct {
-		file    io.ReadSeeker
-		outData interface{}
-	}{file, outData})
-	fake.recordInvocation("DecodeAll", []interface{}{file, outData})
+		arg1 io.ReadSeeker
+		arg2 interface{}
+	}{arg1, arg2})
+	stub := fake.DecodeAllStub
+	fakeReturns := fake.decodeAllReturns
+	fake.recordInvocation("DecodeAll", []interface{}{arg1, arg2})
 	fake.decodeAllMutex.Unlock()
-	if fake.DecodeAllStub != nil {
-		return fake.DecodeAllStub(file, outData)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.decodeAllReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Serializer) DecodeAllCallCount() int {
@@ -61,13 +63,22 @@ func (fake *Serializer) DecodeAllCallCount() int {
 	return len(fake.decodeAllArgsForCall)
 }
 
+func (fake *Serializer) DecodeAllCalls(stub func(io.ReadSeeker, interface{}) error) {
+	fake.decodeAllMutex.Lock()
+	defer fake.decodeAllMutex.Unlock()
+	fake.DecodeAllStub = stub
+}
+
 func (fake *Serializer) DecodeAllArgsForCall(i int) (io.ReadSeeker, interface{}) {
 	fake.decodeAllMutex.RLock()
 	defer fake.decodeAllMutex.RUnlock()
-	return fake.decodeAllArgsForCall[i].file, fake.decodeAllArgsForCall[i].outData
+	argsForCall := fake.decodeAllArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Serializer) DecodeAllReturns(result1 error) {
+	fake.decodeAllMutex.Lock()
+	defer fake.decodeAllMutex.Unlock()
 	fake.DecodeAllStub = nil
 	fake.decodeAllReturns = struct {
 		result1 error
@@ -75,6 +86,8 @@ func (fake *Serializer) DecodeAllReturns(result1 error) {
 }
 
 func (fake *Serializer) DecodeAllReturnsOnCall(i int, result1 error) {
+	fake.decodeAllMutex.Lock()
+	defer fake.decodeAllMutex.Unlock()
 	fake.DecodeAllStub = nil
 	if fake.decodeAllReturnsOnCall == nil {
 		fake.decodeAllReturnsOnCall = make(map[int]struct {
@@ -86,22 +99,24 @@ func (fake *Serializer) DecodeAllReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Serializer) EncodeAndOverwrite(file serial.OverwriteableFile, outData interface{}) error {
+func (fake *Serializer) EncodeAndOverwrite(arg1 serial.OverwriteableFile, arg2 interface{}) error {
 	fake.encodeAndOverwriteMutex.Lock()
 	ret, specificReturn := fake.encodeAndOverwriteReturnsOnCall[len(fake.encodeAndOverwriteArgsForCall)]
 	fake.encodeAndOverwriteArgsForCall = append(fake.encodeAndOverwriteArgsForCall, struct {
-		file    serial.OverwriteableFile
-		outData interface{}
-	}{file, outData})
-	fake.recordInvocation("EncodeAndOverwrite", []interface{}{file, outData})
+		arg1 serial.OverwriteableFile
+		arg2 interface{}
+	}{arg1, arg2})
+	stub := fake.EncodeAndOverwriteStub
+	fakeReturns := fake.encodeAndOverwriteReturns
+	fake.recordInvocation("EncodeAndOverwrite", []interface{}{arg1, arg2})
 	fake.encodeAndOverwriteMutex.Unlock()
-	if fake.EncodeAndOverwriteStub != nil {
-		return fake.EncodeAndOverwriteStub(file, outData)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.encodeAndOverwriteReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Serializer) EncodeAndOverwriteCallCount() int {
@@ -110,13 +125,22 @@ func (fake *Serializer) EncodeAndOverwriteCallCount() int {
 	return len(fake.encodeAndOverwriteArgsForCall)
 }
 
+func (fake *Serializer) EncodeAndOverwriteCalls(stub func(serial.OverwriteableFile, interface{}) error) {
+	fake.encodeAndOverwriteMutex.Lock()
+	defer fake.encodeAndOverwriteMutex.Unlock()
+	fake.EncodeAndOverwriteStub = stub
+}
+
 func (fake *Serializer) EncodeAndOverwriteArgsForCall(i int) (serial.OverwriteableFile, interface{}) {
 	fake.encodeAndOverwriteMutex.RLock()
 	defer fake.encodeAndOverwriteMutex.RUnlock()
-	return fake.encodeAndOverwriteArgsForCall[i].file, fake.encodeAndOverwriteArgsForCall[i].outData
+	argsForCall := fake.encodeAndOverwriteArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Serializer) EncodeAndOverwriteReturns(result1 error) {
+	fake.encodeAndOverwriteMutex.Lock()
+	defer fake.encodeAndOverwriteMutex.Unlock()
 	fake.EncodeAndOverwriteStub = nil
 	fake.encodeAndOverwriteReturns = struct {
 		result1 error
@@ -124,6 +148,8 @@ func (fake *Serializer) EncodeAndOverwriteReturns(result1 error) {
 }
 
 func (fake *Serializer) EncodeAndOverwriteReturnsOnCall(i int, result1 error) {
+	fake.encodeAndOverwriteMutex.Lock()
+	defer fake.encodeAndOverwriteMutex.Unlock()
 	fake.EncodeAndOverwriteStub = nil
 	if fake.encodeAndOverwriteReturnsOnCall == nil {
 		fake.encodeAndOverwriteReturnsOnCall = make(map[int]struct {
@@ -142,7 +168,11 @@ func (fake *Serializer) Invocations() map[string][][]interface{} {
 	defer fake.decodeAllMutex.RUnlock()
 	fake.encodeAndOverwriteMutex.RLock()
 	defer fake.encodeAndOverwriteMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *Serializer) recordInvocation(key string, args []interface{}) {

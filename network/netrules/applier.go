@@ -16,7 +16,7 @@ type NetShRunner interface {
 
 //go:generate counterfeiter -o fakes/port_allocator.go --fake-name PortAllocator . PortAllocator
 type PortAllocator interface {
-	AllocatePort(handle string, port int) (int, error)
+	AllocatePort(handle string, port uint16) (uint16, error)
 	ReleaseAllPorts(handle string) error
 }
 
@@ -42,7 +42,7 @@ func (a *Applier) In(rule NetIn, containerIP string) (*hcsshim.NatPolicy, *hcssh
 		if err != nil {
 			return nil, nil, err
 		}
-		externalPort = uint32(allocatedPort)
+		externalPort = uint16(allocatedPort)
 	}
 
 	return &hcsshim.NatPolicy{

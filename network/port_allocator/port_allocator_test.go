@@ -74,7 +74,7 @@ var _ = Describe("PortAllocator", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(tracker.AcquireOneCallCount()).To(Equal(0))
-				Expect(port).To(Equal(42))
+				Expect(port).To(Equal(uint16(42)))
 			})
 		})
 
@@ -104,7 +104,7 @@ var _ = Describe("PortAllocator", func() {
 		It("returns the port", func() {
 			port, err := portAllocator.AllocatePort("some-handle", 0)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(port).To(Equal(111))
+			Expect(port).To(Equal(uint16(111)))
 		})
 
 		It("closes (and thus unlocks) the file", func() {

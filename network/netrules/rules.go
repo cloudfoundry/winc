@@ -7,13 +7,13 @@ import (
 )
 
 type PortMapping struct {
-	HostPort      uint32
-	ContainerPort uint32
+	HostPort      uint16
+	ContainerPort uint16
 }
 
 type NetIn struct {
-	HostPort      uint32 `json:"host_port"`
-	ContainerPort uint32 `json:"container_port"`
+	HostPort      uint16 `json:"host_port"`
+	ContainerPort uint16 `json:"container_port"`
 }
 
 type NetOut struct {
