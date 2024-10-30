@@ -4,10 +4,6 @@ go 1.22.0
 
 toolchain go1.22.3
 
-// github.com/Microsofthcsshim currently requires this to be pinned back, as it doesn't
-// support v0.2.0+ where ToGRPC() is not a function anymore
-replace github.com/containerd/errdefs => github.com/containerd/errdefs v0.1.0
-
 require (
 	code.cloudfoundry.org/filelock v0.14.0
 	code.cloudfoundry.org/localip v0.14.0
