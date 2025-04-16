@@ -2,7 +2,7 @@
 ## explicit; go 1.23.0
 code.cloudfoundry.org/filelock
 code.cloudfoundry.org/filelock/fakes
-# code.cloudfoundry.org/localip v0.36.0
+# code.cloudfoundry.org/localip v0.37.0
 ## explicit; go 1.23.0
 code.cloudfoundry.org/localip
 # github.com/Microsoft/go-winio v0.6.2
@@ -255,7 +255,7 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20250407143221-ac9807e6c755
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.71.1

@@ -6,7 +6,7 @@ toolchain go1.23.6
 
 require (
 	code.cloudfoundry.org/filelock v0.33.0
-	code.cloudfoundry.org/localip v0.36.0
+	code.cloudfoundry.org/localip v0.37.0
 	github.com/Microsoft/hcsshim v0.12.9
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hashicorp/go-multierror v1.1.1
@@ -51,7 +51,7 @@ require (
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250407143221-ac9807e6c755 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/grpc v1.71.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
