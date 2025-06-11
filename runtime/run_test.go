@@ -66,7 +66,8 @@ var _ = Describe("Run", func() {
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
+		config := runtime.Config{}
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath, config)
 
 		stdin = gbytes.NewBuffer()
 		stdout = gbytes.NewBuffer()

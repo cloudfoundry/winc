@@ -32,15 +32,17 @@ func (fake *HCSQuery) GetContainers(arg1 hcsshim.ComputeSystemQuery) ([]hcsshim.
 	fake.getContainersArgsForCall = append(fake.getContainersArgsForCall, struct {
 		arg1 hcsshim.ComputeSystemQuery
 	}{arg1})
+	stub := fake.GetContainersStub
+	fakeReturns := fake.getContainersReturns
 	fake.recordInvocation("GetContainers", []interface{}{arg1})
 	fake.getContainersMutex.Unlock()
-	if fake.GetContainersStub != nil {
-		return fake.GetContainersStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getContainersReturns.result1, fake.getContainersReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *HCSQuery) GetContainersCallCount() int {
@@ -49,13 +51,22 @@ func (fake *HCSQuery) GetContainersCallCount() int {
 	return len(fake.getContainersArgsForCall)
 }
 
+func (fake *HCSQuery) GetContainersCalls(stub func(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
+	fake.GetContainersStub = stub
+}
+
 func (fake *HCSQuery) GetContainersArgsForCall(i int) hcsshim.ComputeSystemQuery {
 	fake.getContainersMutex.RLock()
 	defer fake.getContainersMutex.RUnlock()
-	return fake.getContainersArgsForCall[i].arg1
+	argsForCall := fake.getContainersArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *HCSQuery) GetContainersReturns(result1 []hcsshim.ContainerProperties, result2 error) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
 	fake.GetContainersStub = nil
 	fake.getContainersReturns = struct {
 		result1 []hcsshim.ContainerProperties
@@ -64,6 +75,8 @@ func (fake *HCSQuery) GetContainersReturns(result1 []hcsshim.ContainerProperties
 }
 
 func (fake *HCSQuery) GetContainersReturnsOnCall(i int, result1 []hcsshim.ContainerProperties, result2 error) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
 	fake.GetContainersStub = nil
 	if fake.getContainersReturnsOnCall == nil {
 		fake.getContainersReturnsOnCall = make(map[int]struct {
@@ -82,7 +95,11 @@ func (fake *HCSQuery) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.getContainersMutex.RLock()
 	defer fake.getContainersMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *HCSQuery) recordInvocation(key string, args []interface{}) {

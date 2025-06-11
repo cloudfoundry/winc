@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
+	code.cloudfoundry.org/credhub-cli v0.0.0-20250609132220-beec578d3f6d
 	code.cloudfoundry.org/filelock v0.33.0
 	code.cloudfoundry.org/localip v0.37.0
 	github.com/Microsoft/hcsshim v0.12.9
@@ -20,26 +21,29 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.16
-	golang.org/x/sync v0.13.0
-	golang.org/x/sys v0.32.0
-	golang.org/x/text v0.24.0
+	golang.org/x/sync v0.15.0
+	golang.org/x/sys v0.33.0
+	golang.org/x/text v0.26.0
 )
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/cloudfoundry/go-socks5 v0.0.0-20250423223041-4ad5fea42851 // indirect
+	github.com/cloudfoundry/socks5-proxy v0.2.153 // indirect
 	github.com/containerd/cgroups/v3 v3.0.5 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
+	github.com/google/pprof v0.0.0-20250607225305-033d6d78b36a // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/opencontainers/selinux v1.12.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
@@ -48,9 +52,10 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
-	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/net v0.39.0 // indirect
-	golang.org/x/tools v0.32.0 // indirect
+	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/mod v0.25.0 // indirect
+	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/tools v0.34.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
 	google.golang.org/grpc v1.71.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
