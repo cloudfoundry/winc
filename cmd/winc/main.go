@@ -105,7 +105,7 @@ func main() {
 			Usage: "path to credential spec file",
 		},
 		cli.StringFlag{
-			Name:  "configFile",
+			Name:  "config-file",
 			Usage: "config file for winc",
 			Value: "",
 		},
@@ -128,9 +128,9 @@ func main() {
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
 		credentialSpecPath := context.String("credential-spec")
-		config, err := parseConfig(context.String("configFile"))
+		config, err := parseConfig(context.String("config-file"))
 		if err != nil {
-			return fmt.Errorf("configFile: %s", err.Error())
+			return fmt.Errorf("config-file: %s", err.Error())
 		}
 
 		if debug {
