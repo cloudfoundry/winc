@@ -40,7 +40,10 @@ var _ = Describe("Create", func() {
 		containerFactory = &fakes.ContainerFactory{}
 		cm = &fakes.ContainerManager{}
 		processWrapper = &fakes.ProcessWrapper{}
-		spec = &specs.Spec{}
+		process := specs.Process{
+			Env: []string{},
+		}
+		spec = &specs.Spec{Process: &process}
 
 		stateFactory.NewManagerReturns(sm)
 		containerFactory.NewManagerReturns(cm)
