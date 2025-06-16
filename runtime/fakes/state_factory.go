@@ -40,15 +40,17 @@ func (fake *StateFactory) NewManager(arg1 *logrus.Entry, arg2 *hcs.Client, arg3 
 		arg4 string
 		arg5 string
 	}{arg1, arg2, arg3, arg4, arg5})
+	stub := fake.NewManagerStub
+	fakeReturns := fake.newManagerReturns
 	fake.recordInvocation("NewManager", []interface{}{arg1, arg2, arg3, arg4, arg5})
 	fake.newManagerMutex.Unlock()
-	if fake.NewManagerStub != nil {
-		return fake.NewManagerStub(arg1, arg2, arg3, arg4, arg5)
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.newManagerReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *StateFactory) NewManagerCallCount() int {
@@ -57,13 +59,22 @@ func (fake *StateFactory) NewManagerCallCount() int {
 	return len(fake.newManagerArgsForCall)
 }
 
+func (fake *StateFactory) NewManagerCalls(stub func(*logrus.Entry, *hcs.Client, *winsyscall.WinSyscall, string, string) runtime.StateManager) {
+	fake.newManagerMutex.Lock()
+	defer fake.newManagerMutex.Unlock()
+	fake.NewManagerStub = stub
+}
+
 func (fake *StateFactory) NewManagerArgsForCall(i int) (*logrus.Entry, *hcs.Client, *winsyscall.WinSyscall, string, string) {
 	fake.newManagerMutex.RLock()
 	defer fake.newManagerMutex.RUnlock()
-	return fake.newManagerArgsForCall[i].arg1, fake.newManagerArgsForCall[i].arg2, fake.newManagerArgsForCall[i].arg3, fake.newManagerArgsForCall[i].arg4, fake.newManagerArgsForCall[i].arg5
+	argsForCall := fake.newManagerArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
 }
 
 func (fake *StateFactory) NewManagerReturns(result1 runtime.StateManager) {
+	fake.newManagerMutex.Lock()
+	defer fake.newManagerMutex.Unlock()
 	fake.NewManagerStub = nil
 	fake.newManagerReturns = struct {
 		result1 runtime.StateManager
@@ -71,6 +82,8 @@ func (fake *StateFactory) NewManagerReturns(result1 runtime.StateManager) {
 }
 
 func (fake *StateFactory) NewManagerReturnsOnCall(i int, result1 runtime.StateManager) {
+	fake.newManagerMutex.Lock()
+	defer fake.newManagerMutex.Unlock()
 	fake.NewManagerStub = nil
 	if fake.newManagerReturnsOnCall == nil {
 		fake.newManagerReturnsOnCall = make(map[int]struct {
@@ -87,7 +100,11 @@ func (fake *StateFactory) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.newManagerMutex.RLock()
 	defer fake.newManagerMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *StateFactory) recordInvocation(key string, args []interface{}) {

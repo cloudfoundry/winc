@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -103,6 +104,11 @@ func main() {
 			Name:  "credential-spec",
 			Usage: "path to credential spec file",
 		},
+		cli.StringFlag{
+			Name:  "config-file",
+			Usage: "config file for winc",
+			Value: "",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -122,6 +128,10 @@ func main() {
 		logFormat := context.GlobalString("log-format")
 		rootDir := context.GlobalString("root")
 		credentialSpecPath := context.String("credential-spec")
+		config, err := parseConfig(context.String("config-file"))
+		if err != nil {
+			return fmt.Errorf("config-file: %s", err.Error())
+		}
 
 		if debug {
 			logrus.SetLevel(logrus.DebugLevel)
@@ -180,7 +190,7 @@ func main() {
 		hcsClient := &hcs.Client{}
 		processWrapper := &processWrapper{}
 
-		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir, credentialSpecPath)
+		run = runtime.New(stateFactory, containerFactory, mounter, hcsClient, processWrapper, rootDir, credentialSpecPath, config)
 		return nil
 	}
 
@@ -243,4 +253,20 @@ func validHandle(handle syscall.Handle) error {
 
 func emptyLog(log string) bool {
 	return (log == "" || log == os.DevNull)
+}
+
+func parseConfig(configFile string) (runtime.Config, error) {
+	var config runtime.Config
+	if configFile != "" {
+		content, err := os.ReadFile(configFile)
+		if err != nil {
+			return config, err
+		}
+
+		if err := json.Unmarshal(content, &config); err != nil {
+			return config, err
+		}
+	}
+
+	return config, nil
 }

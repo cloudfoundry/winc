@@ -9,19 +9,6 @@ import (
 )
 
 type NetInterface struct {
-	ByNameStub        func(string) (netinterface.AdapterInfo, error)
-	byNameMutex       sync.RWMutex
-	byNameArgsForCall []struct {
-		arg1 string
-	}
-	byNameReturns struct {
-		result1 netinterface.AdapterInfo
-		result2 error
-	}
-	byNameReturnsOnCall map[int]struct {
-		result1 netinterface.AdapterInfo
-		result2 error
-	}
 	ByIPStub        func(string) (netinterface.AdapterInfo, error)
 	byIPMutex       sync.RWMutex
 	byIPArgsForCall []struct {
@@ -35,18 +22,18 @@ type NetInterface struct {
 		result1 netinterface.AdapterInfo
 		result2 error
 	}
-	SetMTUStub        func(string, uint32, uint32) error
-	setMTUMutex       sync.RWMutex
-	setMTUArgsForCall []struct {
+	ByNameStub        func(string) (netinterface.AdapterInfo, error)
+	byNameMutex       sync.RWMutex
+	byNameArgsForCall []struct {
 		arg1 string
-		arg2 uint32
-		arg3 uint32
 	}
-	setMTUReturns struct {
-		result1 error
+	byNameReturns struct {
+		result1 netinterface.AdapterInfo
+		result2 error
 	}
-	setMTUReturnsOnCall map[int]struct {
-		result1 error
+	byNameReturnsOnCall map[int]struct {
+		result1 netinterface.AdapterInfo
+		result2 error
 	}
 	GetMTUStub        func(string, uint32) (uint32, error)
 	getMTUMutex       sync.RWMutex
@@ -62,59 +49,21 @@ type NetInterface struct {
 		result1 uint32
 		result2 error
 	}
+	SetMTUStub        func(string, uint32, uint32) error
+	setMTUMutex       sync.RWMutex
+	setMTUArgsForCall []struct {
+		arg1 string
+		arg2 uint32
+		arg3 uint32
+	}
+	setMTUReturns struct {
+		result1 error
+	}
+	setMTUReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *NetInterface) ByName(arg1 string) (netinterface.AdapterInfo, error) {
-	fake.byNameMutex.Lock()
-	ret, specificReturn := fake.byNameReturnsOnCall[len(fake.byNameArgsForCall)]
-	fake.byNameArgsForCall = append(fake.byNameArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("ByName", []interface{}{arg1})
-	fake.byNameMutex.Unlock()
-	if fake.ByNameStub != nil {
-		return fake.ByNameStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.byNameReturns.result1, fake.byNameReturns.result2
-}
-
-func (fake *NetInterface) ByNameCallCount() int {
-	fake.byNameMutex.RLock()
-	defer fake.byNameMutex.RUnlock()
-	return len(fake.byNameArgsForCall)
-}
-
-func (fake *NetInterface) ByNameArgsForCall(i int) string {
-	fake.byNameMutex.RLock()
-	defer fake.byNameMutex.RUnlock()
-	return fake.byNameArgsForCall[i].arg1
-}
-
-func (fake *NetInterface) ByNameReturns(result1 netinterface.AdapterInfo, result2 error) {
-	fake.ByNameStub = nil
-	fake.byNameReturns = struct {
-		result1 netinterface.AdapterInfo
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *NetInterface) ByNameReturnsOnCall(i int, result1 netinterface.AdapterInfo, result2 error) {
-	fake.ByNameStub = nil
-	if fake.byNameReturnsOnCall == nil {
-		fake.byNameReturnsOnCall = make(map[int]struct {
-			result1 netinterface.AdapterInfo
-			result2 error
-		})
-	}
-	fake.byNameReturnsOnCall[i] = struct {
-		result1 netinterface.AdapterInfo
-		result2 error
-	}{result1, result2}
 }
 
 func (fake *NetInterface) ByIP(arg1 string) (netinterface.AdapterInfo, error) {
@@ -123,15 +72,17 @@ func (fake *NetInterface) ByIP(arg1 string) (netinterface.AdapterInfo, error) {
 	fake.byIPArgsForCall = append(fake.byIPArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.ByIPStub
+	fakeReturns := fake.byIPReturns
 	fake.recordInvocation("ByIP", []interface{}{arg1})
 	fake.byIPMutex.Unlock()
-	if fake.ByIPStub != nil {
-		return fake.ByIPStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.byIPReturns.result1, fake.byIPReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *NetInterface) ByIPCallCount() int {
@@ -140,13 +91,22 @@ func (fake *NetInterface) ByIPCallCount() int {
 	return len(fake.byIPArgsForCall)
 }
 
+func (fake *NetInterface) ByIPCalls(stub func(string) (netinterface.AdapterInfo, error)) {
+	fake.byIPMutex.Lock()
+	defer fake.byIPMutex.Unlock()
+	fake.ByIPStub = stub
+}
+
 func (fake *NetInterface) ByIPArgsForCall(i int) string {
 	fake.byIPMutex.RLock()
 	defer fake.byIPMutex.RUnlock()
-	return fake.byIPArgsForCall[i].arg1
+	argsForCall := fake.byIPArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *NetInterface) ByIPReturns(result1 netinterface.AdapterInfo, result2 error) {
+	fake.byIPMutex.Lock()
+	defer fake.byIPMutex.Unlock()
 	fake.ByIPStub = nil
 	fake.byIPReturns = struct {
 		result1 netinterface.AdapterInfo
@@ -155,6 +115,8 @@ func (fake *NetInterface) ByIPReturns(result1 netinterface.AdapterInfo, result2 
 }
 
 func (fake *NetInterface) ByIPReturnsOnCall(i int, result1 netinterface.AdapterInfo, result2 error) {
+	fake.byIPMutex.Lock()
+	defer fake.byIPMutex.Unlock()
 	fake.ByIPStub = nil
 	if fake.byIPReturnsOnCall == nil {
 		fake.byIPReturnsOnCall = make(map[int]struct {
@@ -168,54 +130,68 @@ func (fake *NetInterface) ByIPReturnsOnCall(i int, result1 netinterface.AdapterI
 	}{result1, result2}
 }
 
-func (fake *NetInterface) SetMTU(arg1 string, arg2 uint32, arg3 uint32) error {
-	fake.setMTUMutex.Lock()
-	ret, specificReturn := fake.setMTUReturnsOnCall[len(fake.setMTUArgsForCall)]
-	fake.setMTUArgsForCall = append(fake.setMTUArgsForCall, struct {
+func (fake *NetInterface) ByName(arg1 string) (netinterface.AdapterInfo, error) {
+	fake.byNameMutex.Lock()
+	ret, specificReturn := fake.byNameReturnsOnCall[len(fake.byNameArgsForCall)]
+	fake.byNameArgsForCall = append(fake.byNameArgsForCall, struct {
 		arg1 string
-		arg2 uint32
-		arg3 uint32
-	}{arg1, arg2, arg3})
-	fake.recordInvocation("SetMTU", []interface{}{arg1, arg2, arg3})
-	fake.setMTUMutex.Unlock()
-	if fake.SetMTUStub != nil {
-		return fake.SetMTUStub(arg1, arg2, arg3)
+	}{arg1})
+	stub := fake.ByNameStub
+	fakeReturns := fake.byNameReturns
+	fake.recordInvocation("ByName", []interface{}{arg1})
+	fake.byNameMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fake.setMTUReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *NetInterface) SetMTUCallCount() int {
-	fake.setMTUMutex.RLock()
-	defer fake.setMTUMutex.RUnlock()
-	return len(fake.setMTUArgsForCall)
+func (fake *NetInterface) ByNameCallCount() int {
+	fake.byNameMutex.RLock()
+	defer fake.byNameMutex.RUnlock()
+	return len(fake.byNameArgsForCall)
 }
 
-func (fake *NetInterface) SetMTUArgsForCall(i int) (string, uint32, uint32) {
-	fake.setMTUMutex.RLock()
-	defer fake.setMTUMutex.RUnlock()
-	return fake.setMTUArgsForCall[i].arg1, fake.setMTUArgsForCall[i].arg2, fake.setMTUArgsForCall[i].arg3
+func (fake *NetInterface) ByNameCalls(stub func(string) (netinterface.AdapterInfo, error)) {
+	fake.byNameMutex.Lock()
+	defer fake.byNameMutex.Unlock()
+	fake.ByNameStub = stub
 }
 
-func (fake *NetInterface) SetMTUReturns(result1 error) {
-	fake.SetMTUStub = nil
-	fake.setMTUReturns = struct {
-		result1 error
-	}{result1}
+func (fake *NetInterface) ByNameArgsForCall(i int) string {
+	fake.byNameMutex.RLock()
+	defer fake.byNameMutex.RUnlock()
+	argsForCall := fake.byNameArgsForCall[i]
+	return argsForCall.arg1
 }
 
-func (fake *NetInterface) SetMTUReturnsOnCall(i int, result1 error) {
-	fake.SetMTUStub = nil
-	if fake.setMTUReturnsOnCall == nil {
-		fake.setMTUReturnsOnCall = make(map[int]struct {
-			result1 error
+func (fake *NetInterface) ByNameReturns(result1 netinterface.AdapterInfo, result2 error) {
+	fake.byNameMutex.Lock()
+	defer fake.byNameMutex.Unlock()
+	fake.ByNameStub = nil
+	fake.byNameReturns = struct {
+		result1 netinterface.AdapterInfo
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NetInterface) ByNameReturnsOnCall(i int, result1 netinterface.AdapterInfo, result2 error) {
+	fake.byNameMutex.Lock()
+	defer fake.byNameMutex.Unlock()
+	fake.ByNameStub = nil
+	if fake.byNameReturnsOnCall == nil {
+		fake.byNameReturnsOnCall = make(map[int]struct {
+			result1 netinterface.AdapterInfo
+			result2 error
 		})
 	}
-	fake.setMTUReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+	fake.byNameReturnsOnCall[i] = struct {
+		result1 netinterface.AdapterInfo
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *NetInterface) GetMTU(arg1 string, arg2 uint32) (uint32, error) {
@@ -225,15 +201,17 @@ func (fake *NetInterface) GetMTU(arg1 string, arg2 uint32) (uint32, error) {
 		arg1 string
 		arg2 uint32
 	}{arg1, arg2})
+	stub := fake.GetMTUStub
+	fakeReturns := fake.getMTUReturns
 	fake.recordInvocation("GetMTU", []interface{}{arg1, arg2})
 	fake.getMTUMutex.Unlock()
-	if fake.GetMTUStub != nil {
-		return fake.GetMTUStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getMTUReturns.result1, fake.getMTUReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *NetInterface) GetMTUCallCount() int {
@@ -242,13 +220,22 @@ func (fake *NetInterface) GetMTUCallCount() int {
 	return len(fake.getMTUArgsForCall)
 }
 
+func (fake *NetInterface) GetMTUCalls(stub func(string, uint32) (uint32, error)) {
+	fake.getMTUMutex.Lock()
+	defer fake.getMTUMutex.Unlock()
+	fake.GetMTUStub = stub
+}
+
 func (fake *NetInterface) GetMTUArgsForCall(i int) (string, uint32) {
 	fake.getMTUMutex.RLock()
 	defer fake.getMTUMutex.RUnlock()
-	return fake.getMTUArgsForCall[i].arg1, fake.getMTUArgsForCall[i].arg2
+	argsForCall := fake.getMTUArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *NetInterface) GetMTUReturns(result1 uint32, result2 error) {
+	fake.getMTUMutex.Lock()
+	defer fake.getMTUMutex.Unlock()
 	fake.GetMTUStub = nil
 	fake.getMTUReturns = struct {
 		result1 uint32
@@ -257,6 +244,8 @@ func (fake *NetInterface) GetMTUReturns(result1 uint32, result2 error) {
 }
 
 func (fake *NetInterface) GetMTUReturnsOnCall(i int, result1 uint32, result2 error) {
+	fake.getMTUMutex.Lock()
+	defer fake.getMTUMutex.Unlock()
 	fake.GetMTUStub = nil
 	if fake.getMTUReturnsOnCall == nil {
 		fake.getMTUReturnsOnCall = make(map[int]struct {
@@ -270,18 +259,85 @@ func (fake *NetInterface) GetMTUReturnsOnCall(i int, result1 uint32, result2 err
 	}{result1, result2}
 }
 
+func (fake *NetInterface) SetMTU(arg1 string, arg2 uint32, arg3 uint32) error {
+	fake.setMTUMutex.Lock()
+	ret, specificReturn := fake.setMTUReturnsOnCall[len(fake.setMTUArgsForCall)]
+	fake.setMTUArgsForCall = append(fake.setMTUArgsForCall, struct {
+		arg1 string
+		arg2 uint32
+		arg3 uint32
+	}{arg1, arg2, arg3})
+	stub := fake.SetMTUStub
+	fakeReturns := fake.setMTUReturns
+	fake.recordInvocation("SetMTU", []interface{}{arg1, arg2, arg3})
+	fake.setMTUMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *NetInterface) SetMTUCallCount() int {
+	fake.setMTUMutex.RLock()
+	defer fake.setMTUMutex.RUnlock()
+	return len(fake.setMTUArgsForCall)
+}
+
+func (fake *NetInterface) SetMTUCalls(stub func(string, uint32, uint32) error) {
+	fake.setMTUMutex.Lock()
+	defer fake.setMTUMutex.Unlock()
+	fake.SetMTUStub = stub
+}
+
+func (fake *NetInterface) SetMTUArgsForCall(i int) (string, uint32, uint32) {
+	fake.setMTUMutex.RLock()
+	defer fake.setMTUMutex.RUnlock()
+	argsForCall := fake.setMTUArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *NetInterface) SetMTUReturns(result1 error) {
+	fake.setMTUMutex.Lock()
+	defer fake.setMTUMutex.Unlock()
+	fake.SetMTUStub = nil
+	fake.setMTUReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *NetInterface) SetMTUReturnsOnCall(i int, result1 error) {
+	fake.setMTUMutex.Lock()
+	defer fake.setMTUMutex.Unlock()
+	fake.SetMTUStub = nil
+	if fake.setMTUReturnsOnCall == nil {
+		fake.setMTUReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.setMTUReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *NetInterface) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.byNameMutex.RLock()
-	defer fake.byNameMutex.RUnlock()
 	fake.byIPMutex.RLock()
 	defer fake.byIPMutex.RUnlock()
-	fake.setMTUMutex.RLock()
-	defer fake.setMTUMutex.RUnlock()
+	fake.byNameMutex.RLock()
+	defer fake.byNameMutex.RUnlock()
 	fake.getMTUMutex.RLock()
 	defer fake.getMTUMutex.RUnlock()
-	return fake.invocations
+	fake.setMTUMutex.RLock()
+	defer fake.setMTUMutex.RUnlock()
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *NetInterface) recordInvocation(key string, args []interface{}) {

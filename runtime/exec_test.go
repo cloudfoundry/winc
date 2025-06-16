@@ -61,7 +61,8 @@ var _ = Describe("Exec", func() {
 		Expect(err).NotTo(HaveOccurred())
 		processSpecFile = filepath.Join(processSpecDir, "process.json")
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
+		config := runtime.Config{}
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath, config)
 
 		processSpec := specs.Process{
 			User: specs.User{Username: "some-user"},

@@ -44,8 +44,9 @@ var _ = Describe("Events", func() {
 		containerFactory.NewManagerReturns(cm)
 
 		output = gbytes.NewBuffer()
+		config := runtime.Config{}
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath, config)
 	})
 
 	Context("show stats is true", func() {

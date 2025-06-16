@@ -30,15 +30,17 @@ func (fake *ProcessWrapper) Wrap(arg1 hcs.Process) runtime.WrappedProcess {
 	fake.wrapArgsForCall = append(fake.wrapArgsForCall, struct {
 		arg1 hcs.Process
 	}{arg1})
+	stub := fake.WrapStub
+	fakeReturns := fake.wrapReturns
 	fake.recordInvocation("Wrap", []interface{}{arg1})
 	fake.wrapMutex.Unlock()
-	if fake.WrapStub != nil {
-		return fake.WrapStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.wrapReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *ProcessWrapper) WrapCallCount() int {
@@ -47,13 +49,22 @@ func (fake *ProcessWrapper) WrapCallCount() int {
 	return len(fake.wrapArgsForCall)
 }
 
+func (fake *ProcessWrapper) WrapCalls(stub func(hcs.Process) runtime.WrappedProcess) {
+	fake.wrapMutex.Lock()
+	defer fake.wrapMutex.Unlock()
+	fake.WrapStub = stub
+}
+
 func (fake *ProcessWrapper) WrapArgsForCall(i int) hcs.Process {
 	fake.wrapMutex.RLock()
 	defer fake.wrapMutex.RUnlock()
-	return fake.wrapArgsForCall[i].arg1
+	argsForCall := fake.wrapArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *ProcessWrapper) WrapReturns(result1 runtime.WrappedProcess) {
+	fake.wrapMutex.Lock()
+	defer fake.wrapMutex.Unlock()
 	fake.WrapStub = nil
 	fake.wrapReturns = struct {
 		result1 runtime.WrappedProcess
@@ -61,6 +72,8 @@ func (fake *ProcessWrapper) WrapReturns(result1 runtime.WrappedProcess) {
 }
 
 func (fake *ProcessWrapper) WrapReturnsOnCall(i int, result1 runtime.WrappedProcess) {
+	fake.wrapMutex.Lock()
+	defer fake.wrapMutex.Unlock()
 	fake.WrapStub = nil
 	if fake.wrapReturnsOnCall == nil {
 		fake.wrapReturnsOnCall = make(map[int]struct {
@@ -77,7 +90,11 @@ func (fake *ProcessWrapper) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.wrapMutex.RLock()
 	defer fake.wrapMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *ProcessWrapper) recordInvocation(key string, args []interface{}) {

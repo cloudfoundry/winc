@@ -1,6 +1,7 @@
 package container
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -8,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"code.cloudfoundry.org/credhub-cli/credhub"
+	"code.cloudfoundry.org/credhub-cli/credhub/auth"
 	"code.cloudfoundry.org/winc/hcs"
 	"code.cloudfoundry.org/winc/runtime/config"
 	"github.com/Microsoft/hcsshim"
@@ -17,6 +20,7 @@ import (
 )
 
 const destroyTimeout = time.Minute
+const gmsaCredentialsRef = "WINDOWS_GMSA_CREDENTIAL_REF"
 
 type Manager struct {
 	logger    *logrus.Entry
@@ -90,7 +94,7 @@ func (m *Manager) Spec(bundlePath string) (*specs.Spec, error) {
 	return spec, nil
 }
 
-func (m *Manager) CredentialSpec(credentialSpecPath string) (string, error) {
+func (m *Manager) CredentialSpecFromFile(credentialSpecPath string) (string, error) {
 	if credentialSpecPath == "" {
 		return "", nil
 	}
@@ -102,6 +106,33 @@ func (m *Manager) CredentialSpec(credentialSpecPath string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+func (m *Manager) CredentialSpecFromEnv(envs []string, credhubEndpoint string, uaaCredhubClientId string, uaaCredhubClientSecret string, credhubCaCertificate string) (string, error) {
+	for _, env := range envs {
+		entry := strings.SplitN(env, "=", 2)
+		if len(entry) > 1 && entry[0] == gmsaCredentialsRef {
+			creadhubWindowsGmsaRefValue := entry[1]
+			credhubClient, err := credhub.New(credhubEndpoint,
+				credhub.Auth(auth.UaaClientCredentials(uaaCredhubClientId, uaaCredhubClientSecret)),
+				credhub.CaCerts(credhubCaCertificate),
+			)
+			if err != nil {
+				return "", err
+			}
+			credential, err := credhubClient.GetLatestVersion(creadhubWindowsGmsaRefValue)
+			if err != nil {
+				return "", err
+			}
+			content, err := json.Marshal(credential.Value)
+			if err != nil {
+				return "", err
+			}
+			return string(content), nil
+
+		}
+	}
+	return "", nil
 }
 
 func (m *Manager) Create(spec *specs.Spec, credentialSpec string) error {

@@ -46,7 +46,8 @@ var _ = Describe("State", func() {
 
 		output = gbytes.NewBuffer()
 
-		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath)
+		config := runtime.Config{}
+		r = runtime.New(stateFactory, containerFactory, mounter, hcsQuery, processWrapper, rootDir, credentialSpecPath, config)
 	})
 
 	Context("state succeeds", func() {

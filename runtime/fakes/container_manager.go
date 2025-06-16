@@ -23,16 +23,33 @@ type ContainerManager struct {
 	createReturnsOnCall map[int]struct {
 		result1 error
 	}
-	CredentialSpecStub        func(string) (string, error)
-	credentialSpecMutex       sync.RWMutex
-	credentialSpecArgsForCall []struct {
-		arg1 string
+	CredentialSpecFromEnvStub        func([]string, string, string, string, string) (string, error)
+	credentialSpecFromEnvMutex       sync.RWMutex
+	credentialSpecFromEnvArgsForCall []struct {
+		arg1 []string
+		arg2 string
+		arg3 string
+		arg4 string
+		arg5 string
 	}
-	credentialSpecReturns struct {
+	credentialSpecFromEnvReturns struct {
 		result1 string
 		result2 error
 	}
-	credentialSpecReturnsOnCall map[int]struct {
+	credentialSpecFromEnvReturnsOnCall map[int]struct {
+		result1 string
+		result2 error
+	}
+	CredentialSpecFromFileStub        func(string) (string, error)
+	credentialSpecFromFileMutex       sync.RWMutex
+	credentialSpecFromFileArgsForCall []struct {
+		arg1 string
+	}
+	credentialSpecFromFileReturns struct {
+		result1 string
+		result2 error
+	}
+	credentialSpecFromFileReturnsOnCall map[int]struct {
 		result1 string
 		result2 error
 	}
@@ -152,16 +169,89 @@ func (fake *ContainerManager) CreateReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *ContainerManager) CredentialSpec(arg1 string) (string, error) {
-	fake.credentialSpecMutex.Lock()
-	ret, specificReturn := fake.credentialSpecReturnsOnCall[len(fake.credentialSpecArgsForCall)]
-	fake.credentialSpecArgsForCall = append(fake.credentialSpecArgsForCall, struct {
+func (fake *ContainerManager) CredentialSpecFromEnv(arg1 []string, arg2 string, arg3 string, arg4 string, arg5 string) (string, error) {
+	var arg1Copy []string
+	if arg1 != nil {
+		arg1Copy = make([]string, len(arg1))
+		copy(arg1Copy, arg1)
+	}
+	fake.credentialSpecFromEnvMutex.Lock()
+	ret, specificReturn := fake.credentialSpecFromEnvReturnsOnCall[len(fake.credentialSpecFromEnvArgsForCall)]
+	fake.credentialSpecFromEnvArgsForCall = append(fake.credentialSpecFromEnvArgsForCall, struct {
+		arg1 []string
+		arg2 string
+		arg3 string
+		arg4 string
+		arg5 string
+	}{arg1Copy, arg2, arg3, arg4, arg5})
+	stub := fake.CredentialSpecFromEnvStub
+	fakeReturns := fake.credentialSpecFromEnvReturns
+	fake.recordInvocation("CredentialSpecFromEnv", []interface{}{arg1Copy, arg2, arg3, arg4, arg5})
+	fake.credentialSpecFromEnvMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ContainerManager) CredentialSpecFromEnvCallCount() int {
+	fake.credentialSpecFromEnvMutex.RLock()
+	defer fake.credentialSpecFromEnvMutex.RUnlock()
+	return len(fake.credentialSpecFromEnvArgsForCall)
+}
+
+func (fake *ContainerManager) CredentialSpecFromEnvCalls(stub func([]string, string, string, string, string) (string, error)) {
+	fake.credentialSpecFromEnvMutex.Lock()
+	defer fake.credentialSpecFromEnvMutex.Unlock()
+	fake.CredentialSpecFromEnvStub = stub
+}
+
+func (fake *ContainerManager) CredentialSpecFromEnvArgsForCall(i int) ([]string, string, string, string, string) {
+	fake.credentialSpecFromEnvMutex.RLock()
+	defer fake.credentialSpecFromEnvMutex.RUnlock()
+	argsForCall := fake.credentialSpecFromEnvArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+}
+
+func (fake *ContainerManager) CredentialSpecFromEnvReturns(result1 string, result2 error) {
+	fake.credentialSpecFromEnvMutex.Lock()
+	defer fake.credentialSpecFromEnvMutex.Unlock()
+	fake.CredentialSpecFromEnvStub = nil
+	fake.credentialSpecFromEnvReturns = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) CredentialSpecFromEnvReturnsOnCall(i int, result1 string, result2 error) {
+	fake.credentialSpecFromEnvMutex.Lock()
+	defer fake.credentialSpecFromEnvMutex.Unlock()
+	fake.CredentialSpecFromEnvStub = nil
+	if fake.credentialSpecFromEnvReturnsOnCall == nil {
+		fake.credentialSpecFromEnvReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 error
+		})
+	}
+	fake.credentialSpecFromEnvReturnsOnCall[i] = struct {
+		result1 string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ContainerManager) CredentialSpecFromFile(arg1 string) (string, error) {
+	fake.credentialSpecFromFileMutex.Lock()
+	ret, specificReturn := fake.credentialSpecFromFileReturnsOnCall[len(fake.credentialSpecFromFileArgsForCall)]
+	fake.credentialSpecFromFileArgsForCall = append(fake.credentialSpecFromFileArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.CredentialSpecStub
-	fakeReturns := fake.credentialSpecReturns
-	fake.recordInvocation("CredentialSpec", []interface{}{arg1})
-	fake.credentialSpecMutex.Unlock()
+	stub := fake.CredentialSpecFromFileStub
+	fakeReturns := fake.credentialSpecFromFileReturns
+	fake.recordInvocation("CredentialSpecFromFile", []interface{}{arg1})
+	fake.credentialSpecFromFileMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
@@ -171,46 +261,46 @@ func (fake *ContainerManager) CredentialSpec(arg1 string) (string, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *ContainerManager) CredentialSpecCallCount() int {
-	fake.credentialSpecMutex.RLock()
-	defer fake.credentialSpecMutex.RUnlock()
-	return len(fake.credentialSpecArgsForCall)
+func (fake *ContainerManager) CredentialSpecFromFileCallCount() int {
+	fake.credentialSpecFromFileMutex.RLock()
+	defer fake.credentialSpecFromFileMutex.RUnlock()
+	return len(fake.credentialSpecFromFileArgsForCall)
 }
 
-func (fake *ContainerManager) CredentialSpecCalls(stub func(string) (string, error)) {
-	fake.credentialSpecMutex.Lock()
-	defer fake.credentialSpecMutex.Unlock()
-	fake.CredentialSpecStub = stub
+func (fake *ContainerManager) CredentialSpecFromFileCalls(stub func(string) (string, error)) {
+	fake.credentialSpecFromFileMutex.Lock()
+	defer fake.credentialSpecFromFileMutex.Unlock()
+	fake.CredentialSpecFromFileStub = stub
 }
 
-func (fake *ContainerManager) CredentialSpecArgsForCall(i int) string {
-	fake.credentialSpecMutex.RLock()
-	defer fake.credentialSpecMutex.RUnlock()
-	argsForCall := fake.credentialSpecArgsForCall[i]
+func (fake *ContainerManager) CredentialSpecFromFileArgsForCall(i int) string {
+	fake.credentialSpecFromFileMutex.RLock()
+	defer fake.credentialSpecFromFileMutex.RUnlock()
+	argsForCall := fake.credentialSpecFromFileArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *ContainerManager) CredentialSpecReturns(result1 string, result2 error) {
-	fake.credentialSpecMutex.Lock()
-	defer fake.credentialSpecMutex.Unlock()
-	fake.CredentialSpecStub = nil
-	fake.credentialSpecReturns = struct {
+func (fake *ContainerManager) CredentialSpecFromFileReturns(result1 string, result2 error) {
+	fake.credentialSpecFromFileMutex.Lock()
+	defer fake.credentialSpecFromFileMutex.Unlock()
+	fake.CredentialSpecFromFileStub = nil
+	fake.credentialSpecFromFileReturns = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ContainerManager) CredentialSpecReturnsOnCall(i int, result1 string, result2 error) {
-	fake.credentialSpecMutex.Lock()
-	defer fake.credentialSpecMutex.Unlock()
-	fake.CredentialSpecStub = nil
-	if fake.credentialSpecReturnsOnCall == nil {
-		fake.credentialSpecReturnsOnCall = make(map[int]struct {
+func (fake *ContainerManager) CredentialSpecFromFileReturnsOnCall(i int, result1 string, result2 error) {
+	fake.credentialSpecFromFileMutex.Lock()
+	defer fake.credentialSpecFromFileMutex.Unlock()
+	fake.CredentialSpecFromFileStub = nil
+	if fake.credentialSpecFromFileReturnsOnCall == nil {
+		fake.credentialSpecFromFileReturnsOnCall = make(map[int]struct {
 			result1 string
 			result2 error
 		})
 	}
-	fake.credentialSpecReturnsOnCall[i] = struct {
+	fake.credentialSpecFromFileReturnsOnCall[i] = struct {
 		result1 string
 		result2 error
 	}{result1, result2}
@@ -467,8 +557,10 @@ func (fake *ContainerManager) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createMutex.RLock()
 	defer fake.createMutex.RUnlock()
-	fake.credentialSpecMutex.RLock()
-	defer fake.credentialSpecMutex.RUnlock()
+	fake.credentialSpecFromEnvMutex.RLock()
+	defer fake.credentialSpecFromEnvMutex.RUnlock()
+	fake.credentialSpecFromFileMutex.RLock()
+	defer fake.credentialSpecFromFileMutex.RUnlock()
 	fake.deleteMutex.RLock()
 	defer fake.deleteMutex.RUnlock()
 	fake.execMutex.RLock()

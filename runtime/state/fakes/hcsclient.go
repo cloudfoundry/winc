@@ -32,15 +32,17 @@ func (fake *HCSClient) GetContainerProperties(arg1 string) (hcsshim.ContainerPro
 	fake.getContainerPropertiesArgsForCall = append(fake.getContainerPropertiesArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.GetContainerPropertiesStub
+	fakeReturns := fake.getContainerPropertiesReturns
 	fake.recordInvocation("GetContainerProperties", []interface{}{arg1})
 	fake.getContainerPropertiesMutex.Unlock()
-	if fake.GetContainerPropertiesStub != nil {
-		return fake.GetContainerPropertiesStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getContainerPropertiesReturns.result1, fake.getContainerPropertiesReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *HCSClient) GetContainerPropertiesCallCount() int {
@@ -49,13 +51,22 @@ func (fake *HCSClient) GetContainerPropertiesCallCount() int {
 	return len(fake.getContainerPropertiesArgsForCall)
 }
 
+func (fake *HCSClient) GetContainerPropertiesCalls(stub func(string) (hcsshim.ContainerProperties, error)) {
+	fake.getContainerPropertiesMutex.Lock()
+	defer fake.getContainerPropertiesMutex.Unlock()
+	fake.GetContainerPropertiesStub = stub
+}
+
 func (fake *HCSClient) GetContainerPropertiesArgsForCall(i int) string {
 	fake.getContainerPropertiesMutex.RLock()
 	defer fake.getContainerPropertiesMutex.RUnlock()
-	return fake.getContainerPropertiesArgsForCall[i].arg1
+	argsForCall := fake.getContainerPropertiesArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *HCSClient) GetContainerPropertiesReturns(result1 hcsshim.ContainerProperties, result2 error) {
+	fake.getContainerPropertiesMutex.Lock()
+	defer fake.getContainerPropertiesMutex.Unlock()
 	fake.GetContainerPropertiesStub = nil
 	fake.getContainerPropertiesReturns = struct {
 		result1 hcsshim.ContainerProperties
@@ -64,6 +75,8 @@ func (fake *HCSClient) GetContainerPropertiesReturns(result1 hcsshim.ContainerPr
 }
 
 func (fake *HCSClient) GetContainerPropertiesReturnsOnCall(i int, result1 hcsshim.ContainerProperties, result2 error) {
+	fake.getContainerPropertiesMutex.Lock()
+	defer fake.getContainerPropertiesMutex.Unlock()
 	fake.GetContainerPropertiesStub = nil
 	if fake.getContainerPropertiesReturnsOnCall == nil {
 		fake.getContainerPropertiesReturnsOnCall = make(map[int]struct {
@@ -82,7 +95,11 @@ func (fake *HCSClient) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.getContainerPropertiesMutex.RLock()
 	defer fake.getContainerPropertiesMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *HCSClient) recordInvocation(key string, args []interface{}) {

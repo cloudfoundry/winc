@@ -10,17 +10,18 @@ import (
 )
 
 type HCSClient struct {
-	GetContainersStub        func(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)
-	getContainersMutex       sync.RWMutex
-	getContainersArgsForCall []struct {
-		arg1 hcsshim.ComputeSystemQuery
+	CreateContainerStub        func(string, *hcsshim.ContainerConfig) (hcs.Container, error)
+	createContainerMutex       sync.RWMutex
+	createContainerArgsForCall []struct {
+		arg1 string
+		arg2 *hcsshim.ContainerConfig
 	}
-	getContainersReturns struct {
-		result1 []hcsshim.ContainerProperties
+	createContainerReturns struct {
+		result1 hcs.Container
 		result2 error
 	}
-	getContainersReturnsOnCall map[int]struct {
-		result1 []hcsshim.ContainerProperties
+	createContainerReturnsOnCall map[int]struct {
+		result1 hcs.Container
 		result2 error
 	}
 	GetContainerPropertiesStub        func(string) (hcsshim.ContainerProperties, error)
@@ -36,6 +37,43 @@ type HCSClient struct {
 		result1 hcsshim.ContainerProperties
 		result2 error
 	}
+	GetContainersStub        func(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)
+	getContainersMutex       sync.RWMutex
+	getContainersArgsForCall []struct {
+		arg1 hcsshim.ComputeSystemQuery
+	}
+	getContainersReturns struct {
+		result1 []hcsshim.ContainerProperties
+		result2 error
+	}
+	getContainersReturnsOnCall map[int]struct {
+		result1 []hcsshim.ContainerProperties
+		result2 error
+	}
+	GetHNSEndpointByNameStub        func(string) (*hcsshim.HNSEndpoint, error)
+	getHNSEndpointByNameMutex       sync.RWMutex
+	getHNSEndpointByNameArgsForCall []struct {
+		arg1 string
+	}
+	getHNSEndpointByNameReturns struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}
+	getHNSEndpointByNameReturnsOnCall map[int]struct {
+		result1 *hcsshim.HNSEndpoint
+		result2 error
+	}
+	IsPendingStub        func(error) bool
+	isPendingMutex       sync.RWMutex
+	isPendingArgsForCall []struct {
+		arg1 error
+	}
+	isPendingReturns struct {
+		result1 bool
+	}
+	isPendingReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	NameToGuidStub        func(string) (hcsshim.GUID, error)
 	nameToGuidMutex       sync.RWMutex
 	nameToGuidArgsForCall []struct {
@@ -47,20 +85,6 @@ type HCSClient struct {
 	}
 	nameToGuidReturnsOnCall map[int]struct {
 		result1 hcsshim.GUID
-		result2 error
-	}
-	CreateContainerStub        func(string, *hcsshim.ContainerConfig) (hcs.Container, error)
-	createContainerMutex       sync.RWMutex
-	createContainerArgsForCall []struct {
-		arg1 string
-		arg2 *hcsshim.ContainerConfig
-	}
-	createContainerReturns struct {
-		result1 hcs.Container
-		result2 error
-	}
-	createContainerReturnsOnCall map[int]struct {
-		result1 hcs.Container
 		result2 error
 	}
 	OpenContainerStub        func(string) (hcs.Container, error)
@@ -76,185 +100,8 @@ type HCSClient struct {
 		result1 hcs.Container
 		result2 error
 	}
-	IsPendingStub        func(error) bool
-	isPendingMutex       sync.RWMutex
-	isPendingArgsForCall []struct {
-		arg1 error
-	}
-	isPendingReturns struct {
-		result1 bool
-	}
-	isPendingReturnsOnCall map[int]struct {
-		result1 bool
-	}
-	GetHNSEndpointByNameStub        func(string) (*hcsshim.HNSEndpoint, error)
-	getHNSEndpointByNameMutex       sync.RWMutex
-	getHNSEndpointByNameArgsForCall []struct {
-		arg1 string
-	}
-	getHNSEndpointByNameReturns struct {
-		result1 *hcsshim.HNSEndpoint
-		result2 error
-	}
-	getHNSEndpointByNameReturnsOnCall map[int]struct {
-		result1 *hcsshim.HNSEndpoint
-		result2 error
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *HCSClient) GetContainers(arg1 hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error) {
-	fake.getContainersMutex.Lock()
-	ret, specificReturn := fake.getContainersReturnsOnCall[len(fake.getContainersArgsForCall)]
-	fake.getContainersArgsForCall = append(fake.getContainersArgsForCall, struct {
-		arg1 hcsshim.ComputeSystemQuery
-	}{arg1})
-	fake.recordInvocation("GetContainers", []interface{}{arg1})
-	fake.getContainersMutex.Unlock()
-	if fake.GetContainersStub != nil {
-		return fake.GetContainersStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.getContainersReturns.result1, fake.getContainersReturns.result2
-}
-
-func (fake *HCSClient) GetContainersCallCount() int {
-	fake.getContainersMutex.RLock()
-	defer fake.getContainersMutex.RUnlock()
-	return len(fake.getContainersArgsForCall)
-}
-
-func (fake *HCSClient) GetContainersArgsForCall(i int) hcsshim.ComputeSystemQuery {
-	fake.getContainersMutex.RLock()
-	defer fake.getContainersMutex.RUnlock()
-	return fake.getContainersArgsForCall[i].arg1
-}
-
-func (fake *HCSClient) GetContainersReturns(result1 []hcsshim.ContainerProperties, result2 error) {
-	fake.GetContainersStub = nil
-	fake.getContainersReturns = struct {
-		result1 []hcsshim.ContainerProperties
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *HCSClient) GetContainersReturnsOnCall(i int, result1 []hcsshim.ContainerProperties, result2 error) {
-	fake.GetContainersStub = nil
-	if fake.getContainersReturnsOnCall == nil {
-		fake.getContainersReturnsOnCall = make(map[int]struct {
-			result1 []hcsshim.ContainerProperties
-			result2 error
-		})
-	}
-	fake.getContainersReturnsOnCall[i] = struct {
-		result1 []hcsshim.ContainerProperties
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *HCSClient) GetContainerProperties(arg1 string) (hcsshim.ContainerProperties, error) {
-	fake.getContainerPropertiesMutex.Lock()
-	ret, specificReturn := fake.getContainerPropertiesReturnsOnCall[len(fake.getContainerPropertiesArgsForCall)]
-	fake.getContainerPropertiesArgsForCall = append(fake.getContainerPropertiesArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("GetContainerProperties", []interface{}{arg1})
-	fake.getContainerPropertiesMutex.Unlock()
-	if fake.GetContainerPropertiesStub != nil {
-		return fake.GetContainerPropertiesStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.getContainerPropertiesReturns.result1, fake.getContainerPropertiesReturns.result2
-}
-
-func (fake *HCSClient) GetContainerPropertiesCallCount() int {
-	fake.getContainerPropertiesMutex.RLock()
-	defer fake.getContainerPropertiesMutex.RUnlock()
-	return len(fake.getContainerPropertiesArgsForCall)
-}
-
-func (fake *HCSClient) GetContainerPropertiesArgsForCall(i int) string {
-	fake.getContainerPropertiesMutex.RLock()
-	defer fake.getContainerPropertiesMutex.RUnlock()
-	return fake.getContainerPropertiesArgsForCall[i].arg1
-}
-
-func (fake *HCSClient) GetContainerPropertiesReturns(result1 hcsshim.ContainerProperties, result2 error) {
-	fake.GetContainerPropertiesStub = nil
-	fake.getContainerPropertiesReturns = struct {
-		result1 hcsshim.ContainerProperties
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *HCSClient) GetContainerPropertiesReturnsOnCall(i int, result1 hcsshim.ContainerProperties, result2 error) {
-	fake.GetContainerPropertiesStub = nil
-	if fake.getContainerPropertiesReturnsOnCall == nil {
-		fake.getContainerPropertiesReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.ContainerProperties
-			result2 error
-		})
-	}
-	fake.getContainerPropertiesReturnsOnCall[i] = struct {
-		result1 hcsshim.ContainerProperties
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *HCSClient) NameToGuid(arg1 string) (hcsshim.GUID, error) {
-	fake.nameToGuidMutex.Lock()
-	ret, specificReturn := fake.nameToGuidReturnsOnCall[len(fake.nameToGuidArgsForCall)]
-	fake.nameToGuidArgsForCall = append(fake.nameToGuidArgsForCall, struct {
-		arg1 string
-	}{arg1})
-	fake.recordInvocation("NameToGuid", []interface{}{arg1})
-	fake.nameToGuidMutex.Unlock()
-	if fake.NameToGuidStub != nil {
-		return fake.NameToGuidStub(arg1)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.nameToGuidReturns.result1, fake.nameToGuidReturns.result2
-}
-
-func (fake *HCSClient) NameToGuidCallCount() int {
-	fake.nameToGuidMutex.RLock()
-	defer fake.nameToGuidMutex.RUnlock()
-	return len(fake.nameToGuidArgsForCall)
-}
-
-func (fake *HCSClient) NameToGuidArgsForCall(i int) string {
-	fake.nameToGuidMutex.RLock()
-	defer fake.nameToGuidMutex.RUnlock()
-	return fake.nameToGuidArgsForCall[i].arg1
-}
-
-func (fake *HCSClient) NameToGuidReturns(result1 hcsshim.GUID, result2 error) {
-	fake.NameToGuidStub = nil
-	fake.nameToGuidReturns = struct {
-		result1 hcsshim.GUID
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *HCSClient) NameToGuidReturnsOnCall(i int, result1 hcsshim.GUID, result2 error) {
-	fake.NameToGuidStub = nil
-	if fake.nameToGuidReturnsOnCall == nil {
-		fake.nameToGuidReturnsOnCall = make(map[int]struct {
-			result1 hcsshim.GUID
-			result2 error
-		})
-	}
-	fake.nameToGuidReturnsOnCall[i] = struct {
-		result1 hcsshim.GUID
-		result2 error
-	}{result1, result2}
 }
 
 func (fake *HCSClient) CreateContainer(arg1 string, arg2 *hcsshim.ContainerConfig) (hcs.Container, error) {
@@ -264,15 +111,17 @@ func (fake *HCSClient) CreateContainer(arg1 string, arg2 *hcsshim.ContainerConfi
 		arg1 string
 		arg2 *hcsshim.ContainerConfig
 	}{arg1, arg2})
+	stub := fake.CreateContainerStub
+	fakeReturns := fake.createContainerReturns
 	fake.recordInvocation("CreateContainer", []interface{}{arg1, arg2})
 	fake.createContainerMutex.Unlock()
-	if fake.CreateContainerStub != nil {
-		return fake.CreateContainerStub(arg1, arg2)
+	if stub != nil {
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.createContainerReturns.result1, fake.createContainerReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *HCSClient) CreateContainerCallCount() int {
@@ -281,13 +130,22 @@ func (fake *HCSClient) CreateContainerCallCount() int {
 	return len(fake.createContainerArgsForCall)
 }
 
+func (fake *HCSClient) CreateContainerCalls(stub func(string, *hcsshim.ContainerConfig) (hcs.Container, error)) {
+	fake.createContainerMutex.Lock()
+	defer fake.createContainerMutex.Unlock()
+	fake.CreateContainerStub = stub
+}
+
 func (fake *HCSClient) CreateContainerArgsForCall(i int) (string, *hcsshim.ContainerConfig) {
 	fake.createContainerMutex.RLock()
 	defer fake.createContainerMutex.RUnlock()
-	return fake.createContainerArgsForCall[i].arg1, fake.createContainerArgsForCall[i].arg2
+	argsForCall := fake.createContainerArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *HCSClient) CreateContainerReturns(result1 hcs.Container, result2 error) {
+	fake.createContainerMutex.Lock()
+	defer fake.createContainerMutex.Unlock()
 	fake.CreateContainerStub = nil
 	fake.createContainerReturns = struct {
 		result1 hcs.Container
@@ -296,6 +154,8 @@ func (fake *HCSClient) CreateContainerReturns(result1 hcs.Container, result2 err
 }
 
 func (fake *HCSClient) CreateContainerReturnsOnCall(i int, result1 hcs.Container, result2 error) {
+	fake.createContainerMutex.Lock()
+	defer fake.createContainerMutex.Unlock()
 	fake.CreateContainerStub = nil
 	if fake.createContainerReturnsOnCall == nil {
 		fake.createContainerReturnsOnCall = make(map[int]struct {
@@ -309,103 +169,132 @@ func (fake *HCSClient) CreateContainerReturnsOnCall(i int, result1 hcs.Container
 	}{result1, result2}
 }
 
-func (fake *HCSClient) OpenContainer(arg1 string) (hcs.Container, error) {
-	fake.openContainerMutex.Lock()
-	ret, specificReturn := fake.openContainerReturnsOnCall[len(fake.openContainerArgsForCall)]
-	fake.openContainerArgsForCall = append(fake.openContainerArgsForCall, struct {
+func (fake *HCSClient) GetContainerProperties(arg1 string) (hcsshim.ContainerProperties, error) {
+	fake.getContainerPropertiesMutex.Lock()
+	ret, specificReturn := fake.getContainerPropertiesReturnsOnCall[len(fake.getContainerPropertiesArgsForCall)]
+	fake.getContainerPropertiesArgsForCall = append(fake.getContainerPropertiesArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	fake.recordInvocation("OpenContainer", []interface{}{arg1})
-	fake.openContainerMutex.Unlock()
-	if fake.OpenContainerStub != nil {
-		return fake.OpenContainerStub(arg1)
+	stub := fake.GetContainerPropertiesStub
+	fakeReturns := fake.getContainerPropertiesReturns
+	fake.recordInvocation("GetContainerProperties", []interface{}{arg1})
+	fake.getContainerPropertiesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.openContainerReturns.result1, fake.openContainerReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *HCSClient) OpenContainerCallCount() int {
-	fake.openContainerMutex.RLock()
-	defer fake.openContainerMutex.RUnlock()
-	return len(fake.openContainerArgsForCall)
+func (fake *HCSClient) GetContainerPropertiesCallCount() int {
+	fake.getContainerPropertiesMutex.RLock()
+	defer fake.getContainerPropertiesMutex.RUnlock()
+	return len(fake.getContainerPropertiesArgsForCall)
 }
 
-func (fake *HCSClient) OpenContainerArgsForCall(i int) string {
-	fake.openContainerMutex.RLock()
-	defer fake.openContainerMutex.RUnlock()
-	return fake.openContainerArgsForCall[i].arg1
+func (fake *HCSClient) GetContainerPropertiesCalls(stub func(string) (hcsshim.ContainerProperties, error)) {
+	fake.getContainerPropertiesMutex.Lock()
+	defer fake.getContainerPropertiesMutex.Unlock()
+	fake.GetContainerPropertiesStub = stub
 }
 
-func (fake *HCSClient) OpenContainerReturns(result1 hcs.Container, result2 error) {
-	fake.OpenContainerStub = nil
-	fake.openContainerReturns = struct {
-		result1 hcs.Container
+func (fake *HCSClient) GetContainerPropertiesArgsForCall(i int) string {
+	fake.getContainerPropertiesMutex.RLock()
+	defer fake.getContainerPropertiesMutex.RUnlock()
+	argsForCall := fake.getContainerPropertiesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *HCSClient) GetContainerPropertiesReturns(result1 hcsshim.ContainerProperties, result2 error) {
+	fake.getContainerPropertiesMutex.Lock()
+	defer fake.getContainerPropertiesMutex.Unlock()
+	fake.GetContainerPropertiesStub = nil
+	fake.getContainerPropertiesReturns = struct {
+		result1 hcsshim.ContainerProperties
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *HCSClient) OpenContainerReturnsOnCall(i int, result1 hcs.Container, result2 error) {
-	fake.OpenContainerStub = nil
-	if fake.openContainerReturnsOnCall == nil {
-		fake.openContainerReturnsOnCall = make(map[int]struct {
-			result1 hcs.Container
+func (fake *HCSClient) GetContainerPropertiesReturnsOnCall(i int, result1 hcsshim.ContainerProperties, result2 error) {
+	fake.getContainerPropertiesMutex.Lock()
+	defer fake.getContainerPropertiesMutex.Unlock()
+	fake.GetContainerPropertiesStub = nil
+	if fake.getContainerPropertiesReturnsOnCall == nil {
+		fake.getContainerPropertiesReturnsOnCall = make(map[int]struct {
+			result1 hcsshim.ContainerProperties
 			result2 error
 		})
 	}
-	fake.openContainerReturnsOnCall[i] = struct {
-		result1 hcs.Container
+	fake.getContainerPropertiesReturnsOnCall[i] = struct {
+		result1 hcsshim.ContainerProperties
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *HCSClient) IsPending(arg1 error) bool {
-	fake.isPendingMutex.Lock()
-	ret, specificReturn := fake.isPendingReturnsOnCall[len(fake.isPendingArgsForCall)]
-	fake.isPendingArgsForCall = append(fake.isPendingArgsForCall, struct {
-		arg1 error
+func (fake *HCSClient) GetContainers(arg1 hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error) {
+	fake.getContainersMutex.Lock()
+	ret, specificReturn := fake.getContainersReturnsOnCall[len(fake.getContainersArgsForCall)]
+	fake.getContainersArgsForCall = append(fake.getContainersArgsForCall, struct {
+		arg1 hcsshim.ComputeSystemQuery
 	}{arg1})
-	fake.recordInvocation("IsPending", []interface{}{arg1})
-	fake.isPendingMutex.Unlock()
-	if fake.IsPendingStub != nil {
-		return fake.IsPendingStub(arg1)
+	stub := fake.GetContainersStub
+	fakeReturns := fake.getContainersReturns
+	fake.recordInvocation("GetContainers", []interface{}{arg1})
+	fake.getContainersMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fake.isPendingReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *HCSClient) IsPendingCallCount() int {
-	fake.isPendingMutex.RLock()
-	defer fake.isPendingMutex.RUnlock()
-	return len(fake.isPendingArgsForCall)
+func (fake *HCSClient) GetContainersCallCount() int {
+	fake.getContainersMutex.RLock()
+	defer fake.getContainersMutex.RUnlock()
+	return len(fake.getContainersArgsForCall)
 }
 
-func (fake *HCSClient) IsPendingArgsForCall(i int) error {
-	fake.isPendingMutex.RLock()
-	defer fake.isPendingMutex.RUnlock()
-	return fake.isPendingArgsForCall[i].arg1
+func (fake *HCSClient) GetContainersCalls(stub func(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
+	fake.GetContainersStub = stub
 }
 
-func (fake *HCSClient) IsPendingReturns(result1 bool) {
-	fake.IsPendingStub = nil
-	fake.isPendingReturns = struct {
-		result1 bool
-	}{result1}
+func (fake *HCSClient) GetContainersArgsForCall(i int) hcsshim.ComputeSystemQuery {
+	fake.getContainersMutex.RLock()
+	defer fake.getContainersMutex.RUnlock()
+	argsForCall := fake.getContainersArgsForCall[i]
+	return argsForCall.arg1
 }
 
-func (fake *HCSClient) IsPendingReturnsOnCall(i int, result1 bool) {
-	fake.IsPendingStub = nil
-	if fake.isPendingReturnsOnCall == nil {
-		fake.isPendingReturnsOnCall = make(map[int]struct {
-			result1 bool
+func (fake *HCSClient) GetContainersReturns(result1 []hcsshim.ContainerProperties, result2 error) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
+	fake.GetContainersStub = nil
+	fake.getContainersReturns = struct {
+		result1 []hcsshim.ContainerProperties
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *HCSClient) GetContainersReturnsOnCall(i int, result1 []hcsshim.ContainerProperties, result2 error) {
+	fake.getContainersMutex.Lock()
+	defer fake.getContainersMutex.Unlock()
+	fake.GetContainersStub = nil
+	if fake.getContainersReturnsOnCall == nil {
+		fake.getContainersReturnsOnCall = make(map[int]struct {
+			result1 []hcsshim.ContainerProperties
+			result2 error
 		})
 	}
-	fake.isPendingReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
+	fake.getContainersReturnsOnCall[i] = struct {
+		result1 []hcsshim.ContainerProperties
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *HCSClient) GetHNSEndpointByName(arg1 string) (*hcsshim.HNSEndpoint, error) {
@@ -414,15 +303,17 @@ func (fake *HCSClient) GetHNSEndpointByName(arg1 string) (*hcsshim.HNSEndpoint, 
 	fake.getHNSEndpointByNameArgsForCall = append(fake.getHNSEndpointByNameArgsForCall, struct {
 		arg1 string
 	}{arg1})
+	stub := fake.GetHNSEndpointByNameStub
+	fakeReturns := fake.getHNSEndpointByNameReturns
 	fake.recordInvocation("GetHNSEndpointByName", []interface{}{arg1})
 	fake.getHNSEndpointByNameMutex.Unlock()
-	if fake.GetHNSEndpointByNameStub != nil {
-		return fake.GetHNSEndpointByNameStub(arg1)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.getHNSEndpointByNameReturns.result1, fake.getHNSEndpointByNameReturns.result2
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *HCSClient) GetHNSEndpointByNameCallCount() int {
@@ -431,13 +322,22 @@ func (fake *HCSClient) GetHNSEndpointByNameCallCount() int {
 	return len(fake.getHNSEndpointByNameArgsForCall)
 }
 
+func (fake *HCSClient) GetHNSEndpointByNameCalls(stub func(string) (*hcsshim.HNSEndpoint, error)) {
+	fake.getHNSEndpointByNameMutex.Lock()
+	defer fake.getHNSEndpointByNameMutex.Unlock()
+	fake.GetHNSEndpointByNameStub = stub
+}
+
 func (fake *HCSClient) GetHNSEndpointByNameArgsForCall(i int) string {
 	fake.getHNSEndpointByNameMutex.RLock()
 	defer fake.getHNSEndpointByNameMutex.RUnlock()
-	return fake.getHNSEndpointByNameArgsForCall[i].arg1
+	argsForCall := fake.getHNSEndpointByNameArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *HCSClient) GetHNSEndpointByNameReturns(result1 *hcsshim.HNSEndpoint, result2 error) {
+	fake.getHNSEndpointByNameMutex.Lock()
+	defer fake.getHNSEndpointByNameMutex.Unlock()
 	fake.GetHNSEndpointByNameStub = nil
 	fake.getHNSEndpointByNameReturns = struct {
 		result1 *hcsshim.HNSEndpoint
@@ -446,6 +346,8 @@ func (fake *HCSClient) GetHNSEndpointByNameReturns(result1 *hcsshim.HNSEndpoint,
 }
 
 func (fake *HCSClient) GetHNSEndpointByNameReturnsOnCall(i int, result1 *hcsshim.HNSEndpoint, result2 error) {
+	fake.getHNSEndpointByNameMutex.Lock()
+	defer fake.getHNSEndpointByNameMutex.Unlock()
 	fake.GetHNSEndpointByNameStub = nil
 	if fake.getHNSEndpointByNameReturnsOnCall == nil {
 		fake.getHNSEndpointByNameReturnsOnCall = make(map[int]struct {
@@ -459,24 +361,217 @@ func (fake *HCSClient) GetHNSEndpointByNameReturnsOnCall(i int, result1 *hcsshim
 	}{result1, result2}
 }
 
+func (fake *HCSClient) IsPending(arg1 error) bool {
+	fake.isPendingMutex.Lock()
+	ret, specificReturn := fake.isPendingReturnsOnCall[len(fake.isPendingArgsForCall)]
+	fake.isPendingArgsForCall = append(fake.isPendingArgsForCall, struct {
+		arg1 error
+	}{arg1})
+	stub := fake.IsPendingStub
+	fakeReturns := fake.isPendingReturns
+	fake.recordInvocation("IsPending", []interface{}{arg1})
+	fake.isPendingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *HCSClient) IsPendingCallCount() int {
+	fake.isPendingMutex.RLock()
+	defer fake.isPendingMutex.RUnlock()
+	return len(fake.isPendingArgsForCall)
+}
+
+func (fake *HCSClient) IsPendingCalls(stub func(error) bool) {
+	fake.isPendingMutex.Lock()
+	defer fake.isPendingMutex.Unlock()
+	fake.IsPendingStub = stub
+}
+
+func (fake *HCSClient) IsPendingArgsForCall(i int) error {
+	fake.isPendingMutex.RLock()
+	defer fake.isPendingMutex.RUnlock()
+	argsForCall := fake.isPendingArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *HCSClient) IsPendingReturns(result1 bool) {
+	fake.isPendingMutex.Lock()
+	defer fake.isPendingMutex.Unlock()
+	fake.IsPendingStub = nil
+	fake.isPendingReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *HCSClient) IsPendingReturnsOnCall(i int, result1 bool) {
+	fake.isPendingMutex.Lock()
+	defer fake.isPendingMutex.Unlock()
+	fake.IsPendingStub = nil
+	if fake.isPendingReturnsOnCall == nil {
+		fake.isPendingReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isPendingReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *HCSClient) NameToGuid(arg1 string) (hcsshim.GUID, error) {
+	fake.nameToGuidMutex.Lock()
+	ret, specificReturn := fake.nameToGuidReturnsOnCall[len(fake.nameToGuidArgsForCall)]
+	fake.nameToGuidArgsForCall = append(fake.nameToGuidArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.NameToGuidStub
+	fakeReturns := fake.nameToGuidReturns
+	fake.recordInvocation("NameToGuid", []interface{}{arg1})
+	fake.nameToGuidMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *HCSClient) NameToGuidCallCount() int {
+	fake.nameToGuidMutex.RLock()
+	defer fake.nameToGuidMutex.RUnlock()
+	return len(fake.nameToGuidArgsForCall)
+}
+
+func (fake *HCSClient) NameToGuidCalls(stub func(string) (hcsshim.GUID, error)) {
+	fake.nameToGuidMutex.Lock()
+	defer fake.nameToGuidMutex.Unlock()
+	fake.NameToGuidStub = stub
+}
+
+func (fake *HCSClient) NameToGuidArgsForCall(i int) string {
+	fake.nameToGuidMutex.RLock()
+	defer fake.nameToGuidMutex.RUnlock()
+	argsForCall := fake.nameToGuidArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *HCSClient) NameToGuidReturns(result1 hcsshim.GUID, result2 error) {
+	fake.nameToGuidMutex.Lock()
+	defer fake.nameToGuidMutex.Unlock()
+	fake.NameToGuidStub = nil
+	fake.nameToGuidReturns = struct {
+		result1 hcsshim.GUID
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *HCSClient) NameToGuidReturnsOnCall(i int, result1 hcsshim.GUID, result2 error) {
+	fake.nameToGuidMutex.Lock()
+	defer fake.nameToGuidMutex.Unlock()
+	fake.NameToGuidStub = nil
+	if fake.nameToGuidReturnsOnCall == nil {
+		fake.nameToGuidReturnsOnCall = make(map[int]struct {
+			result1 hcsshim.GUID
+			result2 error
+		})
+	}
+	fake.nameToGuidReturnsOnCall[i] = struct {
+		result1 hcsshim.GUID
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *HCSClient) OpenContainer(arg1 string) (hcs.Container, error) {
+	fake.openContainerMutex.Lock()
+	ret, specificReturn := fake.openContainerReturnsOnCall[len(fake.openContainerArgsForCall)]
+	fake.openContainerArgsForCall = append(fake.openContainerArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.OpenContainerStub
+	fakeReturns := fake.openContainerReturns
+	fake.recordInvocation("OpenContainer", []interface{}{arg1})
+	fake.openContainerMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *HCSClient) OpenContainerCallCount() int {
+	fake.openContainerMutex.RLock()
+	defer fake.openContainerMutex.RUnlock()
+	return len(fake.openContainerArgsForCall)
+}
+
+func (fake *HCSClient) OpenContainerCalls(stub func(string) (hcs.Container, error)) {
+	fake.openContainerMutex.Lock()
+	defer fake.openContainerMutex.Unlock()
+	fake.OpenContainerStub = stub
+}
+
+func (fake *HCSClient) OpenContainerArgsForCall(i int) string {
+	fake.openContainerMutex.RLock()
+	defer fake.openContainerMutex.RUnlock()
+	argsForCall := fake.openContainerArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *HCSClient) OpenContainerReturns(result1 hcs.Container, result2 error) {
+	fake.openContainerMutex.Lock()
+	defer fake.openContainerMutex.Unlock()
+	fake.OpenContainerStub = nil
+	fake.openContainerReturns = struct {
+		result1 hcs.Container
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *HCSClient) OpenContainerReturnsOnCall(i int, result1 hcs.Container, result2 error) {
+	fake.openContainerMutex.Lock()
+	defer fake.openContainerMutex.Unlock()
+	fake.OpenContainerStub = nil
+	if fake.openContainerReturnsOnCall == nil {
+		fake.openContainerReturnsOnCall = make(map[int]struct {
+			result1 hcs.Container
+			result2 error
+		})
+	}
+	fake.openContainerReturnsOnCall[i] = struct {
+		result1 hcs.Container
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *HCSClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getContainersMutex.RLock()
-	defer fake.getContainersMutex.RUnlock()
-	fake.getContainerPropertiesMutex.RLock()
-	defer fake.getContainerPropertiesMutex.RUnlock()
-	fake.nameToGuidMutex.RLock()
-	defer fake.nameToGuidMutex.RUnlock()
 	fake.createContainerMutex.RLock()
 	defer fake.createContainerMutex.RUnlock()
-	fake.openContainerMutex.RLock()
-	defer fake.openContainerMutex.RUnlock()
-	fake.isPendingMutex.RLock()
-	defer fake.isPendingMutex.RUnlock()
+	fake.getContainerPropertiesMutex.RLock()
+	defer fake.getContainerPropertiesMutex.RUnlock()
+	fake.getContainersMutex.RLock()
+	defer fake.getContainersMutex.RUnlock()
 	fake.getHNSEndpointByNameMutex.RLock()
 	defer fake.getHNSEndpointByNameMutex.RUnlock()
-	return fake.invocations
+	fake.isPendingMutex.RLock()
+	defer fake.isPendingMutex.RUnlock()
+	fake.nameToGuidMutex.RLock()
+	defer fake.nameToGuidMutex.RUnlock()
+	fake.openContainerMutex.RLock()
+	defer fake.openContainerMutex.RUnlock()
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *HCSClient) recordInvocation(key string, args []interface{}) {

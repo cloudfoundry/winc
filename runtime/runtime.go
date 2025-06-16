@@ -46,7 +46,8 @@ type ContainerFactory interface {
 //go:generate counterfeiter -o fakes/container_manager.go --fake-name ContainerManager . ContainerManager
 type ContainerManager interface {
 	Spec(string) (*specs.Spec, error)
-	CredentialSpec(string) (string, error)
+	CredentialSpecFromFile(string) (string, error)
+	CredentialSpecFromEnv([]string, string, string, string, string) (string, error)
 	Create(*specs.Spec, string) error
 	Exec(*specs.Process, bool) (hcs.Process, error)
 	Stats() (container.Statistics, error)
@@ -70,6 +71,13 @@ type HCSQuery interface {
 	GetContainers(hcsshim.ComputeSystemQuery) ([]hcsshim.ContainerProperties, error)
 }
 
+type Config struct {
+	UaaCredhubClientId     string `json:"uaa_credhub_client_id"`
+	UaaCredhubClientSecret string `json:"uaa_credhub_client_secret"`
+	CredhubEndpoint        string `json:"credhub_endpoint"`
+	CredhubCaCertificate   string `json:"credhub_ca_certificate"`
+}
+
 type IO struct {
 	Stdin  io.Reader
 	Stdout io.Writer
@@ -84,9 +92,10 @@ type Runtime struct {
 	processWrapper     ProcessWrapper
 	rootDir            string
 	credentialSpecPath string
+	config             Config
 }
 
-func New(s StateFactory, c ContainerFactory, m Mounter, h HCSQuery, p ProcessWrapper, rootDir, credentialSpecPath string) *Runtime {
+func New(s StateFactory, c ContainerFactory, m Mounter, h HCSQuery, p ProcessWrapper, rootDir, credentialSpecPath string, config Config) *Runtime {
 	return &Runtime{
 		stateFactory:       s,
 		containerFactory:   c,
@@ -95,6 +104,7 @@ func New(s StateFactory, c ContainerFactory, m Mounter, h HCSQuery, p ProcessWra
 		processWrapper:     p,
 		rootDir:            rootDir,
 		credentialSpecPath: credentialSpecPath,
+		config:             config,
 	}
 }
 
@@ -362,9 +372,18 @@ func (r *Runtime) createContainer(cm ContainerManager, sm StateManager, bundlePa
 		return nil, err
 	}
 
-	credentialSpec, err := cm.CredentialSpec(r.credentialSpecPath)
-	if err != nil {
-		return nil, err
+	var credentialSpec string
+	if r.config.UaaCredhubClientId != "" && r.config.UaaCredhubClientSecret != "" {
+		credentialSpec, err = cm.CredentialSpecFromEnv(spec.Process.Env, r.config.CredhubEndpoint, r.config.UaaCredhubClientId, r.config.UaaCredhubClientSecret, r.config.CredhubCaCertificate)
+		if err != nil {
+			return nil, err
+		}
+
+	} else if r.credentialSpecPath != "" {
+		credentialSpec, err = cm.CredentialSpecFromFile(r.credentialSpecPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := cm.Create(spec, credentialSpec); err != nil {

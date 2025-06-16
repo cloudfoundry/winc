@@ -9,12 +9,12 @@ import (
 )
 
 type Mounter struct {
-	MountStub        func(pid int, volumePath string, logger *logrus.Entry) error
+	MountStub        func(int, string, *logrus.Entry) error
 	mountMutex       sync.RWMutex
 	mountArgsForCall []struct {
-		pid        int
-		volumePath string
-		logger     *logrus.Entry
+		arg1 int
+		arg2 string
+		arg3 *logrus.Entry
 	}
 	mountReturns struct {
 		result1 error
@@ -22,10 +22,10 @@ type Mounter struct {
 	mountReturnsOnCall map[int]struct {
 		result1 error
 	}
-	UnmountStub        func(pid int) error
+	UnmountStub        func(int) error
 	unmountMutex       sync.RWMutex
 	unmountArgsForCall []struct {
-		pid int
+		arg1 int
 	}
 	unmountReturns struct {
 		result1 error
@@ -37,23 +37,25 @@ type Mounter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Mounter) Mount(pid int, volumePath string, logger *logrus.Entry) error {
+func (fake *Mounter) Mount(arg1 int, arg2 string, arg3 *logrus.Entry) error {
 	fake.mountMutex.Lock()
 	ret, specificReturn := fake.mountReturnsOnCall[len(fake.mountArgsForCall)]
 	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
-		pid        int
-		volumePath string
-		logger     *logrus.Entry
-	}{pid, volumePath, logger})
-	fake.recordInvocation("Mount", []interface{}{pid, volumePath, logger})
+		arg1 int
+		arg2 string
+		arg3 *logrus.Entry
+	}{arg1, arg2, arg3})
+	stub := fake.MountStub
+	fakeReturns := fake.mountReturns
+	fake.recordInvocation("Mount", []interface{}{arg1, arg2, arg3})
 	fake.mountMutex.Unlock()
-	if fake.MountStub != nil {
-		return fake.MountStub(pid, volumePath, logger)
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.mountReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Mounter) MountCallCount() int {
@@ -62,13 +64,22 @@ func (fake *Mounter) MountCallCount() int {
 	return len(fake.mountArgsForCall)
 }
 
+func (fake *Mounter) MountCalls(stub func(int, string, *logrus.Entry) error) {
+	fake.mountMutex.Lock()
+	defer fake.mountMutex.Unlock()
+	fake.MountStub = stub
+}
+
 func (fake *Mounter) MountArgsForCall(i int) (int, string, *logrus.Entry) {
 	fake.mountMutex.RLock()
 	defer fake.mountMutex.RUnlock()
-	return fake.mountArgsForCall[i].pid, fake.mountArgsForCall[i].volumePath, fake.mountArgsForCall[i].logger
+	argsForCall := fake.mountArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *Mounter) MountReturns(result1 error) {
+	fake.mountMutex.Lock()
+	defer fake.mountMutex.Unlock()
 	fake.MountStub = nil
 	fake.mountReturns = struct {
 		result1 error
@@ -76,6 +87,8 @@ func (fake *Mounter) MountReturns(result1 error) {
 }
 
 func (fake *Mounter) MountReturnsOnCall(i int, result1 error) {
+	fake.mountMutex.Lock()
+	defer fake.mountMutex.Unlock()
 	fake.MountStub = nil
 	if fake.mountReturnsOnCall == nil {
 		fake.mountReturnsOnCall = make(map[int]struct {
@@ -87,21 +100,23 @@ func (fake *Mounter) MountReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Mounter) Unmount(pid int) error {
+func (fake *Mounter) Unmount(arg1 int) error {
 	fake.unmountMutex.Lock()
 	ret, specificReturn := fake.unmountReturnsOnCall[len(fake.unmountArgsForCall)]
 	fake.unmountArgsForCall = append(fake.unmountArgsForCall, struct {
-		pid int
-	}{pid})
-	fake.recordInvocation("Unmount", []interface{}{pid})
+		arg1 int
+	}{arg1})
+	stub := fake.UnmountStub
+	fakeReturns := fake.unmountReturns
+	fake.recordInvocation("Unmount", []interface{}{arg1})
 	fake.unmountMutex.Unlock()
-	if fake.UnmountStub != nil {
-		return fake.UnmountStub(pid)
+	if stub != nil {
+		return stub(arg1)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.unmountReturns.result1
+	return fakeReturns.result1
 }
 
 func (fake *Mounter) UnmountCallCount() int {
@@ -110,13 +125,22 @@ func (fake *Mounter) UnmountCallCount() int {
 	return len(fake.unmountArgsForCall)
 }
 
+func (fake *Mounter) UnmountCalls(stub func(int) error) {
+	fake.unmountMutex.Lock()
+	defer fake.unmountMutex.Unlock()
+	fake.UnmountStub = stub
+}
+
 func (fake *Mounter) UnmountArgsForCall(i int) int {
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
-	return fake.unmountArgsForCall[i].pid
+	argsForCall := fake.unmountArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *Mounter) UnmountReturns(result1 error) {
+	fake.unmountMutex.Lock()
+	defer fake.unmountMutex.Unlock()
 	fake.UnmountStub = nil
 	fake.unmountReturns = struct {
 		result1 error
@@ -124,6 +148,8 @@ func (fake *Mounter) UnmountReturns(result1 error) {
 }
 
 func (fake *Mounter) UnmountReturnsOnCall(i int, result1 error) {
+	fake.unmountMutex.Lock()
+	defer fake.unmountMutex.Unlock()
 	fake.UnmountStub = nil
 	if fake.unmountReturnsOnCall == nil {
 		fake.unmountReturnsOnCall = make(map[int]struct {
@@ -142,7 +168,11 @@ func (fake *Mounter) Invocations() map[string][][]interface{} {
 	defer fake.mountMutex.RUnlock()
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
-	return fake.invocations
+	copiedInvocations := map[string][][]interface{}{}
+	for key, value := range fake.invocations {
+		copiedInvocations[key] = value
+	}
+	return copiedInvocations
 }
 
 func (fake *Mounter) recordInvocation(key string, args []interface{}) {
