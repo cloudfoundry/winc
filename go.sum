@@ -1,6 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-code.cloudfoundry.org/credhub-cli v0.0.0-20250609132220-beec578d3f6d h1:xKQmIqu8EfM3ZpdiBdP55BFQevP2QGwC6z6+HvaY93U=
-code.cloudfoundry.org/credhub-cli v0.0.0-20250609132220-beec578d3f6d/go.mod h1:wLmlThnecyHcAogvajU9fCgpOWZ5OLzBXfIRYqH+GhU=
+code.cloudfoundry.org/credhub-cli v0.0.0-20250616130814-79ad10d5e505 h1:WTUbbkRrFX9wIj4HoR3N/jIpxa9N4WxIBPHcLz6ixlw=
+code.cloudfoundry.org/credhub-cli v0.0.0-20250616130814-79ad10d5e505/go.mod h1:ypjS5gGhGMAAEa6uiNq+Pfh9fHqZEpWuHVVlUfb9OrI=
 code.cloudfoundry.org/filelock v0.38.0 h1:ExuE5ta3vI652YbV1CNvzl2cm/MnzpGjuOshWOC0NPE=
 code.cloudfoundry.org/filelock v0.38.0/go.mod h1:rTfXDjQoOsVRwUjLgahEGbSMAGkzClyigKzbAqsPH08=
 code.cloudfoundry.org/localip v0.42.0 h1:F0HZhJM2TsttdVrXyNxf8Z8l3R+NT99fQj1lhSnjWrQ=

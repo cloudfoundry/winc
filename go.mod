@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
-	code.cloudfoundry.org/credhub-cli v0.0.0-20250609132220-beec578d3f6d
+	code.cloudfoundry.org/credhub-cli v0.0.0-20250616130814-79ad10d5e505
 	code.cloudfoundry.org/filelock v0.38.0
 	code.cloudfoundry.org/localip v0.42.0
 	github.com/Microsoft/hcsshim v0.13.0
