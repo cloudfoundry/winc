@@ -5,9 +5,9 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
-	code.cloudfoundry.org/credhub-cli v0.0.0-20250616130814-79ad10d5e505
-	code.cloudfoundry.org/filelock v0.38.0
-	code.cloudfoundry.org/localip v0.42.0
+	code.cloudfoundry.org/credhub-cli v0.0.0-20250630133601-61e52f0de0d8
+	code.cloudfoundry.org/filelock v0.39.0
+	code.cloudfoundry.org/localip v0.43.0
 	github.com/Microsoft/hcsshim v0.13.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/hashicorp/go-multierror v1.1.1
@@ -41,7 +41,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20250607225305-033d6d78b36a // indirect
+	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/opencontainers/selinux v1.12.0 // indirect

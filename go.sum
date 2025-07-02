@@ -1,10 +1,10 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-code.cloudfoundry.org/credhub-cli v0.0.0-20250616130814-79ad10d5e505 h1:WTUbbkRrFX9wIj4HoR3N/jIpxa9N4WxIBPHcLz6ixlw=
-code.cloudfoundry.org/credhub-cli v0.0.0-20250616130814-79ad10d5e505/go.mod h1:ypjS5gGhGMAAEa6uiNq+Pfh9fHqZEpWuHVVlUfb9OrI=
-code.cloudfoundry.org/filelock v0.38.0 h1:ExuE5ta3vI652YbV1CNvzl2cm/MnzpGjuOshWOC0NPE=
-code.cloudfoundry.org/filelock v0.38.0/go.mod h1:rTfXDjQoOsVRwUjLgahEGbSMAGkzClyigKzbAqsPH08=
-code.cloudfoundry.org/localip v0.42.0 h1:F0HZhJM2TsttdVrXyNxf8Z8l3R+NT99fQj1lhSnjWrQ=
-code.cloudfoundry.org/localip v0.42.0/go.mod h1:tplyuHHOEylwMVZxMrP8tIGdqmnOESP6Y9D8SLp2Es4=
+code.cloudfoundry.org/credhub-cli v0.0.0-20250630133601-61e52f0de0d8 h1:umY9YcJtWHfVN1hLpwxVJ0YR0oIHSEkq+w0rB4tWIDs=
+code.cloudfoundry.org/credhub-cli v0.0.0-20250630133601-61e52f0de0d8/go.mod h1:N/mZo8LWav1FNUPJk31IBmT2R6i80C6fe8Hyo58mINI=
+code.cloudfoundry.org/filelock v0.39.0 h1:rF8TOv0qoO+N/de0ABV2Prwm8jtomiokB1lPZYM5b6Q=
+code.cloudfoundry.org/filelock v0.39.0/go.mod h1:S5Q8S9787yj47KFfLZnHLy2AI71MCHyWOkzlCOiGuFM=
+code.cloudfoundry.org/localip v0.43.0 h1:Ud9V5tgEuzwrb4BwAKfDa8XmhOpc7AZ2jK5BUDTjCBI=
+code.cloudfoundry.org/localip v0.43.0/go.mod h1:Mpk7Q/jwLhWaS80hham1cgCSV1I2kyYnkdYS791Oi9o=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v1.5.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
@@ -69,8 +69,8 @@ github.com/google/go-cmp v0.5.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.3/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-github.com/google/pprof v0.0.0-20250607225305-033d6d78b36a h1://KbezygeMJZCSHH+HgUZiTeSoiuFspbMg1ge+eFj18=
-github.com/google/pprof v0.0.0-20250607225305-033d6d78b36a/go.mod h1:5hDyRhoBCxViHszMt12TnOpEI4VVi+U8Gm9iphldiMA=
+github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 h1:xhMrHhTJ6zxu3gA4enFM9MLn9AY7613teCdFnlUVbSQ=
+github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5/go.mod h1:5hDyRhoBCxViHszMt12TnOpEI4VVi+U8Gm9iphldiMA=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
