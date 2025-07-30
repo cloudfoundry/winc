@@ -3,8 +3,8 @@ code.cloudfoundry.org/credhub-cli v0.0.0-20250722200452-0eb58899fb2b h1:/ru+5nDy
 code.cloudfoundry.org/credhub-cli v0.0.0-20250722200452-0eb58899fb2b/go.mod h1:mqBbUTpuOIPKCf/1T4QBrdgD2QB6nI1ZVgBOj5MDfmk=
 code.cloudfoundry.org/filelock v0.41.0 h1:JdDxSpyByvvTQy/3Hc0NEI1IeaU7eM61djBRBNKtfeE=
 code.cloudfoundry.org/filelock v0.41.0/go.mod h1:MKQkCff8LT4Xx7LhF5d4L7hXso2wu32VZdYGEkBxsb4=
-code.cloudfoundry.org/localip v0.44.0 h1:P2dBIQlrIV0erlDNDqTJ702d8vd3SGsE4JpaeT0VaeU=
-code.cloudfoundry.org/localip v0.44.0/go.mod h1:lnUw4d6HUliToBfHafSZWQP8QlaMteTPPeG8s9MFlUI=
+code.cloudfoundry.org/localip v0.45.0 h1:VihIoyWKvm53XwgJjqcUl53Sud77FWdQQON8xRPcH9I=
+code.cloudfoundry.org/localip v0.45.0/go.mod h1:4zU0SqozM58PkNyu196oaPZqkiG2IbKUdhA26KoaBzQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v1.5.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
@@ -219,8 +219,8 @@ google.golang.org/appengine v1.4.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7
 google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8/go.mod h1:JiN7NxoALGmiZfu7CAH4rXhgtRTLTxftemlI0sWmxmc=
 google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55/go.mod h1:DMBHOl98Agz4BDEuKkezgsaosCRResVns1a3J2ZsMNc=
 google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013/go.mod h1:NbSheEEYHJ7i3ixzK3sjbqSGDJWnxyFXZblF3eUsNvo=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074 h1:qJW29YvkiJmXOYMu5Tf8lyrTp3dOS+K4z6IixtLaCf8=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20250721164621-a45f3dfb1074/go.mod h1:qQ0YXyHHx3XkvlzUtpXDkS29lDSafHMZBAZDc03LQ3A=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0 h1:MAKi5q709QWfnkkpNQ0M12hYJ1+e8qYVDyowc4U1XZM=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20250728155136-f173205681a0/go.mod h1:qQ0YXyHHx3XkvlzUtpXDkS29lDSafHMZBAZDc03LQ3A=
 google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZiDr8c=
 google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQciAY=
