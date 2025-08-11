@@ -1,3 +1,7 @@
+> [!CAUTION]
+> This repository has been in-lined (using git-subtree) into [winc-release](https://github.com/cloudfoundry/winc-release/pull/46). Please make any
+> future contributions directly to winc-release.
+
 ![clippy](https://media.giphy.com/media/13V60VgE2ED7oc/giphy.gif)
 
 # winc
